@@ -1,0 +1,73 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "autoflow:start-recording",
+      "type": "shell",
+      "command": "node",
+      "args": ["scripts/start-recording.js"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": false,
+        "clear": true
+      },
+      "problemMatcher": [],
+      "detail": "Lanza playwright codegen con la URL de la sesión activa."
+    },
+    {
+      "label": "autoflow:run-test",
+      "type": "shell",
+      "command": "node",
+      "args": ["scripts/run-test.js", "${input:archivoTest}"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": false,
+        "clear": true
+      },
+      "problemMatcher": [],
+      "detail": "Corre un caso puntual headless."
+    },
+    {
+      "label": "autoflow:run-test-headed",
+      "type": "shell",
+      "command": "node",
+      "args": ["scripts/run-test.js", "${input:archivoTest}", "--headed"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": false,
+        "clear": true
+      },
+      "problemMatcher": [],
+      "detail": "Corre un caso puntual con navegador visible (headed)."
+    },
+    {
+      "label": "autoflow:run-testset",
+      "type": "shell",
+      "command": "node",
+      "args": ["scripts/run-testset.js", "${input:slugTestset}"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": false,
+        "clear": true
+      },
+      "problemMatcher": [],
+      "detail": "Corre todos los casos de un test set headless."
+    }
+  ],
+  "inputs": [
+    {
+      "id": "archivoTest",
+      "type": "promptString",
+      "description": "Path del archivo de test (ej: tests/tc-4521-login-otp.spec.ts)"
+    },
+    {
+      "id": "slugTestset",
+      "type": "promptString",
+      "description": "Slug del test set (ej: mobile-banking-login)"
+    }
+  ]
+}

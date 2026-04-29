@@ -1,0 +1,21 @@
+node_modules/
+dist/
+build/
+.DS_Store
+*.log
+.env
+.env.local
+
+# Playwright
+playwright-report/
+test-results/
+blob-report/
+
+# AutoFlow runtime
+.autoflow/user.json
+.autoflow/recordings/*
+!.autoflow/recordings/.gitkeep
+
+# VSCode (mantenemos solo tasks.json versionado)
+.vscode/*
+!.vscode/tasks.json
