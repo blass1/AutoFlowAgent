@@ -1,0 +1,14 @@
+{
+  "id": "1231231",
+  "nombre": "Regre de celus",
+  "slug": "regreDeCelus",
+  "descripcion": "test",
+  "creadoEn": "2026-04-29T00:00:00.000Z",
+  "casos": [
+    {
+      "numero": "123",
+      "nombre": "Login con celulares}",
+      "specPath": "tests/regreDeCelus-1231231.spec.ts"
+    }
+  ]
+}

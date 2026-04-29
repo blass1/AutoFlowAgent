@@ -59,7 +59,7 @@ No tenés que tipear números ni copiar nombres: cliqueás y listo.
 | `.autoflow/recordings/` | Estado runtime de las grabaciones (codegen + marcadores). |
 | `.autoflow/testsets/` | Definición de cada test set como JSON. |
 | `.vscode/tasks.json` | Tasks que dispara el agente (recorder, run test, run set). |
-| `scripts/` | Scripts Node que orquestan codegen y corren tests. |
+| `.autoflow/scripts/` | Scripts Node que orquestan codegen y corren tests. |
 | `pages/` | Page Objects (los puebla el agente). |
 | `tests/` | Specs Playwright (los puebla el agente). |
 | `fixtures/` | Fixtures tipadas (`test.extend`). |
@@ -70,16 +70,16 @@ Por si querés correr cosas sin pasar por el agente:
 
 ```bash
 # Lanzar codegen (requiere una sesión activa creada por el agente)
-node scripts/start-recording.js
+node .autoflow/scripts/start-recording.js
 
 # Correr todos los tests
 npx playwright test
 
 # Correr un test puntual
-node scripts/run-test.js tests/tc-4521-login-otp.spec.ts
+node .autoflow/scripts/run-test.js tests/regresionDeCompras-44534.spec.ts
 
 # Correr un test set
-node scripts/run-testset.js mobile-banking-login
+node .autoflow/scripts/run-testset.js regresionDeCompras
 ```
 
 ## Stack

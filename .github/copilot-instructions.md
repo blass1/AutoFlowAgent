@@ -7,7 +7,7 @@
 - **TypeScript estricto** (mirá `tsconfig.json`).
 - **`@playwright/test`** para tests, con fixtures vía `test.extend`. **No usamos clases base ni `BaseTest`**.
 - Sin frameworks extra. Sin Express, sin React, sin servidores. Si algo no está en `package.json`, no lo agregues.
-- Scripts en `scripts/` son CommonJS Node plano (no TypeScript).
+- Scripts en `.autoflow/scripts/` son CommonJS Node plano (no TypeScript).
 
 ## Estructura
 
@@ -16,7 +16,7 @@
 | `pages/` | Page Objects, uno por archivo. |
 | `tests/` | Specs Playwright. |
 | `fixtures/` | Fixtures tipadas (`test.extend`). |
-| `scripts/` | Utilidades Node. |
+| `.autoflow/scripts/` | Utilidades Node del agente. |
 | `.autoflow/` | Estado y prompts del agente. Ver `.autoflow/README.md`. |
 
 ## Idioma

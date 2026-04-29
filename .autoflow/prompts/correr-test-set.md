@@ -23,7 +23,7 @@ Usá `vscode/askQuestions` single-select: `"¿Corro \"{nombre}\" con {N} casos?"
 
 ## 3. Ejecutar
 
-Dispará la VSCode task **`autoflow:run-testset`** con el `slug`. La task corre `node scripts/run-testset.js <slug>` que arma `npx playwright test <caso1> <caso2> ... --reporter=line` headless.
+Dispará la VSCode task **`autoflow:run-testset-headed`** con el `slug`. La task corre `node .autoflow/scripts/run-testset.js <slug> --headed` que arma `npx playwright test <specPath> --reporter=line --headed --workers=1` con navegador visible (el QA quiere ver la corrida).
 
 Al final, el script imprime:
 ```
@@ -51,15 +51,15 @@ Abrí `vscode/askQuestions` single-select: `"¿Qué hacemos?"`:
 
 ### Si fallaron
 
-Parseá las líneas previas del reporter `line` para identificar qué casos fallaron y mostralos:
+Parseá las líneas previas del reporter `line` para identificar qué `test()` dentro del spec fallaron y mostralos por su nombre (`TC-{numero} {nombre}`):
 ```
 Casos que fallaron:
-  • tests/tc-4521-login-otp.spec.ts
-  • tests/tc-4530-transferencia.spec.ts
+  • TC-4521 Login con OTP
+  • TC-4530 Transferencia entre cuentas propias
 ```
 
 Después abrí `vscode/askQuestions` single-select: `"¿Qué hacemos?"`:
 - `🔍 Ver el primer error en detalle`
-- `▶️ Correr solo los que fallaron`
+- `▶️ Correr solo los que fallaron` → corré con `runCommands` el comando `npx playwright test {specPath} --reporter=line --headed --workers=1 --grep "<TC-numero1>|<TC-numero2>|..."` armando el grep con los TC que fallaron.
 - `🚀 Correr otro test set`
 - `🏠 Volver al menú`

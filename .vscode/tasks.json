@@ -5,7 +5,7 @@
       "label": "autoflow:start-recording",
       "type": "shell",
       "command": "node",
-      "args": ["scripts/start-recording.js"],
+      "args": [".autoflow/scripts/start-recording.js"],
       "presentation": {
         "reveal": "always",
         "panel": "dedicated",
@@ -19,7 +19,7 @@
       "label": "autoflow:run-test",
       "type": "shell",
       "command": "node",
-      "args": ["scripts/run-test.js", "${input:archivoTest}"],
+      "args": [".autoflow/scripts/run-test.js", "${input:archivoTest}"],
       "presentation": {
         "reveal": "always",
         "panel": "dedicated",
@@ -33,7 +33,7 @@
       "label": "autoflow:run-test-headed",
       "type": "shell",
       "command": "node",
-      "args": ["scripts/run-test.js", "${input:archivoTest}", "--headed"],
+      "args": [".autoflow/scripts/run-test.js", "${input:archivoTest}", "--headed"],
       "presentation": {
         "reveal": "always",
         "panel": "dedicated",
@@ -47,7 +47,7 @@
       "label": "autoflow:run-testset",
       "type": "shell",
       "command": "node",
-      "args": ["scripts/run-testset.js", "${input:slugTestset}"],
+      "args": [".autoflow/scripts/run-testset.js", "${input:slugTestset}"],
       "presentation": {
         "reveal": "always",
         "panel": "dedicated",
@@ -56,6 +56,20 @@
       },
       "problemMatcher": [],
       "detail": "Corre todos los casos de un test set headless."
+    },
+    {
+      "label": "autoflow:run-testset-headed",
+      "type": "shell",
+      "command": "node",
+      "args": [".autoflow/scripts/run-testset.js", "${input:slugTestset}", "--headed"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": false,
+        "clear": true
+      },
+      "problemMatcher": [],
+      "detail": "Corre todos los casos de un test set con navegador visible (headed)."
     }
   ],
   "inputs": [

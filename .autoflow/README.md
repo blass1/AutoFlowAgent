@@ -36,7 +36,7 @@ Cuando el QA arranca "Crear caso", se generan en `recordings/`:
 | `{numero}-markers.json` | Marcadores de pantalla del QA (`marcar: <nombre>`) |
 | `{numero}-notes.json` | Notas del QA (`nota: <texto>`) |
 | `{numero}.spec.ts` | Output crudo de `playwright codegen` |
-| `{numero}-parsed.json` | Resultado de `scripts/parse-codegen-output.js` |
+| `{numero}-parsed.json` | Resultado de `.autoflow/scripts/parse-codegen-output.js` |
 
 Después de generar los POs, los temporales (`-parsed.json`, `.spec.ts`) se borran. Los demás quedan como historial.
 

@@ -1,14 +1,14 @@
 // Parsea el .spec.ts generado por `playwright codegen` y produce un JSON estructurado
 // con la lista de pasos (goto, fill, click, press, check, select) y URLs visitadas.
 //
-// Uso: node scripts/parse-codegen-output.js <numero>
+// Uso: node .autoflow/scripts/parse-codegen-output.js <numero>
 
 const { readFileSync, writeFileSync, existsSync } = require('node:fs');
 const { join } = require('node:path');
 
 const numero = process.argv[2];
 if (!numero) {
-  console.error('Uso: node scripts/parse-codegen-output.js <numero>');
+  console.error('Uso: node .autoflow/scripts/parse-codegen-output.js <numero>');
   process.exit(1);
 }
 
@@ -54,6 +54,40 @@ const SEL = '(getBy\\w+\\(.+?\\)|locator\\(.+?\\))';
 const lineas = spec.split('\n');
 for (const linea of lineas) {
   const limpia = linea.trim();
+
+  // await expect(page.<SEL>).<matcher>(<arg opcional>)
+  let mAssert = limpia.match(
+    new RegExp(`^await expect\\(page\\.${SEL}\\)\\.(\\w+)\\((['"\`](.*?)['"\`])?\\)`),
+  );
+  if (mAssert) {
+    indice++;
+    pasos.push({
+      indice,
+      tipo: 'assert',
+      selector: mAssert[1],
+      matcher: mAssert[2],
+      valor: mAssert[4] ?? null,
+      etiqueta: extraerTexto(mAssert[1]),
+      raw: limpia,
+    });
+    continue;
+  }
+
+  // await expect(page).<matcher>(<arg>)  (asserts a nivel page: toHaveURL, toHaveTitle)
+  mAssert = limpia.match(/^await expect\(page\)\.(\w+)\(['"`](.+?)['"`]\)/);
+  if (mAssert) {
+    indice++;
+    pasos.push({
+      indice,
+      tipo: 'assert',
+      selector: 'page',
+      matcher: mAssert[1],
+      valor: mAssert[2],
+      raw: limpia,
+    });
+    continue;
+  }
+
   if (!limpia.startsWith('await page.')) continue;
 
   // page.goto('https://...')

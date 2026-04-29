@@ -18,40 +18,40 @@ Reglas que el agente sigue al generar código en este repo. **Si vas a generar o
 - Archivo en `pages/` con **el mismo nombre que la clase** (PascalCase + sufijo `Page.ts`). Ejemplo: clase `LoginPage` → archivo `pages/LoginPage.ts`.
 - Clase en **PascalCase + sufijo `Page`**.
 
-### Fingerprint de acciones (obligatorio)
+### Fingerprint sidecar (obligatorio)
 
-Cada PO generado por AutoFlow lleva un bloque `@autoflow-fingerprint` en el JSDoc de la clase. Es la huella que usa el agente para reconocer en grabaciones futuras que ese flujo ya existe y marcarlo con tilde verde.
+Cada PO generado por AutoFlow tiene un archivo sidecar en `.autoflow/fingerprints/{NombrePage}.json` (mismo PascalCase que la clase, sin la extensión `.ts`). Es la huella que usa el agente para reconocer en grabaciones futuras que ese flujo ya existe y marcarlo con tilde verde.
 
-Formato: una línea por paso, en el orden exacto del flujo de codegen, con el shape `<acción> | <selector> | <valor opcional>`.
+**El JSDoc del PO no lleva el fingerprint** — queda solo una descripción corta de la pantalla, en español. La huella vive afuera del código.
 
-- **acción**: `fill`, `click`, `press`, `check`, `uncheck`, `selectOption`, `goto`.
+Shape del sidecar:
+
+```json
+{
+  "page": "LoginPage",
+  "fingerprint": [
+    { "accion": "fill",  "selector": "getByLabel:Usuario",         "valor": "*" },
+    { "accion": "fill",  "selector": "getByLabel:Contraseña",      "valor": "*" },
+    { "accion": "click", "selector": "getByRole:button:Ingresar" }
+  ]
+}
+```
+
+- **accion**: `fill`, `click`, `press`, `check`, `uncheck`, `selectOption`, `goto`.
 - **selector**: la firma normalizada del locator. Ejemplos:
   - `getByLabel:Usuario`
   - `getByRole:button:Ingresar`
   - `getByPlaceholder:Buscar`
   - `getByTestId:nuevo-pago`
   - `goto:/login` (para `goto`, el selector es la URL relativa).
-- **valor**: solo para `fill`/`press`/`selectOption`. Si es dato variable (un input del usuario), poné `*` en vez del valor literal para no clavarlo.
-
-Ejemplo:
-
-```typescript
-/**
- * Pantalla de login del Mobile Banking.
- *
- * @autoflow-fingerprint
- *   fill  | getByLabel:Usuario     | *
- *   fill  | getByLabel:Contraseña  | *
- *   click | getByRole:button:Ingresar
- */
-export default class LoginPage { ... }
-```
+- **valor**: solo para `fill`/`press`/`selectOption`. Si es dato variable (input del usuario), poné `*` en lugar del literal para no clavarlo. Omitilo si la acción no lo lleva.
 
 Reglas:
 
 - Mantené el orden tal como lo grabó codegen — el matcheo es secuencial.
-- No incluyas asserts en el fingerprint, solo acciones del usuario.
-- Si actualizás un PO existente y le cambiás el flujo, actualizá el fingerprint en el mismo cambio.
+- **No incluyas asserts en el fingerprint**, solo acciones del usuario.
+- Si actualizás un PO existente y le cambiás el flujo, actualizá el sidecar en el mismo cambio.
+- El JSDoc de la clase queda corto: una o dos líneas describiendo la pantalla. Nada de listar acciones.
 
 ### Constructor
 
@@ -140,11 +140,6 @@ import DashboardPage from './DashboardPage';
 
 /**
  * Pantalla de login del Mobile Banking.
- *
- * @autoflow-fingerprint
- *   fill  | getByLabel:Usuario     | *
- *   fill  | getByLabel:Contraseña  | *
- *   click | getByRole:button:Ingresar
  */
 export default class LoginPage {
   private readonly inputUsuario: Locator;

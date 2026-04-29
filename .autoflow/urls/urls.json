@@ -1,3 +1,8 @@
 {
-  "testingUrl": "https://www.demoblaze.com/"
+  "canales": [
+    {
+      "nombre": "Demoblaze",
+      "url": "https://www.demoblaze.com/"
+    }
+  ]
 }

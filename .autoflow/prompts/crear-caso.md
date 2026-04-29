@@ -8,21 +8,39 @@ tools: ['vscode/askQuestions', 'edit', 'read', 'runCommands', 'runTasks']
 
 ## 1. Pedir datos en un solo carousel
 
+Antes del carousel, leé `.autoflow/urls/urls.json`. Tiene la forma:
+```json
+{
+  "canales": [
+    { "nombre": "Demoblaze", "url": "https://www.demoblaze.com/" }
+  ]
+}
+```
+Si el archivo no existe o `canales` está vacío, tratalo como lista vacía.
+
 Usá `#tool:vscode/askQuestions` con estas preguntas en **una sola llamada** (carousel):
 
 1. `"¿Cómo se llama el caso? (ej: Login con OTP)"` → text input
 2. `"¿Qué número tiene? (ej: TC-4521)"` → text input
-3. `"¿En qué canal?"` → single-select con:
-   - `📱 Mobile Banking`
-   - `💻 Home Banking`
-   - `🏧 Cajeros`
-   - `🆕 Onboarding Digital`
-   - `📦 Otro`
-4. `"¿Cuál es la URL inicial del flujo?"` → text input
-
-Si en (3) eligió `📦 Otro`, hacé una segunda llamada a `vscode/askQuestions` con un text input: `"¿Cuál es el canal?"`.
+3. `"¿En qué canal?"` → single-select. Las opciones se arman **dinámicamente** desde `urls.json`:
+   - Una opción por cada canal guardado, mostrando `{nombre} — {url}`.
+   - Al final, siempre: `➕ Crear nuevo canal`.
 
 Limpiá `numero` (sin espacios extras, mayúsculas consistentes).
+
+### 1.b. Si eligió `➕ Crear nuevo canal`
+
+Hacé una segunda llamada a `vscode/askQuestions` con dos text inputs en carousel:
+1. `"Nombre del canal (ej: Mobile Banking)"` → text input
+2. `"URL inicial del canal (ej: https://...)"` → text input
+
+Validá que el `nombre` no choque con uno ya existente (case-insensitive). Si choca, decilo corto y volvé a pedir.
+
+Agregá el nuevo canal al array `canales` de `.autoflow/urls/urls.json` y guardá. Usalo como canal seleccionado para este caso.
+
+### 1.c. Si eligió uno existente
+
+Tomá `nombre` y `url` directamente del entry seleccionado. **No preguntes la URL** — ya está.
 
 ## 2. Confirmar
 
@@ -31,8 +49,8 @@ Mostrale al QA el resumen:
 Vamos a grabar:
   • Nombre:       {nombre}
   • Número:       {numero}
-  • Canal:        {canal}
-  • URL inicial:  {urlInicial}
+  • Canal:        {canal.nombre}
+  • URL inicial:  {canal.url}
 ```
 
 Después abrí `vscode/askQuestions` single-select: `"¿Confirmás los datos?"` con:
@@ -77,7 +95,7 @@ Mientras grabás no hace falta que me escribas — esperá a cerrar el browser.
 
 ## 5. Lanzar codegen
 
-Recién ahora dispará la VSCode task **`autoflow:start-recording`** con `runTasks`. Esa task corre `node scripts/start-recording.js` que lee la sesión activa y lanza `playwright codegen`.
+Recién ahora dispará la VSCode task **`autoflow:start-recording`** con `runTasks`. Esa task corre `node .autoflow/scripts/start-recording.js` que lee la sesión activa y lanza `playwright codegen`.
 
 ## 6. Cuando vuelve el control
 

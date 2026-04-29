@@ -11,13 +11,11 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
     "paths": {
-      "@pages/*": ["pages/*"],
-      "@fixtures/*": ["fixtures/*"]
+      "@pages/*": ["./pages/*"],
+      "@fixtures/*": ["./fixtures/*"]
     }
   },
   "include": ["pages/**/*.ts", "tests/**/*.ts", "fixtures/**/*.ts"],
-  "exclude": ["node_modules", "scripts", ".autoflow"]
+  "exclude": ["node_modules", ".autoflow"]
 }

@@ -1,15 +1,17 @@
 // Corre un test puntual con Playwright e imprime una línea estructurada al final
 // para que el agente AutoFlow pueda parsearla.
 //
-// Uso: node scripts/run-test.js <archivo> [--headed]
+// Uso: node .autoflow/scripts/run-test.js <archivo> [--headed] [--grep <texto>]
 
 const { spawnSync } = require('node:child_process');
 const { existsSync } = require('node:fs');
 
 const archivo = process.argv[2];
 const headed = process.argv.includes('--headed');
+const grepIdx = process.argv.indexOf('--grep');
+const grep = grepIdx !== -1 ? process.argv[grepIdx + 1] : null;
 if (!archivo) {
-  console.error('Uso: node scripts/run-test.js <archivo> [--headed]');
+  console.error('Uso: node .autoflow/scripts/run-test.js <archivo> [--headed] [--grep <texto>]');
   process.exit(1);
 }
 
@@ -20,6 +22,7 @@ if (!existsSync(archivo)) {
 
 const args = ['playwright', 'test', archivo, '--reporter=line'];
 if (headed) args.push('--headed', '--workers=1');
+if (grep) args.push('--grep', JSON.stringify(grep));
 
 const inicio = Date.now();
 const res = spawnSync('npx', args, {
@@ -34,6 +37,7 @@ const resultado = {
   duration,
   exitCode,
   archivo,
+  grep,
 };
 
 console.log('');

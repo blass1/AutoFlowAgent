@@ -6,9 +6,9 @@
   "scripts": {
     "test": "playwright test",
     "test:headed": "playwright test --headed",
-    "record": "node scripts/start-recording.js",
-    "run:test": "node scripts/run-test.js",
-    "run:set": "node scripts/run-testset.js"
+    "record": "node .autoflow/scripts/start-recording.js",
+    "run:test": "node .autoflow/scripts/run-test.js",
+    "run:set": "node .autoflow/scripts/run-testset.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
