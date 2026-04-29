@@ -41,8 +41,8 @@ Usá `vscode/askQuestions` single-select: `"¿Qué querés hacer con \"{nombre}\
 ### `✏️ Renombrar`
 
 1. Usá `vscode/askQuestions` text input: `"¿Cómo se va a llamar ahora?"`.
-2. Recalculá slug. Si difiere, **renombrá el archivo** de `{slug-viejo}.json` a `{slug-nuevo}.json`.
-3. Actualizá `nombre` y `slug` en el JSON. Guardá.
+2. Recalculá `slug` en **camelCase** (sin acentos, primera palabra minúscula, resto capitalizado, sin separadores). Si difiere, **renombrá el archivo** de `{slugViejo}.json` a `{slugNuevo}.json`. Si hay un spec asociado en `tests/{slugViejo}-{id}.spec.ts`, renombralo también a `tests/{slugNuevo}-{id}.spec.ts`.
+3. Actualizá `nombre`, `slug` y `specPath` en el JSON. Guardá.
 
 ### `📝 Cambiar descripción`
 

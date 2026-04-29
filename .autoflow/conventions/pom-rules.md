@@ -7,7 +7,7 @@ Reglas que el agente sigue al generar código en este repo. **Si vas a generar o
 ## TypeScript
 
 - **Estricto siempre**. Nada de `any` salvo casos imposibles, y siempre justificado en comentario.
-- Imports relativos sin extensión (`from '../pages/login-page'`, no `.ts`).
+- Imports relativos sin extensión (`from '../pages/LoginPage'`, no `.ts`). En Linux/CI el case del import tiene que matchear exactamente el filename.
 - Imports agrupados: primero `@playwright/test`, después locales.
 
 ## Page Objects
@@ -15,7 +15,7 @@ Reglas que el agente sigue al generar código en este repo. **Si vas a generar o
 ### Una clase por archivo
 
 - Una clase por Page Object, exportada como `export default`.
-- Archivo en `pages/` con nombre **kebab-case + sufijo `-page.ts`**.
+- Archivo en `pages/` con **el mismo nombre que la clase** (PascalCase + sufijo `Page.ts`). Ejemplo: clase `LoginPage` → archivo `pages/LoginPage.ts`.
 - Clase en **PascalCase + sufijo `Page`**.
 
 ### Fingerprint de acciones (obligatorio)
@@ -90,7 +90,7 @@ Reglas:
 
 ## Tests
 
-- Archivo en `tests/` con nombre `tc-{numero}-{slug}.spec.ts`.
+- Archivo en `tests/` con nombre `{slug}-{idTestSet}.spec.ts` (un spec por test set, no por caso). El `slug` es camelCase del nombre del test set; el id va separado por un único guion. Ejemplo: test set `Regresion de compras` con id `44534` → `tests/regresionDeCompras-44534.spec.ts`.
 - Usar `test.extend` desde `fixtures/index.ts`. **Nada de clases base, nada de `BaseTest`.**
 - Cada test arranca con `await page.goto(urlInicial)` o usa una fixture que lo haga por él.
 - Nombre del test: `'TC-{numero} {nombre}'`.
@@ -105,9 +105,11 @@ Reglas:
 
 | Cosa | Convención | Ejemplo |
 | --- | --- | --- |
-| Archivo PO | kebab-case + `-page.ts` | `nueva-transferencia-page.ts` |
+| Archivo PO | PascalCase + `Page.ts` | `NuevaTransferenciaPage.ts` |
 | Clase PO | PascalCase + `Page` | `NuevaTransferenciaPage` |
-| Archivo test | `tc-{numero}-{slug}.spec.ts` | `tc-4521-login-otp.spec.ts` |
+| Archivo test | `{slug}-{idTestSet}.spec.ts` | `regresionDeCompras-44534.spec.ts` |
+| Slug test set | camelCase del nombre | `regresionDeCompras` |
+| Subcarpeta `pages/` | camelCase | `pages/mobileBanking/` |
 | Método público | camelCase, verbo infinitivo | `completarDatos`, `confirmar` |
 | Locator privado | camelCase con prefijo descriptivo | `botonIngresar`, `inputUsuario`, `headingTitulo` |
 
@@ -117,24 +119,24 @@ Si la URL tiene jerarquía significativa, reflejala:
 
 ```
 pages/
-├── login-page.ts
-├── dashboard-page.ts
+├── LoginPage.ts
+├── DashboardPage.ts
 ├── transferencias/
-│   ├── nueva-page.ts
-│   └── confirmacion-page.ts
+│   ├── NuevaPage.ts
+│   └── ConfirmacionPage.ts
 └── admin/
-    └── usuarios-page.ts
+    └── UsuariosPage.ts
 ```
 
 ---
 
 # Ejemplo plantilla — usalo como referencia
 
-## Page Object: `pages/login-page.ts`
+## Page Object: `pages/LoginPage.ts`
 
 ```typescript
 import { expect, Locator, Page } from '@playwright/test';
-import DashboardPage from './dashboard-page';
+import DashboardPage from './DashboardPage';
 
 /**
  * Pantalla de login del Mobile Banking.
@@ -178,7 +180,7 @@ export default class LoginPage {
 }
 ```
 
-## Page Object: `pages/dashboard-page.ts`
+## Page Object: `pages/DashboardPage.ts`
 
 ```typescript
 import { expect, Locator, Page } from '@playwright/test';
@@ -208,7 +210,7 @@ export default class DashboardPage {
 
 ```typescript
 import { test as base } from '@playwright/test';
-import LoginPage from '../pages/login-page';
+import LoginPage from '../pages/LoginPage';
 
 type AutoFlowFixtures = {
   loginPage: LoginPage;
@@ -233,7 +235,7 @@ export const usuariosPrueba = {
 } as const;
 ```
 
-## Test: `tests/tc-4521-login-otp.spec.ts`
+## Test: `tests/regresionDeLogin-4521.spec.ts`
 
 ```typescript
 import { test, expect, usuariosPrueba } from '../fixtures';

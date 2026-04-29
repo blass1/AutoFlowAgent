@@ -39,9 +39,10 @@ Orden de prioridad estricto:
 
 | Cosa | Convención | Ejemplo |
 | --- | --- | --- |
-| Archivo PO | kebab-case + `-page.ts` | `nueva-transferencia-page.ts` |
+| Archivo PO | PascalCase + `Page.ts` | `NuevaTransferenciaPage.ts` |
 | Clase PO | PascalCase + `Page` | `NuevaTransferenciaPage` |
-| Archivo test | `tc-{numero}-{slug}.spec.ts` | `tc-4521-login-otp.spec.ts` |
+| Archivo test | `{slug}-{idTestSet}.spec.ts` | `regresionDeCompras-44534.spec.ts` |
+| Slug test set | camelCase del nombre | `regresionDeCompras` |
 | Métodos públicos | camelCase, verbo infinitivo | `ingresar`, `confirmar`, `obtenerSaldo` |
 | Locators privados | camelCase con prefijo descriptivo | `botonIngresar`, `inputUsuario` |
 

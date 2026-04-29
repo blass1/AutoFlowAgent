@@ -38,7 +38,7 @@ Si el script falla o no existe, leé directamente `.autoflow/recordings/{numero}
 
 ## 3. Reconocer pages existentes (prefix matching)
 
-1. Listá los archivos `pages/**/*-page.ts`.
+1. Listá los archivos `pages/**/*Page.ts`.
 2. Para cada uno, parseá el JSDoc de la clase y extraé el bloque `@autoflow-fingerprint`. El formato está documentado en `.autoflow/conventions/pom-rules.md`. Cada línea es `acción | selector | valor opcional`. Para `valor`, `*` es comodín (matchea cualquier valor).
 3. Recorré los pasos del recording de izquierda a derecha y, mientras quede prefijo sin asignar, intentá matchear el prefijo contra cada fingerprint conocido. Una page matchea si **todos** sus pasos coinciden en orden con el prefijo actual del recording (acción exacta, selector exacto, valor literal o `*`). Si matchea, esos pasos quedan asignados a esa page existente y avanzás. Si ninguna matchea, parás y todo lo que sigue queda en `-Nuevo-`.
 4. Pages sin fingerprint (POs viejos previos a esta convención) **no participan** del matcheo automático.
@@ -103,7 +103,7 @@ Antes de generar:
 Cuando el comando es válido:
 
 1. **Leé `.autoflow/conventions/pom-rules.md`** primero (sí, todas las veces).
-2. Generá `pages/{kebab-case-del-nombre}-page.ts` siguiendo las reglas, usando exactamente los pasos del rango. Selectores priorizados según la regla, fingerprint en el JSDoc del header (con `*` en cualquier valor que sea dato variable: usuarios, montos, etc.).
+2. Generá `pages/{NombrePage}.ts` (PascalCase, mismo nombre que la clase, con sufijo `Page`) siguiendo las reglas. Ej: clase `AccesoFimaPage` → archivo `pages/AccesoFimaPage.ts`. Selectores priorizados según la regla, fingerprint en el JSDoc del header (con `*` en cualquier valor que sea dato variable: usuarios, montos, etc.).
 3. Inferí el método público a partir de la cadena de acciones:
    - `fill` + `fill` + `click(verbo)` → método con verbo y parámetros para los fills (ej: `ingresar(usuario, password)`).
    - `click` aislado con texto descriptivo → método con verbo (`abrirNuevaInversion()`).
@@ -127,7 +127,7 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
    2. `"Test Set ID"` → text input (ej: `44534`)
    3. `"Descripción corta"` → text input
 
-   Generá `slug` desde `nombre` (lowercase, sin acentos, espacios → guiones, sin guiones consecutivos). Si `.autoflow/testsets/{slug}.json` ya existe, pedí otro nombre.
+   Generá `slug` desde `nombre` en **camelCase**: sin acentos, primera palabra minúscula, resto capitalizado, sin separadores. Ej: `Regresion de compras` → `regresionDeCompras`. Si `.autoflow/testsets/{slug}.json` ya existe, pedí otro nombre.
 
 ## 8. Cierre — generar el test
 
@@ -160,13 +160,13 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
 ```
 ✅ Listo. Generé:
 
-  • pages/acceso-fima-page.ts
-  • pages/confirmar-suscripcion-page.ts
-  • tests/regresion-de-compras-44534.spec.ts
+  • pages/AccesoFimaPage.ts
+  • pages/ConfirmarSuscripcionPage.ts
+  • tests/regresionDeCompras-44534.spec.ts
 
 Reusé:
-  • pages/login-page.ts
-  • pages/overview-page.ts
+  • pages/LoginPage.ts
+  • pages/OverviewPage.ts
 
 Test set: "{nombre}" (ID {id}) {nuevo|actualizado}.
 ```

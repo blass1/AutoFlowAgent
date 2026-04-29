@@ -13,9 +13,9 @@ Usá `#tool:vscode/askQuestions` con tres text inputs en una sola llamada (carou
 2. `"Test Set ID"` → text input (ej: `44534`)
 3. `"Dame una descripción corta."` → text input
 
-Generá `slug` desde `nombre`: lowercase, sin acentos, espacios y caracteres no alfanuméricos → guiones, sin guiones consecutivos.
+Generá `slug` desde `nombre` en **camelCase**: sin acentos, primera palabra minúscula, resto capitalizado, sin separadores. Ej: `Regresion de compras` → `regresionDeCompras`.
 
-El nombre del archivo spec asociado a este test set será `tests/{slug}-{id}.spec.ts`.
+El nombre del archivo spec asociado a este test set será `tests/{slug}-{id}.spec.ts` (camelCase + guion + id). Ej: `tests/regresionDeCompras-44534.spec.ts`.
 
 Si `.autoflow/testsets/{slug}.json` ya existe, abrí `vscode/askQuestions` single-select: `"Ya existe un set con ese nombre, ¿qué hacemos?"`:
 - `✏️ Probar otro nombre`
@@ -40,8 +40,7 @@ Mostrale los seleccionados:
 ```
 Voy a crear el test set "{nombre}" con estos casos:
 
-  • tests/tc-4521-login-otp.spec.ts
-  • tests/tc-4530-transferencia.spec.ts
+  • tests/regresionDeCompras-44534.spec.ts
 ```
 
 Después abrí `vscode/askQuestions` single-select: `"¿Va?"`:
