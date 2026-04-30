@@ -3,5 +3,5 @@
  * Solo homologación — nunca usar contra producción.
  */
 export const usuarios = {
-  qaEstandar: { usuario: 'bcarofile1', password: 'Bless77!' },
+  qaEstandar: { usuario: 'user', password: 'pass' },
 } as const;
