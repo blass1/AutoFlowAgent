@@ -1,7 +1,0 @@
-{
-  "page": "SegurosPage",
-  "fingerprint": [
-    { "accion": "click", "selector": "locator:frame[miboston]:link:Seguros" }
-  ],
-  "conecta": []
-}

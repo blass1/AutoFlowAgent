@@ -1,7 +1,0 @@
-{
-  "page": "CuentasPage",
-  "fingerprint": [
-    { "accion": "click", "selector": "getByRole:link:Cuentas" }
-  ],
-  "conecta": []
-}

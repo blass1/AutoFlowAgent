@@ -33,7 +33,7 @@ Orden de prioridad estricto:
 2. `page.getByRole('...', { name: '...' })`
 3. `page.getByLabel('...')`
 4. `page.getByText('...')`
-5. CSS crudo — **último recurso**, comentado con `// FIXME: selector frágil, pedir data-testid al equipo de desarrollo.`
+5. CSS crudo — **último recurso**, comentado con `// FIXME: selector frágil.`
 
 ## Naming
 

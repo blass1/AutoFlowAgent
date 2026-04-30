@@ -1,7 +1,0 @@
-{
-  "page": "ProductosPage",
-  "fingerprint": [
-    { "accion": "click", "selector": "getByRole:link:Solicitud de Productos" }
-  ],
-  "conecta": []
-}
