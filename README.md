@@ -1,6 +1,6 @@
 # AutoFlow
 
-Compañero de automatización para QAs del banco. Combina un **chat mode de GitHub Copilot Chat** con scripts de Node que orquestan `playwright codegen` para grabar sesiones manuales y generar **Page Objects + tests en TypeScript** sin que el QA escriba código.
+Compañero de automatización para QAs. Combina un **chat mode de GitHub Copilot Chat** con scripts de Node que orquestan `playwright codegen` para grabar sesiones manuales y generar **Page Objects + tests en TypeScript** sin que el QA escriba código.
 
 > Solo homologación. No usar contra producción.
 
@@ -123,7 +123,7 @@ AutoFlow usa la herramienta nativa **`vscode/askQuestions`** de Copilot Chat. En
 
 - **VS Code 1.109+** con la extensión **GitHub Copilot Chat** actualizada.
 - Setting `chat.askQuestions.enabled` habilitado (suele venir por defecto).
-- Plan **Copilot Business** o **Enterprise** (la licencia del banco sirve).
+- Plan **Copilot Business** o **Enterprise**.
 - **Node 18+**.
 
 ## Arranque rápido
