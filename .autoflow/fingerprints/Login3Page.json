@@ -1,0 +1,14 @@
+{
+  "page": "Login3Page",
+  "fingerprint": [
+    { "accion": "goto", "selector": "goto:/personas" },
+    { "accion": "click", "selector": "getByRole:link:Online Banking" },
+    { "accion": "click", "selector": "locator:#usuario" },
+    { "accion": "fill",  "selector": "locator:#usuario", "valor": "*" },
+    { "accion": "click", "selector": "locator:#password" },
+    { "accion": "fill",  "selector": "locator:#password", "valor": "*" },
+    { "accion": "press", "selector": "locator:#password" },
+    { "accion": "click", "selector": "getByRole:button:INGRESAR" }
+  ],
+  "conecta": ["SegurosPage"]
+}

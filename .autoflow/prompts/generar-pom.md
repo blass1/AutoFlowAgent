@@ -84,9 +84,29 @@ Reglas:
 
 Si **no quedan pasos en "Nuevo"** (todo el flujo matcheó pages existentes), saltá directo al paso 7.
 
+## 4.5. Sugerir una agrupación
+
+Antes de pedir input libre, **proponé una sugerencia** para el primer bloque de pasos en "Nuevo". Heurística:
+
+1. Tomá los pasos contiguos desde el primero de "Nuevo" que parezcan pertenecer a una misma pantalla. Cortá el rango cuando:
+   - aparece un `click` con verbo de navegación claro (`Continuar`, `Aceptar`, `Confirmar`, `Suscribir`, `Ingresar`) — incluí ese paso y cerrá el rango ahí.
+   - hay un `assert` final del bloque — incluilo y cerrá.
+   - el siguiente paso cambia de contexto (otro formulario, otro título).
+   Si no hay señal clara, sugerí el rango con los próximos 1-3 pasos.
+2. Inferí un nombre PascalCase a partir del paso "ancla" del bloque (el click de cierre o el título del formulario). Ej: click en `Suscribir` → `ConfirmarSuscripcion`; primer fill en `Usuario` → `Login`.
+3. Validá el nombre como en el paso 5 (PascalCase, sin choques con pages existentes). Si choca, sumá un sufijo numérico (`Login2`).
+
+Mostrale la sugerencia y abrí `vscode/askQuestions` single-select con estas opciones:
+- `✅ Aceptar sugerencia: {n}-{m} {Nombre}` (o `{n} {Nombre}` si es un solo paso)
+- `✏️ Agrupar manualmente`
+- `↩️ Rehacer la anterior`
+- `❌ Cancelar`
+
+Si elige **Aceptar**, andá directo al paso 6 con ese rango y nombre. Si elige **Agrupar manualmente**, seguí al paso 5 esperando el comando libre. Las otras dos se manejan como en el paso 5.
+
 ## 5. Recibir el comando de agrupación
 
-El QA tipea libre. Esperá uno de estos formatos:
+Solo se entra acá si el QA eligió `✏️ Agrupar manualmente` en el paso 4.5. Esperá texto libre con uno de estos formatos:
 
 - `<n> <Nombre>` → agrupa solo el paso `n`. Ej: `7 ConfirmarSuscripcion`.
 - `<n>-<m> <Nombre>` → agrupa el rango `[n, m]` contiguo. Ej: `5-6 AccesoFima`.
@@ -108,7 +128,7 @@ Cuando el comando es válido:
 
 1. **Leé `.autoflow/conventions/pom-rules.md`** primero (sí, todas las veces).
 2. Generá `pages/{NombrePage}.ts` (PascalCase, mismo nombre que la clase, con sufijo `Page`) siguiendo las reglas. Ej: clase `AccesoFimaPage` → archivo `pages/AccesoFimaPage.ts`. Selectores priorizados según la regla. **El JSDoc de la clase queda corto** (1-2 líneas describiendo la pantalla en español, sin listar acciones).
-3. Generá el sidecar `.autoflow/fingerprints/{NombrePage}.json` con el shape `{ page, fingerprint: [...] }` documentado en `pom-rules.md`. Incluí solo las acciones del usuario (no asserts), una entry por paso del rango asignado a esta page, en orden. Usá `*` en `valor` cuando sea dato variable (usuarios, montos, búsquedas).
+3. Generá el sidecar `.autoflow/fingerprints/{NombrePage}.json` con el shape `{ page, fingerprint: [...], conecta: [...] }` documentado en `pom-rules.md`. Incluí solo las acciones del usuario (no asserts), una entry por paso del rango asignado a esta page, en orden. Usá `*` en `valor` cuando sea dato variable (usuarios, montos, búsquedas). El array `conecta` lo dejás **vacío `[]` por ahora** — se completa al final del flujo, cuando ya están todas las pages del recording (ver paso 7.5).
 4. **Asserts**: si entre los pasos del rango hay alguno tipo `assert`, mapealos dentro del PO. Si el assert es sobre un locator que ya está como `private readonly`, sumá un método `verificar{Algo}()` que haga `await expect(this.<locator>).<matcher>(...)`. Si el locator solo aparece en el assert, declaralo igual como `private readonly` y usalo desde el método de verificación. Asserts a nivel `page` (`toHaveURL`, `toHaveTitle`) van también dentro de un método `verificar{Algo}()` usando `this.page`.
 5. Inferí el método público a partir de la cadena de acciones del usuario:
    - `fill` + `fill` + `click(verbo)` → método con verbo y parámetros para los fills (ej: `ingresar(usuario, password)`).
@@ -118,6 +138,26 @@ Cuando el comando es válido:
 7. Volvé al paso 4 y mostrá el listado actualizado: la page recién creada va con ✅ y sus pasos también.
 
 > Cada agrupación es una iteración. Nunca generes más de una page por turno: agrupás → generás → mostrás de nuevo → esperás el próximo comando.
+
+## 6.5. Enriquecer el grafo de conexiones
+
+Después de cualquier iteración del paso 6 (sea page nueva o no), revisá la **secuencia de pages** del recording (incluyendo las existentes que matchearon en el prefix matching). Ej: el flujo grabado fue `LoginPage → CelularesPage → CarritoPage`.
+
+Para cada par contiguo `A → B` en esa secuencia:
+
+1. Leé `.autoflow/fingerprints/{A}.json`.
+2. Si `B` no está en `A.conecta`, sumalo (sin duplicar).
+3. Guardá el JSON.
+
+Esto va construyendo un grafo dirigido de pages que después se usa para visualizaciones y para arrancar grabaciones desde estados intermedios. Hacelo **callado**: no le anuncies al QA que actualizaste el grafo a menos que se lo agregues a una page que ya tenía conexiones (en ese caso, una línea: `Sumé {B} a las conexiones de {A}.`).
+
+Después de actualizar los `conecta`, **regenerá el diagrama Mermaid** ejecutando con `runCommands`:
+
+```
+node .autoflow/scripts/grafo.js
+```
+
+Eso reescribe `.autoflow/grafo.md` con el diagrama actualizado. Si el script falla (por ejemplo, no hay fingerprints), seguí adelante igual — no es bloqueante. También callado salvo error.
 
 ## 7. Elegir / crear test set
 
@@ -155,6 +195,7 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
    - El path del spec es **siempre** `tests/{slug}-{id}.spec.ts` (uno por test set, no por caso).
    - **Si el test set es nuevo** (el archivo spec no existe):
      - Creá `tests/{slug}-{id}.spec.ts` con el header de imports y un primer bloque `test('{nombre del caso TC-{numero}}', ...)` usando fixtures de `fixtures/index.ts` y encadenando las pages en orden. **Nada de clases base.**
+     - **Datos**: cualquier valor literal del recording (usuarios, contraseñas, montos, búsquedas, números de cuenta) **no va inline**. Buscalo en `data/*.ts`; si ya existe una constante con ese valor, importala desde `'../data'`. Si no existe, sumala al archivo de dominio que corresponda (creá `data/{dominio}.ts` si no hay) y re-exportala desde `data/index.ts`. El spec siempre referencia `data`, nunca un literal.
      - Creá `.autoflow/testsets/{slug}.json` con el shape de `crear-test-set.md` paso 3, incluyendo `id` y el path del spec en `casos` (un único entry, ya que hay un solo spec por set).
    - **Si el test set es existente** (el archivo spec ya existe):
      - **No crees un archivo nuevo**. Editá `tests/{slug}-{id}.spec.ts` y agregá un nuevo bloque `test('{nombre del caso TC-{numero}}', ...)` al final, antes del cierre del archivo. Reusá los imports y fixtures que ya estén; sumá los que falten al inicio.

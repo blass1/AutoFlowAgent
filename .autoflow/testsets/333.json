@@ -1,0 +1,15 @@
+{
+  "nombre": "333",
+  "slug": "333",
+  "id": "12332123",
+  "descripcion": "Test desc",
+  "creadoPor": { "nombre": "Blas", "legajo": "L100" },
+  "creadoEn": "2026-04-29T00:05:00.000Z",
+  "casos": [
+    {
+      "numero": "TC-444",
+      "nombre": "Login y historial",
+      "specPath": "tests/333-12332123.spec.ts"
+    }
+  ]
+}

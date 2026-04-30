@@ -1,8 +1,0 @@
-{
-  "page": "LaptopsPage",
-  "fingerprint": [
-    { "accion": "click", "selector": "getByRole:link:Laptops" },
-    { "accion": "click", "selector": "getByRole:link:empty:first" },
-    { "accion": "click", "selector": "getByRole:link:Add to cart" }
-  ]
-}

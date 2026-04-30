@@ -1,10 +1,10 @@
 import { Locator, Page } from '@playwright/test';
-import CuentasPage from './CuentasPage';
+import ProductosPage from './ProductosPage';
 
 /**
- * Pantalla de acceso al Online Banking de ICBC.
+ * Pantalla de acceso al Online Banking de ICBC (variante con click previo en inputs).
  */
-export default class LoginPage {
+export default class Login2Page {
   private readonly linkOnlineBanking: Locator;
   // FIXME: selector frágil, pedir data-testid al equipo de desarrollo.
   private readonly inputUsuario: Locator;
@@ -34,12 +34,12 @@ export default class LoginPage {
    * @param usuario  Nombre de usuario.
    * @param password Contraseña.
    */
-  async ingresar(usuario: string, password: string): Promise<CuentasPage> {
+  async ingresar(usuario: string, password: string): Promise<ProductosPage> {
     await this.inputUsuario.click();
     await this.inputUsuario.fill(usuario);
     await this.inputPassword.click();
     await this.inputPassword.fill(password);
     await this.botonIngresar.click();
-    return new CuentasPage(this.page);
+    return new ProductosPage(this.page);
   }
 }

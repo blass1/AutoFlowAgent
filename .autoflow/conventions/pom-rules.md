@@ -33,7 +33,8 @@ Shape del sidecar:
     { "accion": "fill",  "selector": "getByLabel:Usuario",         "valor": "*" },
     { "accion": "fill",  "selector": "getByLabel:Contraseña",      "valor": "*" },
     { "accion": "click", "selector": "getByRole:button:Ingresar" }
-  ]
+  ],
+  "conecta": ["CelularesPage", "LaptopsPage"]
 }
 ```
 
@@ -45,6 +46,7 @@ Shape del sidecar:
   - `getByTestId:nuevo-pago`
   - `goto:/login` (para `goto`, el selector es la URL relativa).
 - **valor**: solo para `fill`/`press`/`selectOption`. Si es dato variable (input del usuario), poné `*` en lugar del literal para no clavarlo. Omitilo si la acción no lo lleva.
+- **conecta**: array de nombres de pages (PascalCase, sin `.ts`) a las que esta page lleva. Una page puede conectar a varias (ej: una home con varias secciones). El array es para construir el grafo de navegación del flujo. Si la page no lleva a ninguna otra (es terminal), el array va vacío `[]`.
 
 Reglas:
 
@@ -52,6 +54,7 @@ Reglas:
 - **No incluyas asserts en el fingerprint**, solo acciones del usuario.
 - Si actualizás un PO existente y le cambiás el flujo, actualizá el sidecar en el mismo cambio.
 - El JSDoc de la clase queda corto: una o dos líneas describiendo la pantalla. Nada de listar acciones.
+- `conecta` se enriquece con cada nueva grabación. Si una grabación pasa de `LoginPage` a `CelularesPage` y `CelularesPage` no estaba en `LoginPage.conecta`, sumala (sin duplicar). Si una page nueva apunta a una existente, agregala a la `conecta` de la anterior.
 
 ### Constructor
 
@@ -99,7 +102,30 @@ Reglas:
 
 - Centralizadas en `fixtures/index.ts`.
 - `test.extend` con fixtures tipadas mediante un `type` local.
-- Datos compartidos (usuarios de prueba, montos) viven como constantes exportadas en el mismo archivo o en `fixtures/data/`.
+- **No** definas datos de prueba acá. Solo fixtures (`page`, POs precargados, sesiones). Los datos viven en `data/` (ver abajo).
+
+## Datos de prueba — `data/`
+
+Los inputs de los tests (usuarios, montos, búsquedas, cuentas, etc.) **siempre** viven en archivos `.ts` dentro de `data/` en la raíz. Nunca hardcodees literales en el spec ni en el PO.
+
+- Un archivo por dominio: `data/usuarios.ts`, `data/montos.ts`, `data/cuentas.ts`, etc.
+- Cada archivo exporta una constante nombrada con `as const` (objeto agrupado, no variables sueltas).
+- `data/index.ts` re-exporta todo (`export * from './usuarios';`) para que los specs hagan `import { usuarios } from '../data';`.
+- Si un spec necesita un dato que todavía no está en `data/`, **agregalo ahí primero** y después usalo. No lo metas inline.
+- Naming: la constante en camelCase y plural cuando agrupa (`usuarios`, `montos`); las claves internas describen el escenario (`qaEstandar`, `clienteVip`, `transferenciaChica`).
+
+Ejemplo `data/usuarios.ts`:
+```typescript
+export const usuarios = {
+  qaEstandar: { usuario: 'qa.test', password: 'Qa12345!' },
+} as const;
+```
+
+Uso en el spec:
+```typescript
+import { usuarios } from '../data';
+await login.ingresar(usuarios.qaEstandar.usuario, usuarios.qaEstandar.password);
+```
 
 ## Naming — tabla resumen
 
@@ -233,12 +259,13 @@ export const usuariosPrueba = {
 ## Test: `tests/regresionDeLogin-4521.spec.ts`
 
 ```typescript
-import { test, expect, usuariosPrueba } from '../fixtures';
+import { test, expect } from '../fixtures';
+import { usuarios } from '../data';
 
 test('TC-4521 Login con OTP', async ({ loginPage, page }) => {
   const dashboard = await loginPage.ingresar(
-    usuariosPrueba.qaEstandar.usuario,
-    usuariosPrueba.qaEstandar.password,
+    usuarios.qaEstandar.usuario,
+    usuarios.qaEstandar.password,
   );
   await dashboard.estaVisible();
   await expect(page).toHaveURL(/\/dashboard/);

@@ -1,12 +1,11 @@
 {
   "page": "LoginPage",
   "fingerprint": [
-    { "accion": "goto", "selector": "goto:https://www.demoblaze.com/" },
-    { "accion": "click", "selector": "getByRole:link:Log in" },
-    { "accion": "click", "selector": "locator:#loginusername" },
-    { "accion": "fill",  "selector": "locator:#loginusername", "valor": "*" },
-    { "accion": "click", "selector": "locator:#loginpassword" },
-    { "accion": "fill",  "selector": "locator:#loginpassword", "valor": "*" },
-    { "accion": "click", "selector": "getByRole:button:Log in" }
-  ]
+    { "accion": "goto", "selector": "goto:/personas" },
+    { "accion": "click", "selector": "getByRole:link:Online Banking" },
+    { "accion": "fill", "selector": "locator:#usuario", "valor": "*" },
+    { "accion": "fill", "selector": "locator:#password", "valor": "*" },
+    { "accion": "click", "selector": "getByRole:button:INGRESAR" }
+  ],
+  "conecta": ["CuentasPage"]
 }

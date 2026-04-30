@@ -28,10 +28,5 @@ export const test = base.extend<AutoFlowFixtures>({
 
 export { expect } from '@playwright/test';
 
-/**
- * Datos de prueba compartidos entre tests.
- * Solo para homologación — nunca usar contra producción.
- */
-export const usuariosPrueba = {
-  qaEstandar: { usuario: 'qa.test', password: 'Qa12345!' },
-} as const;
+// Los datos de prueba (usuarios, montos, búsquedas, etc.) viven en `data/` en la raíz.
+// Importalos directo desde el spec: `import { usuarios } from '../data';`

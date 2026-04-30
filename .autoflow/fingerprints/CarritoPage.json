@@ -1,6 +1,0 @@
-{
-  "page": "CarritoPage",
-  "fingerprint": [
-    { "accion": "click", "selector": "getByRole:link:Cart" }
-  ]
-}
