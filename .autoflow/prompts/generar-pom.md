@@ -193,14 +193,31 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
    - `✏️ Rehacer alguna page` → volvé al paso 4 con la opción `rehacer`
 3. Si confirma:
    - El path del spec es **siempre** `tests/{slug}-{id}.spec.ts` (uno por test set, no por caso).
+
+   ### 8.a. Extraer datos a `data/` — OBLIGATORIO ANTES DE ESCRIBIR EL SPEC
+
+   **Aplica siempre, sin excepciones, tanto si el test set es nuevo como existente.** Los specs **nunca** llevan literales de input. Si el recording tiene `'usuario01'`, `'pass1234'`, `100000`, `'iPhone 15'`, etc., **no van directo al `test(...)`**.
+
+   Pasos, en este orden:
+   1. Listá los literales de input del recording: argumentos a `fill`, `press`, `selectOption`, datos de búsqueda, montos, usuarios, contraseñas, números de cuenta, emails, tarjetas, fechas. Ignorá strings de UI fija (titulos, labels, nombres de botones), esos quedan en los locators del PO.
+   2. Listá los archivos en `data/*.ts`.
+   3. Para cada literal:
+      - Si ya existe una constante en `data/` con ese valor (mismo string/número), reutilizala.
+      - Si no existe, agregala al archivo de dominio que corresponda (`data/usuarios.ts`, `data/montos.ts`, `data/productos.ts`, etc.). Si no hay archivo del dominio, **creá `data/{dominio}.ts`** con la constante exportada `as const` y sumala al `export * from './...'` de `data/index.ts`.
+      - La clave interna describe el escenario (`qaEstandar`, `clienteVip`, `transferenciaChica`), no el valor.
+   4. El spec va a importar siempre desde `'../data'` (ej: `import { usuarios, montos } from '../data';`) y va a usar `usuarios.qaEstandar.usuario` en lugar del literal.
+
+   **Checklist pre-escritura** (mental, no se lo muestres al QA): antes de llamar a `edit` para escribir el spec, releé el bloque que vas a escribir y confirmá que NO contiene comillas con datos de input — solo nombres de variables que vienen de `data/`. Si encontrás un literal ahí, frená y volvé al paso 8.a.3.
+
+   ### 8.b. Escribir el spec
+
    - **Si el test set es nuevo** (el archivo spec no existe):
-     - Creá `tests/{slug}-{id}.spec.ts` con el header de imports y un primer bloque `test('{nombre del caso TC-{numero}}', ...)` usando fixtures de `fixtures/index.ts` y encadenando las pages en orden. **Nada de clases base.**
-     - **Datos**: cualquier valor literal del recording (usuarios, contraseñas, montos, búsquedas, números de cuenta) **no va inline**. Buscalo en `data/*.ts`; si ya existe una constante con ese valor, importala desde `'../data'`. Si no existe, sumala al archivo de dominio que corresponda (creá `data/{dominio}.ts` si no hay) y re-exportala desde `data/index.ts`. El spec siempre referencia `data`, nunca un literal.
-     - Creá `.autoflow/testsets/{slug}.json` con el shape de `crear-test-set.md` paso 3, incluyendo `id` y el path del spec en `casos` (un único entry, ya que hay un solo spec por set).
+     - Creá `tests/{slug}-{id}.spec.ts` con el header de imports (incluyendo el `import { ... } from '../data';` con todas las constantes que use el caso) y un primer bloque `test('TC-{numero} {nombre}', ...)` encadenando las pages en orden. **Nada de clases base.**
+     - Creá `.autoflow/testsets/{slug}.json` con el shape de `crear-test-set.md` paso 3, incluyendo `id` y el path del spec en `casos`.
    - **Si el test set es existente** (el archivo spec ya existe):
-     - **No crees un archivo nuevo**. Editá `tests/{slug}-{id}.spec.ts` y agregá un nuevo bloque `test('{nombre del caso TC-{numero}}', ...)` al final, antes del cierre del archivo. Reusá los imports y fixtures que ya estén; sumá los que falten al inicio.
-     - El JSON del test set ya tiene el path en `casos`; no hace falta tocarlo (sigue habiendo un solo spec).
-   - Si hace falta, agregá fixtures a `fixtures/index.ts`.
+     - **No crees un archivo nuevo**. Editá `tests/{slug}-{id}.spec.ts` y agregá un nuevo bloque `test('TC-{numero} {nombre}', ...)` al final, antes del cierre del archivo. Reusá los imports que ya estén; sumá los que falten al inicio (incluyendo nuevos imports de `'../data'` si este caso usa constantes que el archivo todavía no tenía).
+     - El JSON del test set ya tiene el path en `casos`; no hace falta tocarlo.
+   - Si hace falta, agregá fixtures a `fixtures/index.ts` (pero **datos no van en fixtures**, van en `data/`).
 
 ## 9. Resumen final
 
