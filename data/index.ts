@@ -1,1 +1,1 @@
-export * from './usuarios';
+export {};

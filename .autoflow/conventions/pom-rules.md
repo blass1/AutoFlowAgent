@@ -18,41 +18,105 @@ Reglas que el agente sigue al generar código en este repo. **Si vas a generar o
 - Archivo en `pages/` con **el mismo nombre que la clase** (PascalCase + sufijo `Page.ts`). Ejemplo: clase `LoginPage` → archivo `pages/LoginPage.ts`.
 - Clase en **PascalCase + sufijo `Page`**.
 
-### Fingerprint sidecar (obligatorio)
+### Nodos — la unidad atómica del flujo
+
+Cada acción capturada en una grabación es un **Nodo**. El nodo es lo que después permite analizar el camino que hace el usuario entre pantallas.
+
+Shape:
+
+```json
+{
+  "id": "LoginPage::fill::getByLabel:Usuario",
+  "page": "LoginPage",
+  "accion": "fill",
+  "selector": "getByLabel:Usuario",
+  "selectorRaw": "getByLabel('Usuario')",
+  "valor": "*",
+  "matcher": null,
+  "confiabilidad": 3
+}
+```
+
+- **id**: `{page}::{accion}::{selector}` — determinístico. El mismo nodo en distintas grabaciones colapsa al mismo id.
+- **accion**: `goto | fill | click | press | check | uncheck | selectOption | hover | dragTo | assert`.
+- **selector**: firma normalizada del locator. Ejemplos:
+  - `getByLabel:Usuario`
+  - `getByRole:button:Ingresar`
+  - `getByPlaceholder:Buscar`
+  - `getByTestId:nuevo-pago`
+  - `getByText:Bienvenido`
+  - `locator:.foo > .bar`
+  - `goto:/login` (para `goto`, el selector es la URL relativa).
+  - `page` (para asserts a nivel page, ej: `expect(page).toHaveURL(...)`).
+- **selectorRaw**: el locator tal como aparece en el spec, sin normalizar. Sirve para regenerar código.
+- **valor**: input del usuario (`fill`, `press`, `selectOption`) o argumento del assert. En sidecars y `nodos.json` poné `*` cuando es dato variable, así no clava el caso particular.
+- **matcher**: solo para `assert` (`toBeVisible`, `toHaveText`, `toHaveURL`, etc.). En el resto va `null` o se omite.
+- **confiabilidad** (1-5, o `null` para `goto` y `assert`):
+  - **5** — `getByTestId`
+  - **4** — `getByRole` con `name`
+  - **3** — `getByLabel`
+  - **2** — `getByPlaceholder` / `getByText`
+  - **1** — `locator(...)` con CSS crudo o posicional
+
+#### Page activa
+
+Los asserts a nivel `page` (ej: `expect(page).toHaveURL(...)`) no tienen locator propio, así que se atribuyen a la **page activa**: la última page que tuvo un nodo asignado en el recording. El puntero se actualiza cada vez que un nodo se asigna a una page (por matcheo de prefijo o por agrupación manual). Si el primer paso del recording es un assert a nivel page, queda sin atribuir hasta que el QA agrupe el primer bloque "Nuevo".
+
+### Diccionario global — `.autoflow/nodos.json`
+
+Archivo único en la raíz de `.autoflow/` con shape `{ [id]: nodo }`. Se enriquece con cada grabación: si el id no existe, se agrega; si existe, se valida que `accion`, `selector`, `page` y `confiabilidad` coincidan (no se sobreescribe). Es la fuente de verdad para análisis de caminos cross-recording.
+
+### Traza por recording — `.autoflow/recordings/{numero}-path.json`
+
+Cada grabación, al cerrarse, deja una traza con la secuencia de ids visitados:
+
+```json
+{
+  "numero": "12345",
+  "fechaFin": "2026-04-30T18:22:11Z",
+  "path": [
+    "LoginPage::fill::getByLabel:Usuario",
+    "LoginPage::fill::getByLabel:Contraseña",
+    "LoginPage::click::getByRole:button:Ingresar",
+    "OverviewPage::click::getByRole:button:Inversiones"
+  ]
+}
+```
+
+Este archivo **no se borra** en la limpieza final del flujo `generar-pom.md` — es histórico para análisis de caminos.
+
+### Sidecar de page (obligatorio)
 
 Cada PO generado por AutoFlow tiene un archivo sidecar en `.autoflow/fingerprints/{NombrePage}.json` (mismo PascalCase que la clase, sin la extensión `.ts`). Es la huella que usa el agente para reconocer en grabaciones futuras que ese flujo ya existe y marcarlo con tilde verde.
 
-**El JSDoc del PO no lleva el fingerprint** — queda solo una descripción corta de la pantalla, en español. La huella vive afuera del código.
+**El JSDoc del PO no lleva el sidecar** — queda solo una descripción corta de la pantalla, en español. La huella vive afuera del código.
 
 Shape del sidecar:
 
 ```json
 {
   "page": "LoginPage",
-  "fingerprint": [
-    { "accion": "fill",  "selector": "getByLabel:Usuario",         "valor": "*" },
-    { "accion": "fill",  "selector": "getByLabel:Contraseña",      "valor": "*" },
-    { "accion": "click", "selector": "getByRole:button:Ingresar" }
+  "nodos": [
+    "LoginPage::fill::getByLabel:Usuario",
+    "LoginPage::fill::getByLabel:Contraseña",
+    "LoginPage::click::getByRole:button:Ingresar"
+  ],
+  "asserts": [
+    "LoginPage::assert::getByRole:heading:Bienvenido"
   ],
   "conecta": ["CelularesPage", "LaptopsPage"]
 }
 ```
 
-- **accion**: `fill`, `click`, `press`, `check`, `uncheck`, `selectOption`, `goto`.
-- **selector**: la firma normalizada del locator. Ejemplos:
-  - `getByLabel:Usuario`
-  - `getByRole:button:Ingresar`
-  - `getByPlaceholder:Buscar`
-  - `getByTestId:nuevo-pago`
-  - `goto:/login` (para `goto`, el selector es la URL relativa).
-- **valor**: solo para `fill`/`press`/`selectOption`. Si es dato variable (input del usuario), poné `*` en lugar del literal para no clavarlo. Omitilo si la acción no lo lleva.
-- **conecta**: array de nombres de pages (PascalCase, sin `.ts`) a las que esta page lleva. Una page puede conectar a varias (ej: una home con varias secciones). El array es para construir el grafo de navegación del flujo. Si la page no lleva a ninguna otra (es terminal), el array va vacío `[]`.
+- **nodos**: lista ordenada de ids de **acciones del usuario** (sin asserts). Es el contrato del matcheo de prefijo en `generar-pom.md`. La definición de cada nodo (accion, selector, valor, confiabilidad) vive en `.autoflow/nodos.json`.
+- **asserts**: lista de ids de nodos `assert` que se vieron alguna vez en esta page. Se enriquece con cada grabación (sin duplicar). **No participa del matcheo de prefijo** — los asserts son opcionales y pueden variar entre grabaciones del mismo flujo. Sirven para análisis y para el grafo de nodos.
+- **conecta**: array de nombres de pages (PascalCase, sin `.ts`) a las que esta page lleva. Una page puede conectar a varias. Si la page es terminal, va vacío `[]`.
 
 Reglas:
 
 - Mantené el orden tal como lo grabó codegen — el matcheo es secuencial.
-- **No incluyas asserts en el fingerprint**, solo acciones del usuario.
-- Si actualizás un PO existente y le cambiás el flujo, actualizá el sidecar en el mismo cambio.
+- **No incluyas asserts en `nodos[]`** — van en `asserts[]` aparte.
+- Si actualizás un PO existente y le cambiás el flujo, actualizá el sidecar y `nodos.json` en el mismo cambio.
 - El JSDoc de la clase queda corto: una o dos líneas describiendo la pantalla. Nada de listar acciones.
 - `conecta` se enriquece con cada nueva grabación. Si una grabación pasa de `LoginPage` a `CelularesPage` y `CelularesPage` no estaba en `LoginPage.conecta`, sumala (sin duplicar). Si una page nueva apunta a una existente, agregala a la `conecta` de la anterior.
 

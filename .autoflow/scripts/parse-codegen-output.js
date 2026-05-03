@@ -1,5 +1,10 @@
 // Parsea el .spec.ts generado por `playwright codegen` y produce un JSON estructurado
-// con la lista de pasos (goto, fill, click, press, check, select) y URLs visitadas.
+// con la lista de nodos crudos (sin page asignada todavía) y URLs visitadas.
+//
+// Cada nodo tiene: indice, accion, selector (normalizado), selectorRaw, valor?,
+// matcher? (solo asserts), confiabilidad (1-5 o null), etiqueta?.
+// La page y el id (`{page}::{accion}::{selector}`) se asignan en la etapa de
+// agrupación interactiva (generar-pom.md).
 //
 // Uso: node .autoflow/scripts/parse-codegen-output.js <numero>
 
@@ -28,29 +33,139 @@ if (!existsSync(sessionPath)) {
 const session = JSON.parse(readFileSync(sessionPath, 'utf8'));
 const spec = readFileSync(specPath, 'utf8');
 
-const pasos = [];
-const urlsVisitadas = [];
-let indice = 0;
+// Parte un chain de Playwright (`a().b().c()`) en sus segmentos top-level,
+// respetando paréntesis y comillas. Ej:
+//   `locator('frame[name="x"]').contentFrame().getByRole('link', { name: 'Y' })`
+//   → ["locator('frame[name=\"x\"]')", "contentFrame()", "getByRole('link', { name: 'Y' })"]
+function partirChain(raw) {
+  const segmentos = [];
+  let depth = 0;
+  let inSimple = false;
+  let inDoble = false;
+  let inicio = 0;
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    const prev = i > 0 ? raw[i - 1] : '';
+    if (inSimple) {
+      if (c === "'" && prev !== '\\') inSimple = false;
+      continue;
+    }
+    if (inDoble) {
+      if (c === '"' && prev !== '\\') inDoble = false;
+      continue;
+    }
+    if (c === "'") { inSimple = true; continue; }
+    if (c === '"') { inDoble = true; continue; }
+    if (c === '(') depth++;
+    else if (c === ')') depth--;
+    else if (c === '.' && depth === 0) {
+      segmentos.push(raw.slice(inicio, i));
+      inicio = i + 1;
+    }
+  }
+  segmentos.push(raw.slice(inicio));
+  return segmentos.map((s) => s.trim()).filter((s) => s.length > 0);
+}
 
-// Extrae el texto identificable de un selector (nombre del rol, label, texto).
-function extraerTexto(selector) {
-  const mRole = selector.match(/getByRole\(['"]\w+['"],\s*\{\s*name:\s*['"](.+?)['"]/);
-  if (mRole) return mRole[1];
-  const mText = selector.match(/getByText\(['"](.+?)['"]\)/);
-  if (mText) return mText[1];
-  const mLabel = selector.match(/getByLabel\(['"](.+?)['"]\)/);
-  if (mLabel) return mLabel[1];
-  const mTestId = selector.match(/getByTestId\(['"](.+?)['"]\)/);
-  if (mTestId) return mTestId[1];
-  const mLocator = selector.match(/locator\(['"](.+?)['"]\)/);
-  if (mLocator) return mLocator[1];
+// Normaliza un solo segmento (sin chain). Devuelve token o null si no se reconoce.
+function normalizarSegmento(seg) {
+  let m;
+  if ((m = seg.match(/^getByRole\(['"](\w+)['"]\s*,\s*\{\s*name:\s*['"](.+?)['"]/))) {
+    return `getByRole:${m[1]}:${m[2]}`;
+  }
+  if ((m = seg.match(/^getByRole\(['"](\w+)['"]\)/))) {
+    return `getByRole:${m[1]}`;
+  }
+  if ((m = seg.match(/^getByLabel\(['"](.+?)['"]\)/))) {
+    return `getByLabel:${m[1]}`;
+  }
+  if ((m = seg.match(/^getByPlaceholder\(['"](.+?)['"]\)/))) {
+    return `getByPlaceholder:${m[1]}`;
+  }
+  if ((m = seg.match(/^getByTestId\(['"](.+?)['"]\)/))) {
+    return `getByTestId:${m[1]}`;
+  }
+  if ((m = seg.match(/^getByText\(['"](.+?)['"]\)/))) {
+    return `getByText:${m[1]}`;
+  }
+  if ((m = seg.match(/^locator\(['"](.+?)['"]\)/))) {
+    return `locator:${m[1]}`;
+  }
+  if (/^contentFrame\(\s*\)$/.test(seg)) {
+    return '__contentFrame__';
+  }
   return null;
 }
 
-// Matchea getByRole/getByText/getByLabel/getByTestId/getByPlaceholder/locator(...)
-const SEL = '(getBy\\w+\\(.+?\\)|locator\\(.+?\\))';
+// Normaliza el chain completo, uniendo los segmentos con `>>`. `contentFrame()`
+// colapsa el `locator('frame[name="X"]')` o `locator('iframe[name="X"]')`
+// previo en `iframe:X` para representar el contenedor sin perder la hoja.
+function normalizarSelector(raw) {
+  const segmentos = partirChain(raw);
+  const tokens = [];
+  for (const seg of segmentos) {
+    const tok = normalizarSegmento(seg);
+    if (tok === null) continue;
+    if (tok === '__contentFrame__') {
+      const prev = tokens[tokens.length - 1];
+      if (prev) {
+        const fm = prev.match(/^locator:(?:i?frame)\[name="(.+?)"\]$/);
+        if (fm) {
+          tokens[tokens.length - 1] = `iframe:${fm[1]}`;
+          continue;
+        }
+      }
+      tokens.push('iframe');
+      continue;
+    }
+    tokens.push(tok);
+  }
+  return tokens.length > 0 ? tokens.join('>>') : raw;
+}
 
-// Parser por línea — suficiente para el output de codegen.
+// Confiabilidad según el segmento HOJA del chain (lo último que apunta al
+// elemento real). Los segmentos `contentFrame()` y los iframe-container no
+// cuentan: lo que importa es la calidad del locator final.
+// 5 = testid, 4 = role+name, 3 = label, 2 = placeholder/text, 1 = css/posicional.
+function calcularConfiabilidad(raw) {
+  const segmentos = partirChain(raw);
+  let hoja = null;
+  for (const seg of segmentos) {
+    if (/^contentFrame\(\s*\)$/.test(seg)) continue;
+    if (/^getBy\w+\(/.test(seg) || /^locator\(/.test(seg)) hoja = seg;
+  }
+  if (!hoja) return null;
+  if (hoja.startsWith('getByTestId(')) return 5;
+  if (hoja.startsWith('getByRole(')) return 4;
+  if (hoja.startsWith('getByLabel(')) return 3;
+  if (hoja.startsWith('getByPlaceholder(') || hoja.startsWith('getByText(')) return 2;
+  if (hoja.startsWith('locator(')) return 1;
+  return null;
+}
+
+function extraerEtiqueta(selectorNormalizado) {
+  const partes = selectorNormalizado.split(':');
+  return partes.length > 1 ? partes[partes.length - 1] : null;
+}
+
+// URL relativa a partir de una absoluta. Si ya es relativa, la deja igual.
+function relativizarUrl(url) {
+  try {
+    const u = new URL(url);
+    return u.pathname + u.search + u.hash;
+  } catch {
+    return url;
+  }
+}
+
+const nodos = [];
+const urlsVisitadas = [];
+let indice = 0;
+
+// Greedy: captura el chain entero. El sufijo de la acción (.click(), .fill(...))
+// delimita por la derecha. Tiene que arrancar con getBy*( o locator(.
+const SEL = '((?:getBy\\w+\\(|locator\\().+)';
+
 const lineas = spec.split('\n');
 for (const linea of lineas) {
   const limpia = linea.trim();
@@ -61,28 +176,34 @@ for (const linea of lineas) {
   );
   if (mAssert) {
     indice++;
-    pasos.push({
+    const selectorRaw = mAssert[1];
+    const selector = normalizarSelector(selectorRaw);
+    nodos.push({
       indice,
-      tipo: 'assert',
-      selector: mAssert[1],
+      accion: 'assert',
       matcher: mAssert[2],
+      selector,
+      selectorRaw,
       valor: mAssert[4] ?? null,
-      etiqueta: extraerTexto(mAssert[1]),
+      etiqueta: extraerEtiqueta(selector),
+      confiabilidad: null,
       raw: limpia,
     });
     continue;
   }
 
-  // await expect(page).<matcher>(<arg>)  (asserts a nivel page: toHaveURL, toHaveTitle)
+  // await expect(page).<matcher>(<arg>)
   mAssert = limpia.match(/^await expect\(page\)\.(\w+)\(['"`](.+?)['"`]\)/);
   if (mAssert) {
     indice++;
-    pasos.push({
+    nodos.push({
       indice,
-      tipo: 'assert',
-      selector: 'page',
+      accion: 'assert',
       matcher: mAssert[1],
+      selector: 'page',
+      selectorRaw: 'page',
       valor: mAssert[2],
+      confiabilidad: null,
       raw: limpia,
     });
     continue;
@@ -94,78 +215,125 @@ for (const linea of lineas) {
   let m = limpia.match(/^await page\.goto\(['"](.+?)['"]\)/);
   if (m) {
     indice++;
-    pasos.push({ indice, tipo: 'goto', url: m[1], raw: limpia });
+    const urlRel = relativizarUrl(m[1]);
+    nodos.push({
+      indice,
+      accion: 'goto',
+      selector: `goto:${urlRel}`,
+      selectorRaw: `goto('${m[1]}')`,
+      valor: m[1],
+      confiabilidad: null,
+      raw: limpia,
+    });
     urlsVisitadas.push(m[1]);
     continue;
   }
 
-  // page.getByX(...).click()
+  // page.<SEL>.click()
   m = limpia.match(new RegExp(`^await page\\.${SEL}\\.click\\(\\)`));
   if (m) {
     indice++;
-    pasos.push({
+    const selectorRaw = m[1];
+    const selector = normalizarSelector(selectorRaw);
+    nodos.push({
       indice,
-      tipo: 'click',
-      selector: m[1],
-      textoBoton: extraerTexto(m[1]),
+      accion: 'click',
+      selector,
+      selectorRaw,
+      etiqueta: extraerEtiqueta(selector),
+      confiabilidad: calcularConfiabilidad(selectorRaw),
       raw: limpia,
     });
     continue;
   }
 
-  // page.getByX(...).fill('valor')
+  // page.<SEL>.fill('valor')
   m = limpia.match(new RegExp(`^await page\\.${SEL}\\.fill\\(['"](.*?)['"]\\)`));
   if (m) {
     indice++;
-    pasos.push({
+    const selectorRaw = m[1];
+    const selector = normalizarSelector(selectorRaw);
+    nodos.push({
       indice,
-      tipo: 'fill',
-      selector: m[1],
-      etiqueta: extraerTexto(m[1]),
+      accion: 'fill',
+      selector,
+      selectorRaw,
       valor: m[2],
+      etiqueta: extraerEtiqueta(selector),
+      confiabilidad: calcularConfiabilidad(selectorRaw),
       raw: limpia,
     });
     continue;
   }
 
-  // page.getByX(...).press('Key')
+  // page.<SEL>.press('Key')
   m = limpia.match(new RegExp(`^await page\\.${SEL}\\.press\\(['"](.+?)['"]\\)`));
   if (m) {
     indice++;
-    pasos.push({
+    const selectorRaw = m[1];
+    const selector = normalizarSelector(selectorRaw);
+    nodos.push({
       indice,
-      tipo: 'press',
-      selector: m[1],
-      tecla: m[2],
+      accion: 'press',
+      selector,
+      selectorRaw,
+      valor: m[2],
+      confiabilidad: calcularConfiabilidad(selectorRaw),
       raw: limpia,
     });
     continue;
   }
 
-  // page.getByX(...).check() / .uncheck()
+  // page.<SEL>.check() / .uncheck()
   m = limpia.match(new RegExp(`^await page\\.${SEL}\\.(check|uncheck)\\(\\)`));
   if (m) {
     indice++;
-    pasos.push({
+    const selectorRaw = m[1];
+    const selector = normalizarSelector(selectorRaw);
+    nodos.push({
       indice,
-      tipo: m[2],
-      selector: m[1],
-      etiqueta: extraerTexto(m[1]),
+      accion: m[2],
+      selector,
+      selectorRaw,
+      etiqueta: extraerEtiqueta(selector),
+      confiabilidad: calcularConfiabilidad(selectorRaw),
       raw: limpia,
     });
     continue;
   }
 
-  // page.getByX(...).selectOption('valor')
+  // page.<SEL>.selectOption('valor')
   m = limpia.match(new RegExp(`^await page\\.${SEL}\\.selectOption\\(['"](.+?)['"]\\)`));
   if (m) {
     indice++;
-    pasos.push({
+    const selectorRaw = m[1];
+    const selector = normalizarSelector(selectorRaw);
+    nodos.push({
       indice,
-      tipo: 'select',
-      selector: m[1],
-      etiqueta: extraerTexto(m[1]),
+      accion: 'selectOption',
+      selector,
+      selectorRaw,
       valor: m[2],
+      etiqueta: extraerEtiqueta(selector),
+      confiabilidad: calcularConfiabilidad(selectorRaw),
+      raw: limpia,
+    });
+    continue;
+  }
+
+  // page.<SEL>.hover()
+  m = limpia.match(new RegExp(`^await page\\.${SEL}\\.hover\\(\\)`));
+  if (m) {
+    indice++;
+    const selectorRaw = m[1];
+    const selector = normalizarSelector(selectorRaw);
+    nodos.push({
+      indice,
+      accion: 'hover',
+      selector,
+      selectorRaw,
+      etiqueta: extraerEtiqueta(selector),
+      confiabilidad: calcularConfiabilidad(selectorRaw),
       raw: limpia,
     });
     continue;
@@ -182,9 +350,9 @@ const resultado = {
     fechaInicio: session.fechaInicio,
     fechaFin: session.fechaFin ?? null,
   },
-  pasos,
+  nodos,
   urlsVisitadas,
 };
 
 writeFileSync(outPath, JSON.stringify(resultado, null, 2), 'utf8');
-console.log(`✅ Parseado: ${outPath} (${pasos.length} pasos, ${urlsVisitadas.length} URLs)`);
+console.log(`✅ Parseado: ${outPath} (${nodos.length} nodos, ${urlsVisitadas.length} URLs)`);
