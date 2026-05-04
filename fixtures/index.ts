@@ -9,10 +9,20 @@ import { test as base } from '@playwright/test';
  * Convención: nada de clases base ni `BaseTest`. Solo `test.extend`.
  */
 
+/** Almacén de valores capturados durante un test (nodos `capturar` / `verificar`).
+ *  Es per-test: cada test arranca con un Map vacío. */
+export interface Vars {
+  set(key: string, value: unknown): void;
+  get<T = unknown>(key: string): T;
+  has(key: string): boolean;
+}
+
 type AutoFlowFixtures = {
   /** Aplica un delay opcional después de cada acción para frontends lentos.
    *  Activado vía env var AUTOFLOW_DELAY_MS (entero, ms). Si no está seteada, no hace nada. */
   humanize: (accion?: () => Promise<void>) => Promise<void>;
+  /** Almacén de valores capturados por nodos `capturar`. Per-test. */
+  vars: Vars;
   // Otras fixtures se agregan acá a medida que las generan los casos.
   // Ejemplo:
   //   loginPage: LoginPage;
@@ -26,6 +36,20 @@ export const test = base.extend<AutoFlowFixtures>({
       if (delayMs > 0) await page.waitForTimeout(delayMs);
     };
     await use(aplicar);
+  },
+  vars: async ({}, use) => {
+    const store = new Map<string, unknown>();
+    const api: Vars = {
+      set: (k, v) => { store.set(k, v); },
+      get: <T,>(k: string) => {
+        if (!store.has(k)) {
+          throw new Error(`vars.get('${k}'): variable no capturada en este test`);
+        }
+        return store.get(k) as T;
+      },
+      has: (k) => store.has(k),
+    };
+    await use(api);
   },
   // Otras definiciones de fixtures van acá.
 });

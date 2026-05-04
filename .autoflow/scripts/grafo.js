@@ -6,6 +6,7 @@
 
 const { readdirSync, readFileSync, writeFileSync, mkdirSync } = require('node:fs');
 const { join } = require('node:path');
+const { renderHtml } = require('./lib/render-html');
 
 const dir = '.autoflow/fingerprints';
 const archivos = readdirSync(dir).filter((f) => f.endsWith('.json'));
@@ -74,6 +75,17 @@ mkdirSync('.autoflow/grafos', { recursive: true });
 const outPath = '.autoflow/grafos/grafo.md';
 writeFileSync(outPath, md.join('\n'), 'utf8');
 
+const htmlPath = '.autoflow/grafos/grafo.html';
+writeFileSync(htmlPath, renderHtml({
+  titulo: 'Grafo de Page Objects · AutoFlow',
+  mermaidSrc: mermaid,
+  meta: [
+    `${nodos.size} pages`,
+    `${aristas.length} conexiones`,
+  ],
+}), 'utf8');
+
 console.log(mermaid);
 console.log('');
 console.log(`✅ Escrito en ${outPath} (${nodos.size} pages, ${aristas.length} conexiones)`);
+console.log(`🌐 HTML para navegador: ${htmlPath}`);

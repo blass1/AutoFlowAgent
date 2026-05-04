@@ -62,6 +62,94 @@ Shape:
 
 Los asserts a nivel `page` (ej: `expect(page).toHaveURL(...)`) no tienen locator propio, así que se atribuyen a la **page activa**: la última page que tuvo un nodo asignado en el recording. El puntero se actualiza cada vez que un nodo se asigna a una page (por matcheo de prefijo o por agrupación manual). Si el primer paso del recording es un assert a nivel page, queda sin atribuir hasta que el QA agrupe el primer bloque "Nuevo".
 
+#### Nodos especiales: `capturar` y `verificar`
+
+Estos nodos no se generan en codegen — los inserta el QA después de grabar a través del sub-prompt [insertar-nodo-especial.md](../prompts/insertar-nodo-especial.md). Sirven para extraer un valor del DOM y compararlo más tarde contra otra lectura (o contra un literal).
+
+- **`capturar`**: lee un valor en un punto del flujo y lo guarda en el fixture `vars` bajo un nombre.
+- **`verificar`**: vuelve a leer (mismo selector u otro) y compara contra una variable previamente capturada **o** contra un valor literal, según una condición que define el QA.
+
+Reglas de scope:
+- Las variables son **per-test**: cada test arranca con un `vars` vacío. No se filtran entre tests del mismo set.
+- `verificar` solo puede referenciar variables capturadas **antes** en el orden del spec. El sub-prompt valida esto antes de insertar.
+
+Shape de `capturar`:
+
+```json
+{
+  "id": "CuentasPage::capturar::saldoInicial",
+  "page": "CuentasPage",
+  "accion": "capturar",
+  "varName": "saldoInicial",
+  "selector": "getByTestId:saldo-disponible",
+  "selectorRaw": "getByTestId('saldo-disponible')",
+  "regex": "\\$\\s*([\\d.,]+)",
+  "parser": "currency-arg",
+  "confiabilidad": null
+}
+```
+
+Shape de `verificar`:
+
+```json
+{
+  "id": "CuentasPage::verificar::saldoInicial::disminuyo",
+  "page": "CuentasPage",
+  "accion": "verificar",
+  "modo": "variable",
+  "ref": "saldoInicial",
+  "literal": null,
+  "selector": "getByTestId:saldo-disponible",
+  "selectorRaw": "getByTestId('saldo-disponible')",
+  "regex": "\\$\\s*([\\d.,]+)",
+  "parser": "currency-arg",
+  "condicion": { "tipo": "disminuyo", "param": null, "unidad": null },
+  "mensaje": "el saldo debió disminuir tras la transferencia",
+  "confiabilidad": null
+}
+```
+
+Campos:
+- **id**: `{page}::capturar::{varName}` o `{page}::verificar::{varName-o-literal}::{condicion}`. Determinístico, igual que el resto.
+- **varName** (capturar) / **ref** (verificar, modo `variable`): identificador JS válido (`^[a-zA-Z][a-zA-Z0-9_]*$`).
+- **modo** (verificar): `"variable"` (compara contra `vars.get(ref)`) o `"literal"` (compara contra `literal`).
+- **literal** (verificar, modo `literal`): valor crudo en formato string. Se parsea con el mismo `parser` antes de comparar.
+- **regex** (opcional): si está presente, se aplica al `textContent()` y se usa el primer grupo de captura. Útil para `"Saldo: $ 10.234,56"` → `"10.234,56"`.
+- **parser**: `text` | `number` | `currency-arg` | `date`. Vive en [data/parsers.ts](../../data/parsers.ts) y exporta funciones que aceptan el string limpio y devuelven el tipo nativo a comparar.
+- **condicion** (verificar): `{ tipo, param?, unidad? }` donde `tipo ∈ { igual, distinto, aumento, disminuyo, aumentoAlMenos, disminuyoAlMenos }`. Para los dos últimos `param` es el delta y `unidad` es `"abs"` o `"pct"`.
+- **confiabilidad**: siempre `null` (no aplica la escala de locator porque no son acciones del usuario).
+
+Traducción a código en el spec:
+
+```typescript
+// capturar
+const _raw_saldoInicial = await cuentasPage.saldoDisponible.textContent();
+vars.set('saldoInicial', parseCurrencyAR(_raw_saldoInicial ?? ''));
+
+// verificar (modo: variable, condicion: disminuyo)
+const _raw_v_saldoInicial = await cuentasPage.saldoDisponible.textContent();
+expect(
+  parseCurrencyAR(_raw_v_saldoInicial ?? ''),
+  'el saldo debió disminuir tras la transferencia'
+).toBeLessThan(vars.get<number>('saldoInicial'));
+```
+
+Mapeo de condiciones a aserciones de Playwright:
+- `igual` → `.toBe(...)`
+- `distinto` → `.not.toBe(...)`
+- `aumento` → `.toBeGreaterThan(...)`
+- `disminuyo` → `.toBeLessThan(...)`
+- `aumentoAlMenos` (unidad `abs`) → `.toBeGreaterThanOrEqual(ref + param)`
+- `aumentoAlMenos` (unidad `pct`) → `.toBeGreaterThanOrEqual(ref * (1 + param/100))`
+- `disminuyoAlMenos` (unidad `abs`) → `.toBeLessThanOrEqual(ref - param)`
+- `disminuyoAlMenos` (unidad `pct`) → `.toBeLessThanOrEqual(ref * (1 - param/100))`
+
+Edición de archivos al insertar (sin regenerar):
+- Si el selector es nuevo, se agrega como locator nuevo al PO de la `page` (`private readonly` + asignación en el constructor) y se expone un getter solo si el nodo necesita reuso entre métodos.
+- Las líneas se insertan en el `.spec.ts` justo **después** del paso elegido por el QA.
+- `nodos.json` y el sidecar de la page se actualizan en el mismo cambio: el nuevo id se suma a `nodos[]` en la posición que corresponda.
+- El test importa el fixture `vars` desde `../fixtures` y, si usa parsers, los importa desde `../data`.
+
 ### Diccionario global — `.autoflow/nodos.json`
 
 Archivo único en la raíz de `.autoflow/` con shape `{ [id]: nodo }`. Se enriquece con cada grabación: si el id no existe, se agrega; si existe, se valida que `accion`, `selector`, `page` y `confiabilidad` coincidan (no se sobreescribe). Es la fuente de verdad para análisis de caminos cross-recording.

@@ -13,6 +13,7 @@
 
 const { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync } = require('node:fs');
 const { join } = require('node:path');
+const { renderHtml } = require('./lib/render-html');
 
 const nodosPath = '.autoflow/nodos.json';
 const fingerprintsDir = '.autoflow/fingerprints';
@@ -56,6 +57,14 @@ function etiquetaCorta(nodo) {
     const matcher = nodo.matcher ?? 'assert';
     return `${matcher}\\n${tail ?? ''}`.trim();
   }
+  if (accion === 'capturar') {
+    return `🎯 capturar\\n${nodo.varName ?? ''}`;
+  }
+  if (accion === 'verificar') {
+    const ref = nodo.modo === 'literal' ? `"${nodo.literal ?? ''}"` : (nodo.ref ?? '');
+    const cond = nodo.condicion?.tipo ?? 'verificar';
+    return `🔍 ${cond}\\n${ref}`;
+  }
   // click | fill | press | check | uncheck | selectOption | hover
   const tail = nodo.selector.split(':').pop();
   const valor = nodo.valor && nodo.valor !== '*' ? ` "${nodo.valor}"` : '';
@@ -72,7 +81,10 @@ function sanitizar(texto) {
     .replace(/>/g, '&gt;');
 }
 
-function claseConfiabilidad(c) {
+function claseDeNodo(nodo) {
+  if (nodo.accion === 'capturar') return 'confCap';
+  if (nodo.accion === 'verificar') return 'confVer';
+  const c = nodo.confiabilidad;
   if (c === 5) return 'conf5';
   if (c === 4) return 'conf4';
   if (c === 3) return 'conf3';
@@ -128,13 +140,15 @@ for (const sc of sidecars) {
 // Sumar los huérfanos (nodos en nodos.json que no aparecen en ningún sidecar).
 for (const id of Object.keys(nodos)) aliasPara(id);
 
-const lineas = ['```mermaid', 'flowchart LR'];
+const lineas = ['```mermaid', 'flowchart TB'];
 lineas.push('    classDef conf5 fill:#1B5E20,stroke:#0D3311,color:#FFFFFF;');
 lineas.push('    classDef conf4 fill:#A5D6A7,stroke:#2E7D32,color:#0D3311;');
 lineas.push('    classDef conf3 fill:#FFF59D,stroke:#F9A825,color:#5D4037;');
 lineas.push('    classDef conf2 fill:#FFCC80,stroke:#EF6C00,color:#3E2723;');
 lineas.push('    classDef conf1 fill:#EF9A9A,stroke:#C62828,color:#3E0000;');
 lineas.push('    classDef confNa fill:#ECEFF1,stroke:#607D8B,color:#263238;');
+lineas.push('    classDef confCap fill:#E1BEE7,stroke:#6A1B9A,color:#4A148C;');
+lineas.push('    classDef confVer fill:#B2EBF2,stroke:#00838F,color:#006064;');
 lineas.push('');
 
 // Subgraphs por page.
@@ -147,11 +161,12 @@ for (const id of Object.keys(nodos)) {
 
 for (const [page, ids] of [...idsPorPage.entries()].sort()) {
   lineas.push(`    subgraph ${page}["${page}"]`);
+  lineas.push('        direction LR');
   for (const id of ids) {
     const nodo = nodos[id];
     const alias = aliasPara(id);
     const label = sanitizar(etiquetaCorta(nodo));
-    const clase = claseConfiabilidad(nodo.confiabilidad);
+    const clase = claseDeNodo(nodo);
     lineas.push(`        ${alias}["${label}"]:::${clase}`);
   }
   lineas.push('    end');
@@ -189,7 +204,7 @@ const md = [
   `> **${totalNodos}** nodos · **${aristasIntra.size}** intra-page · **${aristasInter.size}** inter-page · **${aristasAssert.size}** asserts`,
   '',
   '**Confiabilidad del locator:**',
-  '🟩 5 = id/testid · 🟢 4 = role+name · 🟡 3 = label · 🟧 2 = placeholder/text · 🟥 1 = CSS/posicional · ⬜ N/A (goto, assert)',
+  '🟩 5 = id/testid · 🟢 4 = role+name · 🟡 3 = label · 🟧 2 = placeholder/text · 🟥 1 = CSS/posicional · ⬜ N/A (goto, assert) · 🟪 capturar · 🟦 verificar',
   '',
   '**Aristas:** finas `-->` intra-page · gruesas `==>` inter-page (`conecta`) · punteadas `-.assert.->` desde el último nodo de la page hacia cada assert.',
   '',
@@ -200,6 +215,20 @@ const md = [
 mkdirSync('.autoflow/grafos', { recursive: true });
 const outPath = '.autoflow/grafos/grafo-nodos.md';
 writeFileSync(outPath, md.join('\n'), 'utf8');
+
+const htmlPath = '.autoflow/grafos/grafo-nodos.html';
+writeFileSync(htmlPath, renderHtml({
+  titulo: 'Grafo de Nodos · AutoFlow',
+  mermaidSrc: mermaid,
+  meta: [
+    `${totalNodos} nodos`,
+    `${aristasIntra.size} intra-page`,
+    `${aristasInter.size} inter-page`,
+    `${aristasAssert.size} asserts`,
+  ],
+}), 'utf8');
+
 console.log(mermaid);
 console.log('');
 console.log(`✅ Escrito en ${outPath} (${totalNodos} nodos, ${totalAristas} aristas)`);
+console.log(`🌐 HTML para navegador: ${htmlPath}`);

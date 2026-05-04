@@ -33,6 +33,7 @@ Usá `vscode/askQuestions` single-select: `"¿Qué hacés con TC-{numero}?"`:
 - `🔄 Regrabar desde cero`
 - `📝 Editar el código manualmente`
 - `➕ Agregar pasos al final (modo append)`
+- `🎯 Insertar nodo de captura/verificación`
 
 ### Opción `🔄 Regrabar desde cero`
 
@@ -58,6 +59,10 @@ Usá `vscode/askQuestions` single-select: `"¿Qué hacés con TC-{numero}?"`:
 1. Marcá en `.autoflow/recordings/{numero}-session.json` el campo `"modo": "append"`.
 2. Inferí URL final del test (último `page.goto` o estado tras la última acción) y lanzá codegen apuntando ahí.
 3. Cuando el QA diga `terminé`, en `generar-pom.md` mergeá los pasos nuevos al test existente en lugar de sobrescribir.
+
+### Opción `🎯 Insertar nodo de captura/verificación`
+
+Cargá [insertar-nodo-especial.md](insertar-nodo-especial.md) pasándole `numero` y la ruta del spec del caso elegido. Ese sub-prompt maneja toda la interacción y la edición de archivos.
 
 ## 4. Volver al menú
 
