@@ -255,7 +255,7 @@ export const dataRegresionDeCompras = {
 
 - La constante exportada se llama `data{PascalCase del slug}` (ej: `dataRegresionDeCompras`).
 - Las keys internas describen el rol del dato en el flujo (`loginPrincipal`, `importeTransferencia`), no el valor.
-- **Si un dato es genuinamente compartido entre test sets**, podés crear un archivo de dominio aparte (ej: `data/cuentas.ts`) y referenciarlo desde varios `data-*.ts`. No es la regla — la regla es que cada test set se autodescriba.
+- **Números siempre planos**: sin separadores de miles ni decimales formateados. `100000` ✓, `100.000` ✗, `100_000` ✗, `'100.000'` ✗. Esto vale para montos, IDs, números de cuenta, etc. Si el front muestra `$100.000`, el dato del test es `100000` — el formateo lo hace la UI, no el data file. Si el formulario **exige** el valor con separador para aceptarlo, formatealo en el momento del `fill` (en el método del PO), no en el data file.
 
 ### `data/index.ts`
 

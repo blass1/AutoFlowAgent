@@ -56,6 +56,8 @@ Si el script falla o no existe, leé directamente `.autoflow/recordings/{numero}
 
 ## 4. Mostrar el listado y explicar la sintaxis
 
+> **REGLA INNEGOCIABLE — listado siempre completo.** Cada vez que mostrés este listado (la primera vez y cada vuelta desde el paso 6 después de agrupar una page), tenés que **reimprimir TODOS los pasos del recording, del primero al último, sin omitir ninguno y sin abreviar con `…`, `...`, `[N pasos más]`, `(varios pasos)` ni ningún resumen**. Aunque el recording tenga 50 pasos, los 50 pasos van listados con su número, descripción y confiabilidad. El QA necesita ver todo para elegir bien el rango — si abreviás, el panel de Copilot puede cortar el mensaje y le rompés la decisión. Si te parece largo, igual va completo: no es decisión tuya cortarlo.
+
 Mostrale al QA un mensaje con esta estructura. Las pages existentes aparecen con `✅` y sus pasos también con `✅`. La frontera con lo no agrupado es `-Nuevo-` (sin tilde). Los pasos nuevos van numerados y sin tilde.
 
 ```
@@ -157,7 +159,7 @@ Cuando el comando es válido:
    - `click` aislado con texto descriptivo → método con verbo (`abrirNuevaInversion()`).
    - Si no hay nombre claro, usá `realizarPaso{N}()` y dejá un comentario `// FIXME: renombrar al integrar.`.
 8. Si la última acción navega a otra pantalla, dejá el método retornando `Promise<void>` por ahora (la siguiente page todavía no existe; cuando se cree, se ajusta).
-9. Volvé al paso 4 y mostrá el listado actualizado: la page recién creada va con ✅ y sus pasos también.
+9. Volvé al paso 4 y mostrá el listado actualizado: la page recién creada va con ✅ y sus pasos también. **Reimprimí el listado entero** — todos los pasos del recording, del primero al último, sin abreviar (regla del paso 4).
 
 > Cada agrupación es una iteración. Nunca generes más de una page por turno: agrupás → generás → mostrás de nuevo → esperás el próximo comando.
 
@@ -256,6 +258,7 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
      } as const;
      ```
    - Sumá los datos del test del balde (2): `importeTransferencia`, `productoBuscado`, etc. Las keys describen el rol del dato en el flujo, no el valor.
+   - **Números planos, sin separadores**: si el recording capturó `'100.000'` o `'1,000'` (porque el QA tipeó así en el form), guardalo en el data file como `100000` (sin punto, sin coma, sin guion bajo, **como `number`** si es claramente un valor numérico). Si el form requiere el separador para aceptar el valor, formatealo en el `fill` del PO con `String(monto).replace(...)` — el data file siempre tiene el número crudo.
    - Si el caso es nuevo en un test set existente: enriquecé el `data-{slug}.ts` que ya está, sin romper las keys que ya usaban otros casos.
 
    **(4) Re-exportar desde `data/index.ts`**

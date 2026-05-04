@@ -77,7 +77,7 @@ flowchart TB
       Grafos[grafos/]
     end
 
-    Banner[consolegraph/<br/>banner ASCII] --> ChatMode
+    Banner[.autoflow/consolegraph/<br/>banner ASCII] --> ChatMode
 
     subgraph Codigo[Código del proyecto]
       PagesDir[pages/]
@@ -193,7 +193,7 @@ Sub-prompts adicionales que el agente carga sin que el QA los pida:
 
 ## Cómo conversa el agente
 
-Apenas se activa el modo, lo primero que ve el QA es el banner ASCII de [consolegraph/autoFlowAgent-0.1.1.txt](consolegraph/autoFlowAgent-0.1.1.txt) seguido de un aviso corto de que se está chequeando el entorno (Playwright, browsers). Recién después viene el saludo o el onboarding. Para cambiar el banner basta con editar el `.txt` — no hace falta tocar código.
+Apenas se activa el modo, lo primero que ve el QA es el banner ASCII de [.autoflow/consolegraph/autoFlowAgent-0.1.1.txt](.autoflow/consolegraph/autoFlowAgent-0.1.1.txt) seguido de un aviso corto de que se está chequeando el entorno (Playwright, browsers). Recién después viene el saludo o el onboarding. Para cambiar el banner basta con editar el `.txt` — no hace falta tocar código.
 
 AutoFlow usa la herramienta nativa **`vscode/askQuestions`** de Copilot Chat. En vez de tipear, el QA recibe paneles interactivos:
 
@@ -246,7 +246,7 @@ La **primera vez** detecta que faltan `node_modules` y los browsers de Playwrigh
 | `.autoflow/grafos/` | Diagramas Mermaid generados por script (`grafo.md`, `grafo-nodos.md`). |
 | `.autoflow/user.json` | Identidad del QA (no se commitea). |
 | `.vscode/tasks.json` | Tasks que dispara el agente (`autoflow:start-recording`, `autoflow:run-test*`, `autoflow:run-testset*`). |
-| `consolegraph/` | Banner ASCII de arranque que el agente muestra como primer mensaje. |
+| `.autoflow/consolegraph/` | Banner ASCII de arranque que el agente muestra como primer mensaje. |
 | `pages/` | Page Objects (los puebla el agente). |
 | `tests/` | Specs Playwright (los puebla el agente). |
 | `fixtures/index.ts` | Fixtures tipadas (`test.extend`). Sin clase base. Incluye fixture `humanize`. |

@@ -16,6 +16,7 @@ Este directorio contiene los **prompts del agente AutoFlow**, sus **convenciones
 ├── fingerprints/           # un sidecar JSON por page con nodos[], asserts[], conecta[]
 ├── testsets/               # un JSON por test set
 ├── grafos/                 # diagramas Mermaid generados por script
+├── consolegraph/           # banner ASCII que el agente muestra al arrancar
 ├── nodos.json              # diccionario global de nodos (fuente de verdad)
 ├── user.json               # datos del QA (creado en el onboarding, no se commitea)
 └── user.json.example       # ejemplo del shape de user.json
