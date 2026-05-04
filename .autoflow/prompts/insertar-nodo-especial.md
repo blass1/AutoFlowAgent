@@ -50,25 +50,129 @@ Si elige `🔍 Verificar` y **no hay variables capturadas** antes de `indiceInse
 
 ## 4. Si eligió `🎯 Capturar`
 
-Carrousel con estos campos:
+### 4.1. Nombre de variable
 
-1. `"Nombre de la variable"` → text input.
-   Validá:
-   - Regex `^[a-zA-Z][a-zA-Z0-9_]*$`. Si falla, decilo corto y volvé a pedir.
-   - Que no choque con otra variable ya capturada **antes** de `indiceInsercion`. Si choca, decilo y volvé a pedir.
-2. `"¿De dónde sale el selector?"` → single-select:
-   - `Reusar locator de un nodo existente` → segunda llamada con la lista de nodos del recording que tienen `selectorRaw` (filtrá `goto`/`assert`/`capturar`/`verificar`).
-   - `Pegar selector nuevo (Playwright)` → text input. Esperás algo como `getByTestId('saldo-disponible')` o `getByRole('text', { name: 'Saldo' })`. Validá mínima: que arranque con `getBy*` o `locator(`.
-3. `"Regex opcional para limpiar el texto"` → text input (puede quedar vacío). Si el QA elige parser `currency-arg` y no pone regex, sugerile `\$\s*([\d.,]+)` como default y pediselo confirmar.
-4. `"Parser"` → single-select:
+`vscode/askQuestions` text input: `"Nombre de la variable"`.
+
+Validá:
+- Regex `^[a-zA-Z][a-zA-Z0-9_]*$`. Si falla, decilo corto y volvé a pedir.
+- Que no choque con otra variable ya capturada **antes** de `indiceInsercion`. Si choca, decilo y volvé a pedir.
+
+### 4.2. ¿Cómo armamos el locator?
+
+`vscode/askQuestions` single-select: `"¿Cómo querés armar el locator?"`:
+
+- `🔧 Abrir Chrome hasta este punto para inspeccionar` → ramá **4.2.A**.
+- `📋 Pegar HTML + contarme qué extraer` → ramá **4.2.B**.
+- `🔁 Reusar locator de un nodo existente del recording` → ramá **4.2.C**.
+- `✍️ Pegar un selector Playwright que ya tengo` → ramá **4.2.D**.
+
+#### 4.2.A. Abrir Chrome hasta el paso N
+
+Objetivo: dejarle al QA un Chrome real navegado hasta `indiceInsercion`, con el Playwright Inspector abierto, para que use **"Pick locator"** o DevTools.
+
+Pasos:
+
+1. **Generar spec temporal** en `.autoflow/recordings/{numero}-inspect-{ts}.spec.ts`:
+   - Copiá los `import` del spec original verbatim (incluye fixtures y datos del test set).
+   - Copiá la firma `test('...', async ({ page, ... }) => {`.
+   - Copiá las líneas del cuerpo del test **hasta `indiceInsercion` inclusive**.
+   - Agregá al final, antes del cierre de la función:
+     ```typescript
+     // Inspect: el QA usa Pick locator del Inspector o DevTools.
+     await page.pause();
+     ```
+   - Cerrá la función y el `test(...)`.
+2. **Avisar al QA** antes de lanzar:
+   ```
+   🔧 Abro Chrome hasta el paso {indiceInsercion}. Cuando frene:
+      • Inspector abierto: usá "Pick locator" → click en el elemento → te copia el locator.
+      • Alternativa: F12 → inspeccionar → click derecho en el contenedor → "Copy outerHTML".
+      • Cerrá el Inspector cuando termines y vuelvo yo.
+   ```
+3. **Lanzar** con `runCommands` (bloquea hasta que el QA cierre el Inspector):
+   ```
+   npx playwright test --headed --project=chromium .autoflow/recordings/{numero}-inspect-{ts}.spec.ts
+   ```
+4. **Cuando vuelve el control**, borrá el spec temporal **siempre** (incluso si el QA canceló o falló).
+5. `vscode/askQuestions` single-select: `"¿Qué te trajiste?"`:
+   - `🎯 Locator de Playwright (lo copié del Inspector)` → text input → guardás `selectorRaw`.
+   - `📋 HTML + descripción` → cae al flujo **4.2.B** sin volver a abrir Chrome.
+
+#### 4.2.B. HTML + intent → el agente arma el locator
+
+Carrousel:
+1. `"Pegá el bloque HTML (ej: el contenedor con varias cards)"` → text input multiline.
+2. `"¿Qué querés extraer? (descripción corta)"` → text input. Ej: `el saldo en pesos de la cuenta CA`.
+
+Razoná con tres entradas para construir el locator:
+- El HTML pegado.
+- La descripción del QA.
+- Los locators existentes en el PO destino (lee el `pages/{Page}.ts` para mantener coherencia de estilo).
+
+Reglas para el locator propuesto:
+- Preferí `getByRole`/`getByText` sobre selectores CSS crudos.
+- Si hay múltiples matches en el HTML, encadená `.filter({ hasText: ... })` o `.filter({ has: page.getByText(...) })` hasta que el match sea único.
+- Si el contenedor identifica visiblemente al item (texto "CA", "USD", etc.), filtrá por esos textos.
+- Si hay `data-testid`, `data-qa` u otro atributo estable, usalo (`getByTestId` > CSS).
+- Solo caé a `locator('css')` si no queda otra.
+
+Mostrale al QA el resultado:
+
+```
+Locator propuesto:
+  page.getByRole('article')
+      .filter({ hasText: 'CA' })
+      .filter({ hasText: '$' })
+      .getByTestId('saldo')
+
+Por qué: hay 4 articles tipo cuenta; filtro por 'CA' y '$' aísla la única
+cuenta caja-ahorro en pesos; getByTestId('saldo') agarra el span del importe.
+```
+
+`vscode/askQuestions` single-select: `"¿Confirmás?"`:
+- `✅ Usar este locator`
+- `🔁 Probar otra vez con más contexto` → text input pidiendo qué falló (texto repetido, contenedor distinto, querés `exact: true`, etc.) y volvés a generar.
+- `📝 Lo ajusto a mano` → text input para que el QA pegue su versión final.
+
+Cuando el QA confirma, **persistí** el contexto en `.autoflow/captures/{numero}/{varName}.json`:
+```json
+{
+  "varName": "saldoInicial",
+  "fecha": "<iso-ahora>",
+  "intent": "el saldo en pesos de la cuenta CA",
+  "htmlOrigen": "<HTML pegado, tal cual>",
+  "locatorPropuesto": "page.getByRole('article').filter(...).getByTestId('saldo')",
+  "locatorFinal": "<lo que confirmó el QA>",
+  "razonamiento": "<el bloque 'Por qué' que mostraste>"
+}
+```
+
+Sirve para `actualizar-nodos.md`: si el front cambia, el agente puede releer el HTML/intent originales y comparar contra el HTML actual para reparar el locator sin volver a empezar.
+
+#### 4.2.C. Reusar locator de un nodo existente
+
+`vscode/askQuestions` single-select con la lista de nodos del recording que tienen `selectorRaw` (filtrá `goto`/`assert`/`capturar`/`verificar`). Tomás `selectorRaw` de ese nodo.
+
+#### 4.2.D. Pegar selector Playwright a mano
+
+`vscode/askQuestions` text input: `"Pegá el locator (ej: getByTestId('saldo-disponible'))"`. Validá mínima: que arranque con `getBy*` o `locator(`.
+
+### 4.3. Resto de campos
+
+Carrousel:
+1. `"Regex opcional para limpiar el texto"` → text input (puede quedar vacío). Si el QA elige parser `currency-arg` y no pone regex, sugerile `\$\s*([\d.,]+)` como default y pediselo confirmar.
+2. `"Parser"` → single-select:
    - `text` (string crudo)
    - `number` (genérico)
    - `currency-arg` ($ 1.234,56 → 1234.56)
    - `date`
 
-Determiná la `page` destino: si el selector vino de un nodo existente, usá su `page`. Si lo pegó nuevo, mostralo en single-select con la lista de pages del recording (`"¿A qué Page Object pertenece este selector?"`).
+Determiná la `page` destino:
+- Si el selector vino de un nodo existente (4.2.C), usá su `page`.
+- Si vino de cualquiera de las otras ramas, mostrale al QA single-select con la lista de pages del recording: `"¿A qué Page Object pertenece este selector?"`.
 
-Construí el nodo `capturar` (ver shape en [pom-rules.md](../conventions/pom-rules.md), sección "Nodos especiales").
+Construí el nodo `capturar` (ver shape en [pom-rules.md](../conventions/pom-rules.md), sección "Nodos especiales"). Si hay archivo en `.autoflow/captures/`, sumá los campos `htmlOrigen` e `intent` al nodo además de la persistencia en disco.
 
 ## 5. Si eligió `🔍 Verificar`
 
@@ -88,9 +192,9 @@ Carrousel:
 
 ### 5.c. Carrousel común a ambos modos
 
-1. `"¿De dónde sale el selector del nuevo valor?"` (igual al paso 4.2).
+1. `"¿Cómo armamos el locator del nuevo valor?"` → ofrecé las **mismas 4 opciones** del paso 4.2 (Abrir Chrome / HTML+intent / Reusar / Pegar). Las ramas funcionan idénticas, incluyendo la persistencia en `.autoflow/captures/{numero}/{key}.json` cuando el QA usa HTML+intent (donde `key` es `ref` si modo `variable` o un slug del literal si modo `literal`).
 2. `"Regex opcional para limpiar el texto"` → text input.
-3. `"Parser"` (igual al paso 4.4).
+3. `"Parser"` (igual al paso 4.3).
 4. `"Condición"` → single-select:
    - `igual`
    - `distinto`

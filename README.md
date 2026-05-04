@@ -153,7 +153,9 @@ Tres usos del modelo:
 
 Dos grafos derivados se regeneran con scripts y viven en `.autoflow/grafos/`:
 - [.autoflow/grafos/grafo.md](.autoflow/grafos/grafo.md) — pages y conexiones (`conecta`) entre ellas (alto nivel).
-- [.autoflow/grafos/grafo-nodos.md](.autoflow/grafos/grafo-nodos.md) — nodos coloreados por confiabilidad, con aristas intra-page (`-->`), inter-page (`==>`) y de assert (`-.assert.->`).
+- [.autoflow/grafos/grafo-nodos.md](.autoflow/grafos/grafo-nodos.md) — nodos coloreados por confiabilidad y por tipo (capturar/verificar), con aristas intra-page (`-->`), inter-page (`==>`) y de assert (`-.assert.->`). Pages apiladas verticalmente (TB) con nodos dentro fluyendo en LR para que no se aplaste todo horizontalmente.
+
+Cada grafo se escribe también como `.html` autocontenido (`grafo.html`, `grafo-nodos.html`) con pan/zoom (mermaid + svg-pan-zoom desde CDN). **Abrirlo en el navegador** es lo más cómodo para grafos grandes — la preview de Markdown de VSCode los muestra muy chiquitos.
 
 Detalle completo del shape, escala de confiabilidad y reglas: [.autoflow/conventions/pom-rules.md](.autoflow/conventions/pom-rules.md).
 
@@ -178,8 +180,8 @@ El front del banco es lento, así que los defaults van más holgados que los de 
 
 | Acción | Sub-prompt | Qué hace |
 | --- | --- | --- |
-| ✨ Crear un caso | `crear-caso.md` | Pide nombre, TC, canal (de `urls/urls.json`), lanza codegen, captura el flujo, genera POMs y spec. |
-| ✏️ Editar un caso | `editar-caso.md` | Regrabar, editar código a mano o appendear pasos. |
+| ✨ Crear un caso | `crear-caso.md` | Antes de grabar pregunta si los datos vienen de un Export ALM (.xlsx) o se cargan a mano. Después pide canal (de `urls/urls.json`), lanza codegen, captura el flujo, genera POMs y spec. |
+| ✏️ Editar un caso | `editar-caso.md` | Regrabar, editar código a mano, appendear pasos, o **insertar nodo de captura/verificación** (ver más abajo). |
 | ▶️ Correr un caso | `correr-caso.md` | Ejecuta un spec puntual con UI mode. |
 | 📦 Crear test set | `crear-test-set.md` | Agrupa varios casos en un JSON dentro de `testsets/`. |
 | 🔧 Editar test set | `editar-test-set.md` | Modifica un set existente. |
@@ -190,6 +192,35 @@ Sub-prompts adicionales que el agente carga sin que el QA los pida:
 - `onboarding.md` — primer uso, pide identidad del QA y la guarda en `.autoflow/user.json`.
 - `menu-principal.md` — menú de las 6 acciones.
 - `generar-pom.md` — post-grabación, agrupa nodos en pages y genera código.
+- `insertar-nodo-especial.md` — invocado desde "Editar caso" → "Insertar nodo de captura/verificación".
+
+## Importar casos desde ALM
+
+Si el QA ya tiene el caso cargado en ALM, puede arrancar "Crear caso" con la opción **📄 Importar desde Export ALM (.xlsx)** en lugar de tipear nombre/TC a mano. El flujo es:
+
+1. Exportar el caso desde ALM y dejar el `.xlsx` en `.autoflow/alm-exports/`.
+2. En el chat, elegir la opción de import y escribir el nombre del archivo (o ruta completa).
+3. El script [.autoflow/scripts/parse-alm-export.js](.autoflow/scripts/parse-alm-export.js) lee A2 (test ID), C2 (nombre, lo limpia), G2 (enfoque de prueba) e ignora los pasos de E/F.
+4. El agente confirma con el QA y, si hace falta, le permite editar nombre/TC. Después solo se pregunta el canal y arranca codegen.
+5. El `enfoque` queda guardado en `{numero}-session.json` bajo `almContext.enfoque` para análisis posterior.
+
+## Nodos especiales: capturar y verificar
+
+A veces un caso necesita validar que un valor del front cambió de una manera específica (ej: "el saldo disminuyó después de transferir"). Para eso AutoFlow tiene dos nodos especiales que se insertan **después** de grabar, desde "Editar caso" → "Insertar nodo de captura/verificación":
+
+- **`capturar`** — lee un valor del DOM en un punto del flujo y lo guarda en una variable per-test bajo el nombre que elija el QA.
+- **`verificar`** — vuelve a leer (mismo selector u otro) y compara contra una variable previamente capturada **o** contra un valor literal, según una condición (`igual`, `distinto`, `aumentó`, `disminuyó`, `aumentó al menos N`, `aumentó al menos N%`, `disminuyó al menos N`, `disminuyó al menos N%`).
+
+Las variables viven en el fixture `vars` de [fixtures/index.ts](fixtures/index.ts) y son **per-test** — cada test arranca con un `vars` vacío, sin filtración entre tests. Los parsers de valores (`text`, `number`, `currency-arg`, `date`) están en [data/parsers.ts](data/parsers.ts).
+
+### Cómo se arma el locator
+
+Cuando el QA inserta un nodo especial, el agente le ofrece **4 caminos** para armar el locator:
+
+1. **🔧 Abrir Chrome hasta el paso N** — el agente genera un spec temporal que ejecuta los pasos del caso hasta el punto elegido y termina con `await page.pause()`. Se abre Chrome real con el Playwright Inspector; el QA usa el botón "Pick locator" o copia el outerHTML del contenedor con DevTools.
+2. **📋 HTML + intent** — el QA pega un bloque HTML (ej: el contenedor con varias cards de cuentas) y describe qué quiere extraer (ej: *"el saldo en pesos de la cuenta CA"*). El agente razona sobre HTML + descripción + locators existentes en el PO destino y propone un locator robusto, encadenando `.filter({ hasText: ... })` cuando hace falta. Todo el contexto queda guardado en [.autoflow/captures/](.autoflow/captures/) — el HTML, el intent, el locator final y el razonamiento — para que `actualizar-nodos.md` pueda repararlo si el front cambia.
+3. **🔁 Reusar locator de un nodo existente** del recording.
+4. **✍️ Pegar un selector Playwright** que el QA ya tiene.
 
 ## Cómo conversa el agente
 
@@ -240,10 +271,12 @@ La **primera vez** detecta que faltan `node_modules` y los browsers de Playwrigh
 | `.autoflow/recordings/` | Estado runtime por grabación (`session`, `parsed`, `grupos`, `path`, `spec`). |
 | `.autoflow/fingerprints/` | Sidecar por page con `nodos[]`, `asserts[]` y `conecta[]`. |
 | `.autoflow/testsets/` | Definición de cada test set como JSON. |
+| `.autoflow/alm-exports/` | xlsx exportados desde ALM. El QA suelta el archivo acá para arrancar un caso con datos prellenados. |
+| `.autoflow/captures/` | Por cada nodo `capturar`/`verificar`: HTML pegado, intent del QA, locator propuesto/final y razonamiento. Histórico para reparar locators cuando el front cambia. |
 | `.autoflow/urls/urls.json` | Catálogo de canales (nombre + URL inicial) reusables al crear casos. |
-| `.autoflow/scripts/` | Scripts Node: parser de codegen, generador de traza, grafos, runners. |
+| `.autoflow/scripts/` | Scripts Node: parser de codegen, parser de ALM, generador de traza, grafos (md + html), runners. |
 | `.autoflow/nodos.json` | Diccionario global de nodos — fuente de verdad de cada acción. |
-| `.autoflow/grafos/` | Diagramas Mermaid generados por script (`grafo.md`, `grafo-nodos.md`). |
+| `.autoflow/grafos/` | Diagramas Mermaid (`grafo.md`, `grafo-nodos.md`) y vistas interactivas con pan/zoom (`grafo.html`, `grafo-nodos.html`) para abrir en navegador. |
 | `.autoflow/user.json` | Identidad del QA (no se commitea). |
 | `.vscode/tasks.json` | Tasks que dispara el agente (`autoflow:start-recording`, `autoflow:run-test*`, `autoflow:run-testset*`). |
 | `.autoflow/consolegraph/` | Banner ASCII de arranque que el agente muestra como primer mensaje. |
@@ -251,6 +284,7 @@ La **primera vez** detecta que faltan `node_modules` y los browsers de Playwrigh
 | `tests/` | Specs Playwright (los puebla el agente). |
 | `fixtures/index.ts` | Fixtures tipadas (`test.extend`). Sin clase base. Incluye fixture `humanize`. |
 | `data/types.ts` · `data/usuarios.ts` | Seeds: interface `User` y catálogo de usuarios reusables. |
+| `data/parsers.ts` | Parsers reusables (`parseText`, `parseNumber`, `parseCurrencyAR`, `parseDate`) para nodos `capturar`/`verificar`. |
 | `data/data-{slug}.ts` | Datos por test set, referencian a `usuarios`. Los crea el agente. |
 | `playwright.config.ts` | Timeouts amplios (`actionTimeout`/`navigationTimeout` = 60s) para fronts lentos. |
 | `clearSession.js` | Resetea el proyecto borrando todo lo generado por el agente. |
@@ -269,10 +303,13 @@ node .autoflow/scripts/start-recording.js
 # Parsear el output de codegen (genera nodos crudos)
 node .autoflow/scripts/parse-codegen-output.js <numero>
 
+# Parsear un xlsx exportado de ALM (usado por crear-caso al importar)
+node .autoflow/scripts/parse-alm-export.js <archivo-en-alm-exports-o-ruta-completa>
+
 # Generar la traza de un recording (path.json)
 node .autoflow/scripts/generar-traza.js <numero>
 
-# Regenerar los grafos (escriben en .autoflow/grafos/)
+# Regenerar los grafos (escriben .md + .html en .autoflow/grafos/)
 node .autoflow/scripts/grafo.js
 node .autoflow/scripts/grafo-nodos.js
 

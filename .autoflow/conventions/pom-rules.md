@@ -118,6 +118,28 @@ Campos:
 - **parser**: `text` | `number` | `currency-arg` | `date`. Vive en [data/parsers.ts](../../data/parsers.ts) y exporta funciones que aceptan el string limpio y devuelven el tipo nativo a comparar.
 - **condicion** (verificar): `{ tipo, param?, unidad? }` donde `tipo ∈ { igual, distinto, aumento, disminuyo, aumentoAlMenos, disminuyoAlMenos }`. Para los dos últimos `param` es el delta y `unidad` es `"abs"` o `"pct"`.
 - **confiabilidad**: siempre `null` (no aplica la escala de locator porque no son acciones del usuario).
+- **htmlOrigen** *(opcional)*: bloque HTML que el QA pegó cuando armó el locator vía "HTML + intent". Se guarda como string crudo. Sirve para que [actualizar-nodos.md](../prompts/actualizar-nodos.md) compare contra el HTML actual cuando el front cambia.
+- **intent** *(opcional)*: descripción en una línea de qué quiso extraer el QA (ej: `"el saldo en pesos de la cuenta CA"`). Misma motivación que `htmlOrigen`.
+
+#### Persistencia paralela en `.autoflow/captures/`
+
+Cuando el QA arma un locator usando "HTML + intent", además de los dos campos opcionales en el nodo, se guarda un archivo completo en `.autoflow/captures/{numero}/{key}.json` con:
+
+```json
+{
+  "varName": "saldoInicial",
+  "fecha": "2026-05-04T18:22:11Z",
+  "intent": "el saldo en pesos de la cuenta CA",
+  "htmlOrigen": "<div class=\"cuentas\">...</div>",
+  "locatorPropuesto": "page.getByRole('article').filter({ hasText: 'CA' })...",
+  "locatorFinal": "page.getByRole('article').filter({ hasText: 'CA' }).getByTestId('saldo')",
+  "razonamiento": "Hay 4 articles tipo cuenta; filtro por 'CA' aísla la única en pesos..."
+}
+```
+
+`{key}` es el `varName` (capturar) o el `ref` (verificar modo variable) o un slug del literal (verificar modo literal).
+
+Por qué guardarlo aparte: el HTML puede ser largo (KB) y duplicarlo en `nodos.json` lo ensucia para análisis cross-recording. El nodo lleva solo el resumen; el archivo lleva la evidencia completa.
 
 Traducción a código en el spec:
 

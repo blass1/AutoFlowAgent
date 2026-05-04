@@ -10,12 +10,15 @@ Este directorio contiene los **prompts del agente AutoFlow**, sus **convenciones
 ├── conventions/
 │   └── pom-rules.md        # reglas que el agente sigue al generar POMs y tests
 ├── scripts/                # parser, generador de traza, scripts de grafo, runners
+│   └── lib/                # helpers compartidos entre scripts (render-html, etc.)
 ├── urls/
 │   └── urls.json           # catálogo de canales (nombre + URL inicial)
 ├── recordings/             # archivos generados durante una sesión de grabación
 ├── fingerprints/           # un sidecar JSON por page con nodos[], asserts[], conecta[]
 ├── testsets/               # un JSON por test set
-├── grafos/                 # diagramas Mermaid generados por script
+├── alm-exports/            # xlsx exportados desde ALM, fuente para "crear caso" desde ALM
+├── captures/               # HTML + intent + razonamiento de cada nodo capturar/verificar
+├── grafos/                 # diagramas Mermaid (.md) y vista interactiva (.html)
 ├── consolegraph/           # banner ASCII que el agente muestra al arrancar
 ├── nodos.json              # diccionario global de nodos (fuente de verdad)
 ├── user.json               # datos del QA (creado en el onboarding, no se commitea)
@@ -54,8 +57,12 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 | `fingerprints/{Page}.json` | Sidecar de cada Page Object: `{ page, nodos: [id, ...], asserts: [id, ...], conecta: [destino, ...] }`. `nodos[]` participa del matcheo de prefijo; `asserts[]` no. |
 | `testsets/{slug}.json` | Definición de cada test set (id, nombre, descripción, casos). |
 | `urls/urls.json` | Canales reusables al crear un caso: `{ canales: [{ nombre, url }, ...] }`. |
+| `alm-exports/` | xlsx exportados desde ALM. El QA suelta el archivo acá y `crear-caso.md` lo levanta vía `parse-alm-export.js` para prellenar nombre/TC/enfoque. |
+| `captures/{numero}/{key}.json` | Por cada nodo `capturar`/`verificar` armado vía "HTML + intent": guarda el HTML pegado, el intent del QA, el locator propuesto, el final, y el razonamiento. Sirve para `actualizar-nodos.md` cuando el front cambia. |
 | `grafos/grafo.md` | Mermaid del grafo de pages (alto nivel). |
-| `grafos/grafo-nodos.md` | Mermaid del grafo de nodos coloreado por confiabilidad del locator (1-5). |
+| `grafos/grafo.html` | Vista interactiva del mismo grafo con pan/zoom — abrir en navegador. |
+| `grafos/grafo-nodos.md` | Mermaid del grafo de nodos coloreado por confiabilidad del locator (1-5) y por tipo (capturar/verificar). |
+| `grafos/grafo-nodos.html` | Vista interactiva del grafo de nodos. Mucho mejor que el preview de VSCode para grafos grandes. |
 
 ## Prompts disponibles
 
@@ -64,8 +71,9 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 | `setup-entorno.md` | Se carga al activar el modo. Verifica `node_modules` y los browsers de Playwright; si falta algo, guía al QA para instalarlo. |
 | `onboarding.md` | Primer uso — pide nombre, legajo, equipo, tribu. |
 | `menu-principal.md` | Menú con las 6 acciones. |
-| `crear-caso.md` | Lanza grabación con codegen, pidiendo nombre/TC/canal (de `urls/urls.json`). |
-| `editar-caso.md` | Regrabar / editar código / append. |
+| `crear-caso.md` | Lanza grabación con codegen. Antes pregunta si los datos del caso vienen de un Export ALM (xlsx) o se cargan a mano; si son ALM, levanta nombre/TC/enfoque desde `alm-exports/`. |
+| `editar-caso.md` | Regrabar / editar código / append / insertar nodo de captura/verificación. |
+| `insertar-nodo-especial.md` | Sub-flow invocado desde `editar-caso.md`. Inserta un nodo `capturar` o `verificar` en un caso existente. Para armar el locator ofrece 4 caminos: abrir Chrome hasta el paso N (`page.pause()`), pegar HTML + intent (el agente arma el locator), reusar un locator de un nodo existente, o pegar a mano. |
 | `correr-caso.md` | Corre un caso puntual. |
 | `crear-test-set.md` | Agrupa casos en un test set. |
 | `editar-test-set.md` | Modifica un test set existente. |
@@ -79,8 +87,10 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 | --- | --- |
 | `start-recording.js` | Lanza `playwright codegen` con la URL de la sesión activa. |
 | `parse-codegen-output.js <numero>` | Parsea el `.spec.ts` crudo y emite nodos crudos con selector normalizado y confiabilidad 1-5. |
+| `parse-alm-export.js <archivo>` | Lee un xlsx exportado de ALM (A2 = testId, C2 = nombre, G2 = enfoque). Resuelve la ruta tal cual o dentro de `alm-exports/`. Emite JSON por stdout. |
 | `generar-traza.js <numero>` | Reconstruye `path.json` desde `parsed.json` + `grupos.json` + `nodos.json`. Aborta si algún nodo queda sin asignar. |
-| `grafo.js` | Regenera `grafos/grafo.md` (pages y `conecta`). |
-| `grafo-nodos.js` | Regenera `grafos/grafo-nodos.md` (nodos coloreados por confiabilidad). |
+| `grafo.js` | Regenera `grafos/grafo.md` y `grafos/grafo.html` (pages y `conecta`). |
+| `grafo-nodos.js` | Regenera `grafos/grafo-nodos.md` y `grafos/grafo-nodos.html` (nodos coloreados por confiabilidad y tipo). |
+| `lib/render-html.js` | Helper compartido: envuelve un diagrama Mermaid en un HTML autocontenido con pan/zoom (mermaid + svg-pan-zoom desde CDN). |
 | `run-test.js <path>` | Corre un spec puntual. Acepta `--headed`. |
 | `run-testset.js <slug>` | Corre todos los casos de un test set. Acepta `--headed`. |
