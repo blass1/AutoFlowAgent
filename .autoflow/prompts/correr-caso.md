@@ -52,9 +52,9 @@ Mostrá:
 > `❌ TC-{numero} falló (exit code: {exitCode})`
 
 Después abrí `vscode/askQuestions` single-select: `"¿Qué hacemos?"`:
-- `🔍 Ver el error completo`
-- `📝 Abrir el test para editar`
 - `🔄 Volver a correr`
+- `🧩 Actualizar nodos sospechosos` → cargá `.autoflow/prompts/actualizar-nodos.md` con el contexto `{ specPath, numeroTC: numero }`. Al volver, releé este menú.
+- `📊 Abrir el reporte HTML de Playwright` → ejecutá con `runCommands`: `npx playwright show-report`. Abre el HTML con trace, screenshots y stack del fallo. Al volver, releé este menú.
+- `🔍 Ver el error completo` → releé el output con `terminalLastCommand` y mostrá las líneas relevantes (excepción, stack trace).
+- `📝 Abrir el test para editar`
 - `🏠 Volver al menú`
-
-Si el QA elige `🔍 Ver el error completo`, releé el output del terminal y mostrá las líneas relevantes (excepción, stack trace).

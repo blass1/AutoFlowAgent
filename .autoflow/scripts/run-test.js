@@ -20,7 +20,10 @@ if (!existsSync(archivo)) {
   process.exit(1);
 }
 
-const args = ['playwright', 'test', archivo, '--reporter=line'];
+// `line` para output legible en el terminal + `html` para que el QA pueda abrir
+// el reporte con `npx playwright show-report` cuando algo falla.
+// `--trace=retain-on-failure` guarda el trace.zip de los tests fallidos.
+const args = ['playwright', 'test', archivo, '--reporter=line,html', '--trace=retain-on-failure'];
 if (headed) args.push('--headed', '--workers=1');
 if (grep) args.push('--grep', JSON.stringify(grep));
 

@@ -66,6 +66,34 @@ Los asserts a nivel `page` (ej: `expect(page).toHaveURL(...)`) no tienen locator
 
 Archivo único en la raíz de `.autoflow/` con shape `{ [id]: nodo }`. Se enriquece con cada grabación: si el id no existe, se agrega; si existe, se valida que `accion`, `selector`, `page` y `confiabilidad` coincidan (no se sobreescribe). Es la fuente de verdad para análisis de caminos cross-recording.
 
+#### Reemplazo de nodos (cuando un locator cambia en el front)
+
+Cuando el sub-flow [actualizar-nodos.md](../prompts/actualizar-nodos.md) repara un locator porque el front cambió, el nodo viejo **no se borra**. Recibe dos campos extra:
+
+```json
+{
+  "id": "LoginPage::click::getByRole:button:INGRESAR",
+  "page": "LoginPage",
+  "accion": "click",
+  "selector": "getByRole:button:INGRESAR",
+  "selectorRaw": "getByRole('button', { name: 'INGRESAR' })",
+  "confiabilidad": 4,
+  "deprecated": true,
+  "reemplazadoPor": "LoginPage::click::getByTestId:btn-ingresar"
+}
+```
+
+- `deprecated: true` — el nodo ya no se usa en el código vivo.
+- `reemplazadoPor` — id del nodo nuevo que ocupa su lugar.
+
+Por qué se conserva: las trazas históricas (`{numero}-path.json` de cada recording) apuntan al id viejo. Borrarlo rompería el análisis de caminos pasados. Mantenerlo `deprecated` preserva la historia y deja en claro que está retirado.
+
+Reglas para los consumidores:
+- **`actualizar-nodos.md`** ignora los nodos con `deprecated: true` al armar la lista de candidatos a reparar.
+- **`generar-pom.md`** (matcheo de prefijo, paso 3) ignora los `deprecated: true` — solo matchea contra ids vivos.
+- **`grafo-nodos.js`** dibuja los `deprecated` con estilo distinto (a futuro — hoy los muestra igual).
+- Las **trazas no se reescriben** nunca, aunque sus ids estén deprecated.
+
 ### Traza por recording — `.autoflow/recordings/{numero}-path.json`
 
 Cada grabación, al cerrarse, deja una traza con la secuencia de ids visitados:

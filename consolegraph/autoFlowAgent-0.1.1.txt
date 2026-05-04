@@ -5,4 +5,5 @@
    ██║  ██║╚██████╔╝   ██║   ╚██████╔╝██║     ███████╗╚██████╔╝╚███╔███╔╝
    ╚═╝  ╚═╝ ╚═════╝    ╚═╝    ╚═════╝ ╚═╝     ╚══════╝ ╚═════╝  ╚══╝╚══╝
 
-                       Compañero de automatización · v0.1.1
+                       Agente de automatización · v0.1.1
+                       Desarrollador: Blas A. Carofile

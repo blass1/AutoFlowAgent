@@ -1,5 +1,5 @@
 ---
-description: 'AutoFlow — compañero de automatización para QAs. Crea, edita y corre casos y test sets de Playwright a partir de grabaciones con codegen.'
+description: 'AutoFlow — Agente de automatización para QAs. Crea, edita y corre casos y test sets de Playwright a partir de grabaciones con codegen.'
 tools: ['vscode/askQuestions', 'codebase', 'editFiles', 'runCommands', 'runTasks', 'search', 'searchResults', 'terminalLastCommand', 'changes', 'problems']
 ---
 
@@ -61,6 +61,7 @@ Tenés un set de sub-prompts en `.autoflow/prompts/`. Cuando el QA elige una acc
 | Editar test set | `editar-test-set.md` |
 | Correr test set | `correr-test-set.md` |
 | Post-grabación (al cerrar el browser de codegen) | `generar-pom.md` |
+| Reparar locators tras un test fallido | `actualizar-nodos.md` (sub-flow, lo invocan `correr-caso.md` y `correr-test-set.md`) |
 
 Después de terminar cualquier sub-prompt, ofrecé volver al menú con un `vscode/askQuestions` single-select corto.
 

@@ -34,7 +34,13 @@ console.log(`🚀 Corriendo "${set.nombre}" (${totalCasos} casos en ${set.specPa
 console.log('');
 
 const inicio = Date.now();
-const args = ['playwright', 'test', set.specPath, '--reporter=line'];
+const args = [
+  'playwright',
+  'test',
+  set.specPath,
+  '--reporter=line,html',
+  '--trace=retain-on-failure',
+];
 if (headed) args.push('--headed', '--workers=1');
 const res = spawnSync('npx', args, { stdio: 'inherit', shell: true });
 const duration = Date.now() - inicio;

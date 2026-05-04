@@ -70,6 +70,7 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 | `editar-test-set.md` | Modifica un test set existente. |
 | `correr-test-set.md` | Corre todos los casos de un set. |
 | `generar-pom.md` | Post-grabación — matchea pages existentes, agrupa pasos, genera POMs, sidecars, nodos, traza y spec. |
+| `actualizar-nodos.md` | Sub-flow invocado desde `correr-caso.md` / `correr-test-set.md` cuando un test falla. Repara locators que cambiaron en el front, marca el nodo viejo como `deprecated` y actualiza PO + sidecar + `nodos.json`. |
 
 ## Scripts disponibles
 

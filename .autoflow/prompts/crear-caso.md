@@ -31,7 +31,7 @@ Limpiá `numero` (sin espacios extras, mayúsculas consistentes).
 ### 1.b. Si eligió `➕ Crear nuevo canal`
 
 Hacé una segunda llamada a `vscode/askQuestions` con dos text inputs en carousel:
-1. `"Nombre del canal (ej: Mobile Banking)"` → text input
+1. `"Nombre del canal:"` → text input
 2. `"URL inicial del canal (ej: https://...)"` → text input
 
 Validá que el `nombre` no choque con uno ya existente (case-insensitive). Si choca, decilo corto y volvé a pedir.

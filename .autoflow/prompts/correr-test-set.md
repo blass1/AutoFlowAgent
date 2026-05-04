@@ -59,7 +59,9 @@ Casos que fallaron:
 ```
 
 Después abrí `vscode/askQuestions` single-select: `"¿Qué hacemos?"`:
+- `▶️ Correr solo los que fallaron` → corré con `runCommands` el comando `npx playwright test {specPath} --reporter=line,html --trace=retain-on-failure --headed --workers=1 --grep "<TC-numero1>|<TC-numero2>|..."` armando el grep con los TC que fallaron.
+- `🧩 Actualizar nodos sospechosos de un caso` → si hay más de un TC fallado, abrí `vscode/askQuestions` single-select primero para elegir cuál reparar. Después cargá `.autoflow/prompts/actualizar-nodos.md` con el contexto `{ specPath, numeroTC: <elegido> }`. Al volver, releé este menú.
+- `📊 Abrir el reporte HTML de Playwright` → ejecutá con `runCommands`: `npx playwright show-report`. El reporte tiene traces, screenshots y stack de cada test fallido. Al volver, releé este menú.
 - `🔍 Ver el primer error en detalle`
-- `▶️ Correr solo los que fallaron` → corré con `runCommands` el comando `npx playwright test {specPath} --reporter=line --headed --workers=1 --grep "<TC-numero1>|<TC-numero2>|..."` armando el grep con los TC que fallaron.
 - `🚀 Correr otro test set`
 - `🏠 Volver al menú`
