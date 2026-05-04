@@ -136,7 +136,11 @@ Antes de generar:
 Cuando el comando es válido:
 
 1. **Leé `.autoflow/conventions/pom-rules.md`** primero (sí, todas las veces).
-2. Generá `pages/{NombrePage}.ts` (PascalCase, mismo nombre que la clase, con sufijo `Page`) siguiendo las reglas. Ej: clase `AccesoFimaPage` → archivo `pages/AccesoFimaPage.ts`. Selectores priorizados según la regla. **El JSDoc de la clase queda corto** (1-2 líneas describiendo la pantalla en español, sin listar acciones).
+2. Generá `pages/{NombrePage}.ts` (PascalCase, mismo nombre que la clase, con sufijo `Page`) siguiendo las reglas. Ej: clase `AccesoFimaPage` → archivo `pages/AccesoFimaPage.ts`. **El JSDoc de la clase queda en una línea** (descripción corta de la pantalla en español, sin listar acciones). Reglas críticas para que el test pase en primera corrida:
+   - **Constructor: copiá `selectorRaw` verbatim.** Para cada nodo del rango, leé `nodos.json[<id>].selectorRaw` y pegalo tal cual en `this.<nombreLocator> = page.<selectorRaw>`. **No simplifiques** ni reconstruyas desde el `selector` normalizado, porque podés perder modificadores (`.first()`, `.nth(N)`, `.filter(...)`, chains de `.locator(...)`, `.contentFrame()`) y apuntar a otro elemento.
+   - **Método público: ejecutá todos los nodos del rango en orden, sin saltearte ninguno.** Codegen suele emitir `click` antes de cada `fill` (focus + máscara + validación que el front escucha). Si el rango tiene `click(usuario) + fill(usuario) + click(password) + fill(password) + click(Ingresar)`, el método tiene esos 5 pasos, no solo los 3 "lógicos".
+   - **Si el método retorna otra page**, terminá con `await this.page.waitForLoadState('networkidle')` (o `'domcontentloaded'` si `networkidle` cuelga) **antes** del `return new SiguientePage(this.page)`. Sin eso, el siguiente PO se instancia con DOM a medio pintar y rompe el primer locator.
+   - **Si el primer nodo del rango es `goto`**, **no lo metas en un método del PO**. El `goto` lo dispara el spec antes de instanciar la page (`await page.goto(urlInicial)` + `new LoginPage(page)`). El nodo `goto` queda registrado en `sidecar.nodos[]` igual (es parte de la firma de la page para el matcheo), pero sin código en la clase. Los demás nodos del rango sí tienen métodos.
 3. **Materializá los nodos del rango**:
    - Para cada nodo crudo del rango asignado a esta page, calculá su `id = {NombrePage}::{accion}::{selector}`.
    - Para `fill`/`press`/`selectOption`, si el `valor` parece dato variable (input del usuario, no UI fija), reemplazalo por `*` antes de armar el nodo a guardar.
@@ -254,9 +258,11 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
      import { usuarios } from './usuarios';
 
      export const data{PascalSlug} = {
+       urlInicial: '<urlInicial del session.json>',
        loginPrincipal: usuarios.{keyDelUsuario},
      } as const;
      ```
+   - **`urlInicial` siempre presente**: copiá la URL exacta del campo `urlInicial` de `.autoflow/recordings/{numero}-session.json` (es la URL del canal con la que arrancó la grabación). El spec la usa en `await page.goto(urlInicial)` antes de instanciar el primer PO.
    - Sumá los datos del test del balde (2): `importeTransferencia`, `productoBuscado`, etc. Las keys describen el rol del dato en el flujo, no el valor.
    - **Números planos, sin separadores**: si el recording capturó `'100.000'` o `'1,000'` (porque el QA tipeó así en el form), guardalo en el data file como `100000` (sin punto, sin coma, sin guion bajo, **como `number`** si es claramente un valor numérico). Si el form requiere el separador para aceptar el valor, formatealo en el `fill` del PO con `String(monto).replace(...)` — el data file siempre tiene el número crudo.
    - Si el caso es nuevo en un test set existente: enriquecé el `data-{slug}.ts` que ya está, sin romper las keys que ya usaban otros casos.
@@ -268,13 +274,40 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
 
    ### 8.b. Escribir el spec
 
-   - **Si el test set es nuevo** (el archivo spec no existe):
-     - Creá `tests/{slug}-{id}.spec.ts` con el header de imports (`import { test, expect } from '../fixtures'; import { data{PascalSlug} } from '../data';`) y un primer bloque `test('TC-{numero} {nombre}', ...)` encadenando las pages en orden. **Nada de clases base.** Destructurá `data{PascalSlug}` arriba del test para que las referencias queden cortas.
-     - Creá `.autoflow/testsets/{slug}.json` con el shape de `crear-test-set.md` paso 3, incluyendo `id` y el path del spec en `casos`.
-   - **Si el test set es existente** (el archivo spec ya existe):
-     - **No crees un archivo nuevo**. Editá `tests/{slug}-{id}.spec.ts` y agregá un nuevo bloque `test('TC-{numero} {nombre}', ...)` al final, antes del cierre del archivo. Reusá los imports que ya estén — `data{PascalSlug}` ya debería estar importado.
-     - El JSON del test set ya tiene el path en `casos`; no hace falta tocarlo.
-   - Si hace falta, agregá fixtures a `fixtures/index.ts` (pero **datos no van en fixtures**, van en `data/`).
+   **Template obligatorio del bloque `test()`** (aplica tanto si el test set es nuevo como si es existente). Este patrón evita los 4 fallos más típicos de primera corrida — goto faltante, datos sin destructurar, chaining roto, primitivos vs objeto:
+
+   ```typescript
+   test('TC-{numero} {nombre}', async ({ page }) => {
+     const { urlInicial, loginPrincipal /*, otrosDatos */ } = data{PascalSlug};
+
+     await page.goto(urlInicial);
+     const login = new LoginPage(page);
+     // (no hay loginPage.estaVisible() obligatorio — agregá uno solo si la page expone el método)
+
+     const overview = await login.ingresar(loginPrincipal.user, loginPrincipal.pass);
+     const acceso = await overview.abrirInversiones();
+     // ... encadenado, una variable por page nueva.
+
+     await acceso.suscribir();
+   });
+   ```
+
+   Reglas concretas:
+   - **Imports fijos al tope**: `import { test, expect } from '../fixtures';` + `import { data{PascalSlug} } from '../data';`. Más los `import LoginPage from '../pages/LoginPage';` (uno por cada PO usado).
+   - **`page.goto(urlInicial)` siempre** como primera línea ejecutable. No instancies ningún PO antes.
+   - **Destructurá `data{PascalSlug}`** al inicio del `test()`. Pasá los campos primitivos al método (`loginPrincipal.user`, `loginPrincipal.pass`), no el objeto entero — los métodos del PO reciben strings, no `User`.
+   - **Chaining**: cada método que devuelve la próxima page asignás a una variable nueva (`const overview = await login.ingresar(...)`). No reuses la variable anterior.
+   - **Asserts opcionales**: si la próxima page tiene un método `estaVisible()`, llamalo después de instanciarla. Si no lo tiene, no inventes asserts genéricos como `expect(page).toHaveURL()` salvo que sean parte de los nodos `assert` del recording.
+
+   **Si el test set es nuevo** (el archivo spec no existe):
+   - Creá `tests/{slug}-{id}.spec.ts` con los imports + el primer bloque `test('TC-{numero} {nombre}', ...)` siguiendo el template.
+   - Creá `.autoflow/testsets/{slug}.json` con el shape de `crear-test-set.md` paso 3, incluyendo `id` y el path del spec en `casos`.
+
+   **Si el test set es existente** (el archivo spec ya existe):
+   - **No crees un archivo nuevo**. Editá `tests/{slug}-{id}.spec.ts` y agregá un nuevo bloque `test('TC-{numero} {nombre}', ...)` al final, antes del cierre del archivo. Reusá los imports que ya estén; sumá `LoginPage`/etc. si este caso usa pages que el archivo todavía no tenía.
+   - El JSON del test set ya tiene el path en `casos`; no hace falta tocarlo.
+
+   Si hace falta, agregá fixtures a `fixtures/index.ts` (pero **datos no van en fixtures**, van en `data/`).
 
 ## 9. Generar la traza del recording — OBLIGATORIO
 

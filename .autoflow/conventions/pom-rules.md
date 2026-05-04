@@ -153,14 +153,17 @@ Reglas:
 - Recibe `page: Page` como único parámetro.
 - Todos los locators son **propiedades `private readonly`** inicializadas en el constructor.
 - `page` se guarda como `private readonly page: Page` para usarlo dentro de los métodos cuando haga falta (ej: `expect(this.page).toHaveURL(...)`).
+- **`selectorRaw` del nodo es ground truth — copialo verbatim**. El campo `selectorRaw` en `nodos.json` tiene el chain exacto que codegen capturó (`getByRole(...)`, `locator(...).contentFrame().getByRole(...)`, `getByRole(...).first()`, `locator(...).filter(...).getByText(...)`, etc.). Pegalo igual al constructor; **no simplifiques ni reconstruyas desde el `selector` normalizado**, porque podés perder modificadores como `.first()`, `.nth(N)`, `.filter(...)`, `.locator()` encadenados o el contenedor `iframe` — y terminás apuntando a otro elemento (o a varios, error de strict mode).
 
 ### Selectores — orden de prioridad estricto
 
-1. `page.getByTestId('...')`
-2. `page.getByRole('...', { name: '...' })`
-3. `page.getByLabel('...')`
-4. `page.getByText('...')`
-5. CSS crudo → **último recurso**. Sin comentarios FIXME en el PO: la fragilidad ya queda registrada en `confiabilidad: 1` del nodo en `nodos.json` y se ve en el grafo de nodos.
+Esta prioridad la usa **codegen al grabar**, no el agente al generar el PO. El agente **no elige** el locator: usa el `selectorRaw` del nodo verbatim. La escala existe para evaluar fragilidad después (campo `confiabilidad`, 1-5):
+
+1. `page.getByTestId('...')` → 5
+2. `page.getByRole('...', { name: '...' })` → 4
+3. `page.getByLabel('...')` → 3
+4. `page.getByPlaceholder('...')` / `page.getByText('...')` → 2
+5. `page.locator('...')` (CSS crudo) → 1. Sin comentarios FIXME en el PO: la fragilidad ya queda registrada en `confiabilidad: 1` del nodo y se ve en el grafo.
 
 ### Métodos públicos
 
@@ -168,6 +171,8 @@ Reglas:
 - camelCase.
 - Retornan `Promise<void>` o el siguiente `Page Object` si la acción provoca navegación a otra pantalla.
 - **JSDoc de una sola línea**, en español, concreto sobre qué hace el método. Sin `@param` redundantes (el tipado del parámetro ya documenta). Ejemplo bueno: `/** Loguea con usuario y contraseña; devuelve el dashboard. */`. Ejemplo a evitar: párrafos largos o re-describir lo que el nombre del método ya dice.
+- **Fidelidad al recording — todos los nodos, en orden**. El método ejecuta los nodos del rango de la page **en el mismo orden y sin saltarse ninguno**, aunque parezcan redundantes. Codegen suele emitir `click` antes de `fill` (focus + máscara + validación que el front escucha); colapsar a solo `fill` rompe formularios que dependen del focus event. Ejemplo: el rango `click(usuario) → fill(usuario, '*') → click(password) → fill(password, '*') → click(Ingresar)` se traduce a un método que hace los 5 pasos, no a `inputUsuario.fill(u); inputPassword.fill(p); botonIngresar.click()`.
+- **Métodos que devuelven otra page** terminan con `await this.page.waitForLoadState('networkidle')` (o `'domcontentloaded'` si `networkidle` se cuelga por long-polling) **antes** del `return new SiguientePage(this.page)`. Sin eso, el siguiente PO se instancia mientras el DOM todavía no terminó de pintar y el primer locator del nuevo PO falla en `actionTimeout`.
 
 ### Asserts
 
@@ -337,7 +342,11 @@ export default class LoginPage {
 
   /** Loguea con usuario y contraseña; devuelve el dashboard. */
   async ingresar(usuario: string, password: string): Promise<DashboardPage> {
+    // Codegen capturó click+fill por cada input. Los preservamos: el front
+    // del banco escucha el focus event para activar la máscara del password.
+    await this.inputUsuario.click();
     await this.inputUsuario.fill(usuario);
+    await this.inputPassword.click();
     await this.inputPassword.fill(password);
     await this.botonIngresar.click();
     await this.page.waitForLoadState('networkidle');
@@ -397,12 +406,16 @@ export { expect } from '@playwright/test';
 ```typescript
 import { test, expect } from '../fixtures';
 import { dataRegresionDeLogin } from '../data';
+import LoginPage from '../pages/LoginPage';
 
-test('TC-4521 Login con OTP', async ({ loginPage, page }) => {
-  const { loginPrincipal } = dataRegresionDeLogin;
-  const dashboard = await loginPage.ingresar(loginPrincipal.user, loginPrincipal.pass);
+test('TC-4521 Login con OTP', async ({ page }) => {
+  const { urlInicial, loginPrincipal } = dataRegresionDeLogin;
+
+  await page.goto(urlInicial);
+  const login = new LoginPage(page);
+
+  const dashboard = await login.ingresar(loginPrincipal.user, loginPrincipal.pass);
   await dashboard.estaVisible();
-  await expect(page).toHaveURL(/\/dashboard/);
 });
 ```
 
@@ -412,6 +425,7 @@ test('TC-4521 Login con OTP', async ({ loginPage, page }) => {
 import { usuarios } from './usuarios';
 
 export const dataRegresionDeLogin = {
+  urlInicial: 'https://www.icbc.com.ar/personas',
   loginPrincipal: usuarios.qaIcbcEstandar,
 } as const;
 ```
