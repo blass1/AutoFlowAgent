@@ -7,11 +7,11 @@
 //   - inter-page: por cada A.conecta = [B], desde el último nodo de A hasta el primero de B.
 //
 // Color de los nodos según confiabilidad del locator (5 = id/testid, 1 = CSS frágil).
-// Salida: .autoflow/grafo-nodos.md
+// Salida: .autoflow/grafos/grafo-nodos.md
 //
 // Uso: node .autoflow/scripts/grafo-nodos.js
 
-const { readdirSync, readFileSync, writeFileSync, existsSync } = require('node:fs');
+const { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync } = require('node:fs');
 const { join } = require('node:path');
 
 const nodosPath = '.autoflow/nodos.json';
@@ -197,9 +197,9 @@ const md = [
   '',
 ];
 
-writeFileSync('.autoflow/grafo-nodos.md', md.join('\n'), 'utf8');
+mkdirSync('.autoflow/grafos', { recursive: true });
+const outPath = '.autoflow/grafos/grafo-nodos.md';
+writeFileSync(outPath, md.join('\n'), 'utf8');
 console.log(mermaid);
 console.log('');
-console.log(
-  `✅ Escrito en .autoflow/grafo-nodos.md (${totalNodos} nodos, ${totalAristas} aristas)`,
-);
+console.log(`✅ Escrito en ${outPath} (${totalNodos} nodos, ${totalAristas} aristas)`);

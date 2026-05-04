@@ -173,13 +173,14 @@ Para cada par contiguo `A → B` en esa secuencia:
 
 Esto va construyendo un grafo dirigido de pages que después se usa para visualizaciones y para arrancar grabaciones desde estados intermedios. Hacelo **callado**: no le anuncies al QA que actualizaste el grafo a menos que se lo agregues a una page que ya tenía conexiones (en ese caso, una línea: `Sumé {B} a las conexiones de {A}.`).
 
-Después de actualizar los `conecta`, **regenerá el diagrama Mermaid** ejecutando con `runCommands`:
+Después de actualizar los `conecta`, **regenerá los dos diagramas Mermaid** ejecutando con `runCommands`:
 
 ```
 node .autoflow/scripts/grafo.js
+node .autoflow/scripts/grafo-nodos.js
 ```
 
-Eso reescribe `.autoflow/grafo.md` con el diagrama actualizado. Si el script falla (por ejemplo, no hay fingerprints), seguí adelante igual — no es bloqueante. También callado salvo error.
+Eso reescribe `.autoflow/grafos/grafo.md` (grafo de pages) y `.autoflow/grafos/grafo-nodos.md` (grafo de nodos coloreado por confiabilidad). Si alguno de los scripts falla (por ejemplo, todavía no hay fingerprints), seguí adelante igual — no es bloqueante. También callado salvo error. **Nunca te saltes el de nodos** — es la herramienta principal de análisis del flujo del usuario.
 
 ## 7. Elegir / crear test set
 
@@ -218,26 +219,57 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
 
    ### 8.a. Extraer datos a `data/` — OBLIGATORIO ANTES DE ESCRIBIR EL SPEC
 
-   **Aplica siempre, sin excepciones, tanto si el test set es nuevo como existente.** Los specs **nunca** llevan literales de input. Si el recording tiene `'usuario01'`, `'pass1234'`, `100000`, `'iPhone 15'`, etc., **no van directo al `test(...)`**.
+   **Aplica siempre, sin excepciones, tanto si el test set es nuevo como existente.** Los specs **nunca** llevan literales de input. La estructura tiene dos capas (ver `pom-rules.md` → "Datos de prueba"):
+
+   - `data/usuarios.ts` — catálogo de usuarios reusables (interface `User`).
+   - `data/data-{slug}.ts` — datos del test set, referenciando a `usuarios`.
+
+   El spec **solo importa `data{PascalSlug}` del archivo del test set**, nunca `usuarios` directo. La composición usuario+datos vive en el archivo del test set.
 
    Pasos, en este orden:
-   1. Listá los literales de input del recording: argumentos a `fill`, `press`, `selectOption`, datos de búsqueda, montos, usuarios, contraseñas, números de cuenta, emails, tarjetas, fechas. Ignorá strings de UI fija (titulos, labels, nombres de botones), esos quedan en los locators del PO.
-   2. Listá los archivos en `data/*.ts`.
-   3. Para cada literal:
-      - Si ya existe una constante en `data/` con ese valor (mismo string/número), reutilizala.
-      - Si no existe, agregala al archivo de dominio que corresponda (`data/usuarios.ts`, `data/montos.ts`, `data/productos.ts`, etc.). Si no hay archivo del dominio, **creá `data/{dominio}.ts`** con la constante exportada `as const` y sumala al `export * from './...'` de `data/index.ts`.
-      - La clave interna describe el escenario (`qaEstandar`, `clienteVip`, `transferenciaChica`), no el valor.
-   4. El spec va a importar siempre desde `'../data'` (ej: `import { usuarios, montos } from '../data';`) y va a usar `usuarios.qaEstandar.usuario` en lugar del literal.
 
-   **Checklist pre-escritura** (mental, no se lo muestres al QA): antes de llamar a `edit` para escribir el spec, releé el bloque que vas a escribir y confirmá que NO contiene comillas con datos de input — solo nombres de variables que vienen de `data/`. Si encontrás un literal ahí, frená y volvé al paso 8.a.3.
+   **(1) Identificar y separar los literales del recording**
+   - Recorré los argumentos de `fill`, `press`, `selectOption`. Ignorá los strings de UI fija (títulos, labels, nombres de botones) — esos viven en locators del PO.
+   - Clasificá cada literal en dos baldes:
+     - **Datos de usuario**: usuario, contraseña, DNI. (En el flujo típico viene de los primeros `fill` del login.) También incluí el `canal` del caso (que ya tenés en `session.json`).
+     - **Datos del test**: importes, búsquedas, productos, cuentas destino, fechas, todo lo demás.
+
+   **(2) Cargar / actualizar `data/usuarios.ts`**
+   - Si el archivo no existe, creá:
+     ```typescript
+     import type { User } from './types';
+
+     export const usuarios = {} as const satisfies Record<string, User>;
+     ```
+     y asegurate de que `data/types.ts` exporte `interface User { canal: string; user: string; pass: string; dni?: string; }`. Si tampoco existe, creá `types.ts` también.
+   - Para el usuario del recording: si ya existe una entrada con el mismo `user` + `canal`, **reusala**. Si no, **agregá una nueva entrada** con key `{escenario}{Canal}` en camelCase (ej: `qaIcbcEstandar`, `clienteVipDemoblaze`). Pedile al QA por `vscode/askQuestions` con un text input cuál es el escenario que describe a este usuario, sugiriendo `qaEstandar` por default.
+   - **Importante**: el password en homologación queda en texto plano en el repo. Confirmar con el QA que el usuario es de homologación antes de commitearlo.
+
+   **(3) Crear / actualizar `data/data-{slug}.ts`**
+   - Naming: `data-{slug}.ts` donde `{slug}` es el slug del test set en camelCase (mismo que el spec).
+   - Si no existe, creá:
+     ```typescript
+     import { usuarios } from './usuarios';
+
+     export const data{PascalSlug} = {
+       loginPrincipal: usuarios.{keyDelUsuario},
+     } as const;
+     ```
+   - Sumá los datos del test del balde (2): `importeTransferencia`, `productoBuscado`, etc. Las keys describen el rol del dato en el flujo, no el valor.
+   - Si el caso es nuevo en un test set existente: enriquecé el `data-{slug}.ts` que ya está, sin romper las keys que ya usaban otros casos.
+
+   **(4) Re-exportar desde `data/index.ts`**
+   - Sumá `export * from './types';`, `export * from './usuarios';`, `export * from './data-{slug}';` si todavía no están.
+
+   **Checklist pre-escritura** (mental, no se lo muestres al QA): antes de llamar a `edit` para escribir el spec, releé el bloque que vas a escribir y confirmá que NO contiene comillas con datos de input — solo destructurings desde `data{PascalSlug}`. Si encontrás un literal ahí, frená y volvé al paso 8.a.3.
 
    ### 8.b. Escribir el spec
 
    - **Si el test set es nuevo** (el archivo spec no existe):
-     - Creá `tests/{slug}-{id}.spec.ts` con el header de imports (incluyendo el `import { ... } from '../data';` con todas las constantes que use el caso) y un primer bloque `test('TC-{numero} {nombre}', ...)` encadenando las pages en orden. **Nada de clases base.**
+     - Creá `tests/{slug}-{id}.spec.ts` con el header de imports (`import { test, expect } from '../fixtures'; import { data{PascalSlug} } from '../data';`) y un primer bloque `test('TC-{numero} {nombre}', ...)` encadenando las pages en orden. **Nada de clases base.** Destructurá `data{PascalSlug}` arriba del test para que las referencias queden cortas.
      - Creá `.autoflow/testsets/{slug}.json` con el shape de `crear-test-set.md` paso 3, incluyendo `id` y el path del spec en `casos`.
    - **Si el test set es existente** (el archivo spec ya existe):
-     - **No crees un archivo nuevo**. Editá `tests/{slug}-{id}.spec.ts` y agregá un nuevo bloque `test('TC-{numero} {nombre}', ...)` al final, antes del cierre del archivo. Reusá los imports que ya estén; sumá los que falten al inicio (incluyendo nuevos imports de `'../data'` si este caso usa constantes que el archivo todavía no tenía).
+     - **No crees un archivo nuevo**. Editá `tests/{slug}-{id}.spec.ts` y agregá un nuevo bloque `test('TC-{numero} {nombre}', ...)` al final, antes del cierre del archivo. Reusá los imports que ya estén — `data{PascalSlug}` ya debería estar importado.
      - El JSON del test set ya tiene el path en `casos`; no hace falta tocarlo.
    - Si hace falta, agregá fixtures a `fixtures/index.ts` (pero **datos no van en fixtures**, van en `data/`).
 

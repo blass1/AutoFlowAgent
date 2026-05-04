@@ -74,8 +74,10 @@ flowchart TB
       Fingerprints[fingerprints/]
       Nodos[nodos.json]
       TestSets[testsets/]
-      Grafos[grafo*.md]
+      Grafos[grafos/]
     end
+
+    Banner[consolegraph/<br/>banner ASCII] --> ChatMode
 
     subgraph Codigo[Código del proyecto]
       PagesDir[pages/]
@@ -149,11 +151,28 @@ Tres usos del modelo:
 2. **Análisis de caminos.** Cada grabación deja una `{numero}-path.json` con la secuencia completa de ids visitados (acciones + asserts). Sirve para responder cross-recording "qué tests pasan por este nodo".
 3. **Confiabilidad visible.** Escala 1-5 calculada del tipo de locator: 5 = `getByTestId`, 4 = `getByRole+name`, 3 = `getByLabel`, 2 = `getByPlaceholder`/`getByText`, 1 = CSS crudo. El agente la muestra al QA durante la agrupación y el grafo la pinta.
 
-Dos grafos derivados se regeneran con scripts:
-- [.autoflow/grafo.md](.autoflow/grafo.md) — pages y conexiones (`conecta`) entre ellas (alto nivel).
-- [.autoflow/grafo-nodos.md](.autoflow/grafo-nodos.md) — nodos coloreados por confiabilidad, con aristas intra-page (`-->`), inter-page (`==>`) y de assert (`-.assert.->`).
+Dos grafos derivados se regeneran con scripts y viven en `.autoflow/grafos/`:
+- [.autoflow/grafos/grafo.md](.autoflow/grafos/grafo.md) — pages y conexiones (`conecta`) entre ellas (alto nivel).
+- [.autoflow/grafos/grafo-nodos.md](.autoflow/grafos/grafo-nodos.md) — nodos coloreados por confiabilidad, con aristas intra-page (`-->`), inter-page (`==>`) y de assert (`-.assert.->`).
 
 Detalle completo del shape, escala de confiabilidad y reglas: [.autoflow/conventions/pom-rules.md](.autoflow/conventions/pom-rules.md).
+
+## Datos de prueba
+
+Dos capas, ambas en `data/`:
+
+1. **`data/usuarios.ts`** — catálogo único de usuarios reusables. Cada entrada respeta la interface `User { canal, user, pass, dni? }`. Si una contraseña cambia en homologación, se cambia acá una sola vez y se propaga a todos los test sets que la usen.
+2. **`data/data-{slug}.ts`** — un archivo por test set. Contiene los datos específicos (montos, búsquedas, productos) y **referencia a `usuarios`** para asociar el escenario con un usuario concreto.
+
+El spec **solo importa `data{PascalSlug}` del archivo del test set**, nunca `usuarios` directo. La composición usuario+datos vive en el archivo del test set, en un solo lugar visible.
+
+## Esperas y timeouts
+
+El front del banco es lento, así que los defaults van más holgados que los de Playwright:
+- `actionTimeout` y `navigationTimeout` arrancan en 60s ([playwright.config.ts](playwright.config.ts)).
+- Los POMs usan `await this.page.waitForLoadState('networkidle')` después de navegar, no sleeps.
+- `waitForTimeout` está **permitido como último recurso** pero **siempre con un comentario `// Wait: <razón concreta>`**. Sin esa justificación, no se acepta.
+- Fixture opcional `humanize` con env var `AUTOFLOW_DELAY_MS` para correr "modo lento" cuando se debugea sin tocar código (ej: `AUTOFLOW_DELAY_MS=500 npm test`).
 
 ## Las 6 acciones del menú
 
@@ -173,6 +192,8 @@ Sub-prompts adicionales que el agente carga sin que el QA los pida:
 - `generar-pom.md` — post-grabación, agrupa nodos en pages y genera código.
 
 ## Cómo conversa el agente
+
+Apenas se activa el modo, lo primero que ve el QA es el banner ASCII de [consolegraph/autoFlowAgent-0.1.1.txt](consolegraph/autoFlowAgent-0.1.1.txt) seguido de un aviso corto de que se está chequeando el entorno (Playwright, browsers). Recién después viene el saludo o el onboarding. Para cambiar el banner basta con editar el `.txt` — no hace falta tocar código.
 
 AutoFlow usa la herramienta nativa **`vscode/askQuestions`** de Copilot Chat. En vez de tipear, el QA recibe paneles interactivos:
 
@@ -222,13 +243,16 @@ La **primera vez** detecta que faltan `node_modules` y los browsers de Playwrigh
 | `.autoflow/urls/urls.json` | Catálogo de canales (nombre + URL inicial) reusables al crear casos. |
 | `.autoflow/scripts/` | Scripts Node: parser de codegen, generador de traza, grafos, runners. |
 | `.autoflow/nodos.json` | Diccionario global de nodos — fuente de verdad de cada acción. |
-| `.autoflow/grafo.md` · `grafo-nodos.md` | Diagramas Mermaid generados por script. |
+| `.autoflow/grafos/` | Diagramas Mermaid generados por script (`grafo.md`, `grafo-nodos.md`). |
 | `.autoflow/user.json` | Identidad del QA (no se commitea). |
 | `.vscode/tasks.json` | Tasks que dispara el agente (`autoflow:start-recording`, `autoflow:run-test*`, `autoflow:run-testset*`). |
+| `consolegraph/` | Banner ASCII de arranque que el agente muestra como primer mensaje. |
 | `pages/` | Page Objects (los puebla el agente). |
 | `tests/` | Specs Playwright (los puebla el agente). |
-| `fixtures/index.ts` | Fixtures tipadas (`test.extend`). Sin clase base. |
-| `data/` | Datos de prueba por dominio. Los specs nunca llevan literales — todo se extrae acá. |
+| `fixtures/index.ts` | Fixtures tipadas (`test.extend`). Sin clase base. Incluye fixture `humanize`. |
+| `data/types.ts` · `data/usuarios.ts` | Seeds: interface `User` y catálogo de usuarios reusables. |
+| `data/data-{slug}.ts` | Datos por test set, referencian a `usuarios`. Los crea el agente. |
+| `playwright.config.ts` | Timeouts amplios (`actionTimeout`/`navigationTimeout` = 60s) para fronts lentos. |
 | `clearSession.js` | Resetea el proyecto borrando todo lo generado por el agente. |
 
 Más detalle del estado runtime y los archivos de cada grabación: [.autoflow/README.md](.autoflow/README.md).
@@ -248,7 +272,7 @@ node .autoflow/scripts/parse-codegen-output.js <numero>
 # Generar la traza de un recording (path.json)
 node .autoflow/scripts/generar-traza.js <numero>
 
-# Regenerar los grafos
+# Regenerar los grafos (escriben en .autoflow/grafos/)
 node .autoflow/scripts/grafo.js
 node .autoflow/scripts/grafo-nodos.js
 

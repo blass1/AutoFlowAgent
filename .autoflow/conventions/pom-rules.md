@@ -117,7 +117,7 @@ Reglas:
 - Mantené el orden tal como lo grabó codegen — el matcheo es secuencial.
 - **No incluyas asserts en `nodos[]`** — van en `asserts[]` aparte.
 - Si actualizás un PO existente y le cambiás el flujo, actualizá el sidecar y `nodos.json` en el mismo cambio.
-- El JSDoc de la clase queda corto: una o dos líneas describiendo la pantalla. Nada de listar acciones.
+- El JSDoc de la clase queda en **una sola línea** describiendo la pantalla en español. Nada de listar acciones ni párrafos.
 - `conecta` se enriquece con cada nueva grabación. Si una grabación pasa de `LoginPage` a `CelularesPage` y `CelularesPage` no estaba en `LoginPage.conecta`, sumala (sin duplicar). Si una page nueva apunta a una existente, agregala a la `conecta` de la anterior.
 
 ### Constructor
@@ -132,18 +132,14 @@ Reglas:
 2. `page.getByRole('...', { name: '...' })`
 3. `page.getByLabel('...')`
 4. `page.getByText('...')`
-5. CSS crudo → **último recurso**, comentado:
-   ```typescript
-   // FIXME: selector frágil, pedir data-testid al equipo de desarrollo.
-   private readonly botonOscuro: Locator;
-   ```
+5. CSS crudo → **último recurso**. Sin comentarios FIXME en el PO: la fragilidad ya queda registrada en `confiabilidad: 1` del nodo en `nodos.json` y se ve en el grafo de nodos.
 
 ### Métodos públicos
 
 - **Verbos en infinitivo**, en español: `ingresar`, `confirmar`, `obtenerSaldo`, `irATransferencias`.
 - camelCase.
 - Retornan `Promise<void>` o el siguiente `Page Object` si la acción provoca navegación a otra pantalla.
-- **JSDoc en español** en cada método público con descripción y `@param` por parámetro.
+- **JSDoc de una sola línea**, en español, concreto sobre qué hace el método. Sin `@param` redundantes (el tipado del parámetro ya documenta). Ejemplo bueno: `/** Loguea con usuario y contraseña; devuelve el dashboard. */`. Ejemplo a evitar: párrafos largos o re-describir lo que el nombre del método ya dice.
 
 ### Asserts
 
@@ -152,8 +148,14 @@ Reglas:
 
 ### Esperas
 
-- Nada de `await page.waitForTimeout(...)`.
-- Confiar en el auto-wait de los locators y en `expect(...).toBeVisible()` / `toHaveText()`.
+- **Preferí siempre el auto-wait** de los locators y `expect(...).toBeVisible()` / `toHaveText()`. Para navegaciones, `await this.page.waitForLoadState('networkidle')` o `'domcontentloaded'` dentro del método del PO que dispara la navegación.
+- **`waitForTimeout` está permitido como último recurso**, pero **siempre con un comentario `// Wait: <razón concreta>`** en la línea anterior. La razón tiene que decir qué se está esperando (animación CSS, JS de terceros, redirect lento del banco), no algo genérico tipo "esperar". Ejemplos válidos:
+  ```typescript
+  // Wait: animación de cierre del modal de OTP (no expone evento).
+  await this.page.waitForTimeout(800);
+  ```
+  Sin la justificación concreta, **no lo escribas** — buscá primero un selector mejor o un `expect` con `toBeVisible`.
+- El front del banco es lento. Si un método entero necesita más cuerda, mejor cambiar el `actionTimeout` del fixture de ese caso particular antes que sembrar `waitForTimeout` por todos lados.
 
 ## Tests
 
@@ -172,24 +174,82 @@ Reglas:
 
 Los inputs de los tests (usuarios, montos, búsquedas, cuentas, etc.) **siempre** viven en archivos `.ts` dentro de `data/` en la raíz. Nunca hardcodees literales en el spec ni en el PO.
 
-- Un archivo por dominio: `data/usuarios.ts`, `data/montos.ts`, `data/cuentas.ts`, etc.
-- Cada archivo exporta una constante nombrada con `as const` (objeto agrupado, no variables sueltas).
-- `data/index.ts` re-exporta todo (`export * from './usuarios';`) para que los specs hagan `import { usuarios } from '../data';`.
-- Si un spec necesita un dato que todavía no está en `data/`, **agregalo ahí primero** y después usalo. No lo metas inline.
-- Naming: la constante en camelCase y plural cuando agrupa (`usuarios`, `montos`); las claves internas describen el escenario (`qaEstandar`, `clienteVip`, `transferenciaChica`).
+La estructura tiene **dos capas**:
 
-Ejemplo `data/usuarios.ts`:
+1. **`data/usuarios.ts`** — catálogo único de usuarios reusables. Cada usuario respeta la interface `User`. Si una contraseña cambia acá, se propaga a todos los test sets que lo usen.
+2. **`data/data-{slugTestSet}.ts`** — un archivo por test set. Contiene los datos específicos de ese test set (montos, búsquedas, productos, etc.) y **referencia a `usuarios`** para asociar el escenario con un usuario concreto.
+
+Ambas capas se re-exportan desde `data/index.ts`.
+
+### `data/types.ts`
+
 ```typescript
+export interface User {
+  canal: string;
+  user: string;
+  pass: string;
+  dni?: string;
+}
+```
+
+### `data/usuarios.ts`
+
+```typescript
+import type { User } from './types';
+
 export const usuarios = {
-  qaEstandar: { usuario: 'qa.test', password: 'Qa12345!' },
+  qaIcbcEstandar: {
+    canal: 'ICBC PROD',
+    user: 'qa.estandar',
+    pass: 'Qa12345!',
+    dni: '12345678',
+  },
+} as const satisfies Record<string, User>;
+```
+
+- La key del usuario describe el **escenario + canal** (`qaIcbcEstandar`, `clienteVipIcbc`, `qaDemoblaze`), no el valor.
+- `as const satisfies Record<string, User>` da inmutabilidad y validación de shape al mismo tiempo.
+
+### `data/data-{slugTestSet}.ts`
+
+Un archivo por test set, naming `data-{slug}.ts` donde `slug` es el camelCase del nombre del test set (mismo slug que el spec y el JSON del set).
+
+```typescript
+import { usuarios } from './usuarios';
+
+export const dataRegresionDeCompras = {
+  loginPrincipal: usuarios.qaIcbcEstandar,
+  importeTransferencia: 100000,
+  productoBuscado: 'iPhone 15',
+  cuentaDestino: '0290011200000000123456',
 } as const;
 ```
 
-Uso en el spec:
+- La constante exportada se llama `data{PascalCase del slug}` (ej: `dataRegresionDeCompras`).
+- Las keys internas describen el rol del dato en el flujo (`loginPrincipal`, `importeTransferencia`), no el valor.
+- **Si un dato es genuinamente compartido entre test sets**, podés crear un archivo de dominio aparte (ej: `data/cuentas.ts`) y referenciarlo desde varios `data-*.ts`. No es la regla — la regla es que cada test set se autodescriba.
+
+### `data/index.ts`
+
+Re-exporta todo:
+
 ```typescript
-import { usuarios } from '../data';
-await login.ingresar(usuarios.qaEstandar.usuario, usuarios.qaEstandar.password);
+export * from './types';
+export * from './usuarios';
+export * from './data-regresionDeCompras';
+// (sumá una línea por cada data-{slug}.ts que crees)
 ```
+
+### Uso en el spec
+
+```typescript
+import { dataRegresionDeCompras } from '../data';
+
+const { loginPrincipal, importeTransferencia } = dataRegresionDeCompras;
+await login.ingresar(loginPrincipal.user, loginPrincipal.pass);
+```
+
+El spec **nunca** importa `usuarios` directamente; siempre pasa por el `data-{slug}.ts` del test set. Eso da una sola fuente de verdad por test set y deja la composición de usuario+datos en un lugar visible.
 
 ## Naming — tabla resumen
 
@@ -228,9 +288,7 @@ pages/
 import { expect, Locator, Page } from '@playwright/test';
 import DashboardPage from './DashboardPage';
 
-/**
- * Pantalla de login del Mobile Banking.
- */
+/** Pantalla de login del Mobile Banking. */
 export default class LoginPage {
   private readonly inputUsuario: Locator;
   private readonly inputPassword: Locator;
@@ -244,22 +302,17 @@ export default class LoginPage {
     this.heading = page.getByRole('heading', { name: 'Iniciar sesión' });
   }
 
-  /**
-   * Verifica que la pantalla de login esté visible.
-   */
+  /** Verifica que la pantalla de login esté visible. */
   async estaVisible(): Promise<void> {
     await expect(this.heading).toBeVisible();
   }
 
-  /**
-   * Ingresa con usuario y contraseña, y devuelve la pantalla siguiente.
-   * @param usuario  Nombre de usuario.
-   * @param password Contraseña en texto plano (homologación).
-   */
+  /** Loguea con usuario y contraseña; devuelve el dashboard. */
   async ingresar(usuario: string, password: string): Promise<DashboardPage> {
     await this.inputUsuario.fill(usuario);
     await this.inputPassword.fill(password);
     await this.botonIngresar.click();
+    await this.page.waitForLoadState('networkidle');
     return new DashboardPage(this.page);
   }
 }
@@ -270,9 +323,7 @@ export default class LoginPage {
 ```typescript
 import { expect, Locator, Page } from '@playwright/test';
 
-/**
- * Home del usuario logueado.
- */
+/** Home del usuario logueado. */
 export default class DashboardPage {
   private readonly heading: Locator;
   private readonly linkTransferencias: Locator;
@@ -282,9 +333,7 @@ export default class DashboardPage {
     this.linkTransferencias = page.getByRole('link', { name: 'Transferencias' });
   }
 
-  /**
-   * Verifica que el dashboard esté visible.
-   */
+  /** Verifica que el dashboard esté visible. */
   async estaVisible(): Promise<void> {
     await expect(this.heading).toBeVisible();
   }
@@ -311,27 +360,30 @@ export const test = base.extend<AutoFlowFixtures>({
 });
 
 export { expect } from '@playwright/test';
-
-/**
- * Datos de usuarios de prueba para homologación.
- */
-export const usuariosPrueba = {
-  qaEstandar: { usuario: 'qa.test', password: 'Qa12345!' },
-} as const;
 ```
+
+> Los **datos** no van en `fixtures/`. Van en `data/usuarios.ts` (catálogo de usuarios) y en `data/data-{slugTestSet}.ts` (datos del test set, que referencia a `usuarios`).
 
 ## Test: `tests/regresionDeLogin-4521.spec.ts`
 
 ```typescript
 import { test, expect } from '../fixtures';
-import { usuarios } from '../data';
+import { dataRegresionDeLogin } from '../data';
 
 test('TC-4521 Login con OTP', async ({ loginPage, page }) => {
-  const dashboard = await loginPage.ingresar(
-    usuarios.qaEstandar.usuario,
-    usuarios.qaEstandar.password,
-  );
+  const { loginPrincipal } = dataRegresionDeLogin;
+  const dashboard = await loginPage.ingresar(loginPrincipal.user, loginPrincipal.pass);
   await dashboard.estaVisible();
   await expect(page).toHaveURL(/\/dashboard/);
 });
+```
+
+## Datos: `data/data-regresionDeLogin.ts`
+
+```typescript
+import { usuarios } from './usuarios';
+
+export const dataRegresionDeLogin = {
+  loginPrincipal: usuarios.qaIcbcEstandar,
+} as const;
 ```

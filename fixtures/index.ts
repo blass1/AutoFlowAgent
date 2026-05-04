@@ -10,23 +10,29 @@ import { test as base } from '@playwright/test';
  */
 
 type AutoFlowFixtures = {
-  // Las fixtures se agregan acá a medida que las generan los casos.
+  /** Aplica un delay opcional después de cada acción para frontends lentos.
+   *  Activado vía env var AUTOFLOW_DELAY_MS (entero, ms). Si no está seteada, no hace nada. */
+  humanize: (accion?: () => Promise<void>) => Promise<void>;
+  // Otras fixtures se agregan acá a medida que las generan los casos.
   // Ejemplo:
   //   loginPage: LoginPage;
 };
 
 export const test = base.extend<AutoFlowFixtures>({
-  // Definiciones de fixtures.
-  // Ejemplo:
-  //   loginPage: async ({ page }, use) => {
-  //     await page.goto('/');
-  //     const login = new LoginPage(page);
-  //     await login.estaVisible();
-  //     await use(login);
-  //   },
+  humanize: async ({ page }, use) => {
+    const delayMs = Number.parseInt(process.env.AUTOFLOW_DELAY_MS ?? '0', 10);
+    const aplicar = async (accion?: () => Promise<void>) => {
+      if (accion) await accion();
+      if (delayMs > 0) await page.waitForTimeout(delayMs);
+    };
+    await use(aplicar);
+  },
+  // Otras definiciones de fixtures van acá.
 });
 
 export { expect } from '@playwright/test';
 
-// Los datos de prueba (usuarios, montos, búsquedas, etc.) viven en `data/` en la raíz.
-// Importalos directo desde el spec: `import { usuarios } from '../data';`
+// Los datos de prueba viven en `data/` en la raíz:
+//   - data/usuarios.ts      → catálogo de usuarios reusables (interface User).
+//   - data/data-{slug}.ts   → datos del test set, referenciando a `usuarios`.
+// Importalos desde el spec: `import { dataRegresionDeCompras } from '../data';`

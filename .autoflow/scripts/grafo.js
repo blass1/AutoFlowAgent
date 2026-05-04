@@ -1,10 +1,10 @@
 // Genera un diagrama Mermaid del grafo de pages a partir de los sidecars
 // .autoflow/fingerprints/*.json. Imprime el bloque Mermaid en stdout y lo
-// escribe también en .autoflow/grafo.md para verlo con cualquier preview.
+// escribe también en .autoflow/grafos/grafo.md para verlo con cualquier preview.
 //
 // Uso: node .autoflow/scripts/grafo.js
 
-const { readdirSync, readFileSync, writeFileSync } = require('node:fs');
+const { readdirSync, readFileSync, writeFileSync, mkdirSync } = require('node:fs');
 const { join } = require('node:path');
 
 const dir = '.autoflow/fingerprints';
@@ -70,8 +70,10 @@ const md = [
   '',
 ];
 
-writeFileSync('.autoflow/grafo.md', md.join('\n'), 'utf8');
+mkdirSync('.autoflow/grafos', { recursive: true });
+const outPath = '.autoflow/grafos/grafo.md';
+writeFileSync(outPath, md.join('\n'), 'utf8');
 
 console.log(mermaid);
 console.log('');
-console.log(`✅ Escrito en .autoflow/grafo.md (${nodos.size} pages, ${aristas.length} conexiones)`);
+console.log(`✅ Escrito en ${outPath} (${nodos.size} pages, ${aristas.length} conexiones)`);

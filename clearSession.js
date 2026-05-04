@@ -17,8 +17,8 @@ const skipConfirm = process.argv.includes('--yes') || process.argv.includes('-y'
 const archivos = [
   '.autoflow/user.json',
   '.autoflow/nodos.json',
-  '.autoflow/grafo.md',
-  '.autoflow/grafo-nodos.md',
+  '.autoflow/grafo.md',           // legado (versión anterior, antes de mover a grafos/)
+  '.autoflow/grafo-nodos.md',     // legado
 ];
 
 // Carpetas a vaciar (se borra todo su contenido, la carpeta queda).
@@ -26,12 +26,32 @@ const carpetasAVaciar = [
   '.autoflow/recordings',
   '.autoflow/fingerprints',
   '.autoflow/testsets',
+  '.autoflow/grafos',
   'pages',
   'tests',
 ];
 
-// `data/` recibe trato especial: se borra todo menos index.ts (que se resetea).
+// `data/` recibe trato especial: se borra todo menos los seeds del proyecto
+// (`index.ts`, `types.ts`, `usuarios.ts`), que se resetean a su estado inicial.
 const dataDir = 'data';
+const dataSeeds = new Set(['index.ts', 'types.ts', 'usuarios.ts']);
+
+// Contenido inicial de los seeds de `data/`.
+const SEED_INDEX = `export * from './types';
+export * from './usuarios';
+
+// Cada test set agrega su propio archivo \`data-{slug}.ts\` y suma una línea acá:
+//   export * from './data-{slug}';
+`;
+
+const SEED_USUARIOS = `import type { User } from './types';
+
+/**
+ * Catálogo de usuarios de prueba (homologación).
+ * El agente AutoFlow agrega entradas acá durante "Crear caso".
+ */
+export const usuarios = {} as const satisfies Record<string, User>;
+`;
 
 // No tocar archivos del proyecto que viven dentro de las carpetas a vaciar
 // (típicamente .gitkeep para mantener la carpeta versionada).
@@ -56,7 +76,7 @@ function listarObjetivos() {
 
   if (existsSync(dataDir)) {
     for (const f of readdirSync(dataDir)) {
-      if (f === 'index.ts') continue;
+      if (dataSeeds.has(f)) continue;
       const p = join(dataDir, f);
       if (statSync(p).isFile() && !esPreservado(f)) objetivos.push(p);
     }
@@ -85,17 +105,21 @@ function ejecutarBorrado() {
   }
   if (existsSync(dataDir)) {
     for (const f of readdirSync(dataDir)) {
-      if (f === 'index.ts') continue;
+      if (dataSeeds.has(f)) continue;
       const p = join(dataDir, f);
       if (statSync(p).isFile() && !esPreservado(f)) {
         rmSync(p);
         borrados++;
       }
     }
-    // Reset data/index.ts a estado vacío.
+    // Reset de seeds a su estado inicial.
     if (existsSync(join(dataDir, 'index.ts'))) {
-      writeFileSync(join(dataDir, 'index.ts'), 'export {};\n', 'utf8');
+      writeFileSync(join(dataDir, 'index.ts'), SEED_INDEX, 'utf8');
     }
+    if (existsSync(join(dataDir, 'usuarios.ts'))) {
+      writeFileSync(join(dataDir, 'usuarios.ts'), SEED_USUARIOS, 'utf8');
+    }
+    // types.ts es contrato puro (interface User), no se toca.
   }
   return borrados;
 }
