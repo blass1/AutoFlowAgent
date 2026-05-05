@@ -56,9 +56,19 @@ Usá `vscode/askQuestions` single-select: `"¿Qué hacés con TC-{numero}?"`:
 
 ### Opción `➕ Agregar pasos al final`
 
+`vscode/askQuestions` single-select: `"¿Cómo agregás los pasos?"`:
+- `🎬 Regrabar todo desde cero` → flujo clásico con codegen.
+- `🧱 Construir paso a paso (HTML + acción)` → flujo manual sin volver a navegar.
+
+#### Modo `🎬 Regrabar todo desde cero`
+
 1. Marcá en `.autoflow/recordings/{numero}-session.json` el campo `"modo": "append"`.
 2. Inferí URL final del test (último `page.goto` o estado tras la última acción) y lanzá codegen apuntando ahí.
-3. Cuando el QA diga `terminé`, en `generar-pom.md` mergeá los pasos nuevos al test existente en lugar de sobrescribir.
+3. Cuando el QA diga `terminé`, `generar-pom.md` detecta el `modo: "append"` y entra al **Bloque APPEND** (matchea pages existentes, mergea al spec sin regenerar POMs).
+
+#### Modo `🧱 Construir paso a paso (HTML + acción)`
+
+Cargá [.autoflow/prompts/append-manual.md](append-manual.md) pasándole `numero` y la ruta del spec del caso elegido. Ese sub-prompt arma cada paso nuevo a partir del HTML que pega el QA y la acción que elige, sin re-navegar la web.
 
 ### Opción `🎯 Insertar nodo de captura/verificación`
 

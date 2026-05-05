@@ -160,13 +160,17 @@ Sirve para `actualizar-nodos.md`: si el front cambia, el agente puede releer el 
 
 ### 4.3. Resto de campos
 
-Carrousel:
-1. `"Regex opcional para limpiar el texto"` → text input (puede quedar vacío). Si el QA elige parser `currency-arg` y no pone regex, sugerile `\$\s*([\d.,]+)` como default y pediselo confirmar.
-2. `"Parser"` → single-select:
+Pedilos en este orden (parser primero, regex después y solo si hace falta):
+
+1. `"Parser"` → single-select:
    - `text` (string crudo)
    - `number` (genérico)
    - `currency-arg` ($ 1.234,56 → 1234.56)
    - `date`
+
+2. **Regex opcional**, **solo si parser ∈ {`text`, `date`}**: `"Regex opcional para limpiar el texto (vacío = trim simple)"` → text input.
+
+   Si parser es `number` o `currency-arg`, **no preguntes regex** y dejá `regex: null` en el nodo. Estos parsers ya descartan todo lo no-numérico internamente (`$`, espacios, separadores de miles), así que la regex no aporta — solo introduce ruido si el QA pone una mal.
 
 Determiná la `page` destino:
 - Si el selector vino de un nodo existente (4.2.C), usá su `page`.
@@ -193,8 +197,8 @@ Carrousel:
 ### 5.c. Carrousel común a ambos modos
 
 1. `"¿Cómo armamos el locator del nuevo valor?"` → ofrecé las **mismas 4 opciones** del paso 4.2 (Abrir Chrome / HTML+intent / Reusar / Pegar). Las ramas funcionan idénticas, incluyendo la persistencia en `.autoflow/captures/{numero}/{key}.json` cuando el QA usa HTML+intent (donde `key` es `ref` si modo `variable` o un slug del literal si modo `literal`).
-2. `"Regex opcional para limpiar el texto"` → text input.
-3. `"Parser"` (igual al paso 4.3).
+2. `"Parser"` (igual al paso 4.3.1).
+3. **Regex opcional**, **solo si parser ∈ {`text`, `date`}** (igual al paso 4.3.2). Para `number`/`currency-arg`, omitir.
 4. `"Condición"` → single-select:
    - `igual`
    - `distinto`

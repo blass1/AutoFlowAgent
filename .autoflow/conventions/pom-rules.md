@@ -114,8 +114,14 @@ Campos:
 - **varName** (capturar) / **ref** (verificar, modo `variable`): identificador JS válido (`^[a-zA-Z][a-zA-Z0-9_]*$`).
 - **modo** (verificar): `"variable"` (compara contra `vars.get(ref)`) o `"literal"` (compara contra `literal`).
 - **literal** (verificar, modo `literal`): valor crudo en formato string. Se parsea con el mismo `parser` antes de comparar.
-- **regex** (opcional): si está presente, se aplica al `textContent()` y se usa el primer grupo de captura. Útil para `"Saldo: $ 10.234,56"` → `"10.234,56"`.
-- **parser**: `text` | `number` | `currency-arg` | `date`. Vive en [data/parsers.ts](../../data/parsers.ts) y exporta funciones que aceptan el string limpio y devuelven el tipo nativo a comparar.
+- **regex** (opcional): solo aplica cuando el parser es `text` o `date`. Si está presente, se aplica al `textContent()` y se usa el primer grupo de captura. Para `number` y `currency-arg` se ignora — el parser ya descarta todo lo no-numérico internamente.
+- **parser**: `text` | `number` | `currency-arg` | `date`. Vive en [data/parsers.ts](../../data/parsers.ts) y exporta funciones que aceptan el string crudo y devuelven el tipo nativo a comparar.
+
+#### Parsers numéricos: por qué no piden regex
+
+`parseNumber` y `parseCurrencyAR` están diseñados para que **el QA no tenga que pensar en formatos**: extraen los dígitos del string (descartando `$`, espacios, separadores de miles, palabras alrededor) y devuelven un `number`. Por eso una captura del valor `"$ 1.000.000,00"` y otra del valor `"1.000.000"` (mismo monto, distinto formato) parsean ambas a `1000000` y se comparan limpio. Las comparaciones siempre son numéricas (`>`, `<`, `===`) — no hay riesgo de que un cambio de formato del front rompa el assert.
+
+Si el front muestra el valor con texto adicional alrededor (ej: `"Saldo disponible: $ 10.234,56 (al 04/05/2026)"`), igual no hace falta regex — el parser numérico extrae solamente los dígitos contiguos del importe principal. La regex solo es útil cuando el parser es `text` (querés extraer un substring específico) o `date` (raro, pero puede pasar con formatos no-ISO).
 - **condicion** (verificar): `{ tipo, param?, unidad? }` donde `tipo ∈ { igual, distinto, aumento, disminuyo, aumentoAlMenos, disminuyoAlMenos }`. Para los dos últimos `param` es el delta y `unidad` es `"abs"` o `"pct"`.
 - **confiabilidad**: siempre `null` (no aplica la escala de locator porque no son acciones del usuario).
 - **htmlOrigen** *(opcional)*: bloque HTML que el QA pegó cuando armó el locator vía "HTML + intent". Se guarda como string crudo. Sirve para que [actualizar-nodos.md](../prompts/actualizar-nodos.md) compare contra el HTML actual cuando el front cambia.
@@ -282,6 +288,13 @@ Esta prioridad la usa **codegen al grabar**, no el agente al generar el PO. El a
 - Retornan `Promise<void>` o el siguiente `Page Object` si la acción provoca navegación a otra pantalla.
 - **JSDoc de una sola línea**, en español, concreto sobre qué hace el método. Sin `@param` redundantes (el tipado del parámetro ya documenta). Ejemplo bueno: `/** Loguea con usuario y contraseña; devuelve el dashboard. */`. Ejemplo a evitar: párrafos largos o re-describir lo que el nombre del método ya dice.
 - **Fidelidad al recording — todos los nodos, en orden**. El método ejecuta los nodos del rango de la page **en el mismo orden y sin saltarse ninguno**, aunque parezcan redundantes. Codegen suele emitir `click` antes de `fill` (focus + máscara + validación que el front escucha); colapsar a solo `fill` rompe formularios que dependen del focus event. Ejemplo: el rango `click(usuario) → fill(usuario, '*') → click(password) → fill(password, '*') → click(Ingresar)` se traduce a un método que hace los 5 pasos, no a `inputUsuario.fill(u); inputPassword.fill(p); botonIngresar.click()`.
+- **`fill` siempre se traduce a `pressSequentially`**. Aunque el nodo lleve `accion: "fill"` en `nodos.json` (acción lógica, se mantiene así por compatibilidad con sidecars y trazas), el código emitido **siempre** usa `pressSequentially`. La razón: el front del banco tiene campos con máscara, validators on-change y autocomplete que reaccionan a cada keystroke. `fill` setea el valor de una vez y dispara un solo `input` event, lo que rompe esos campos intermitentemente. `pressSequentially` simula tipeo carácter por carácter (keydown/keyup/input por cada letra), más fiel al comportamiento del usuario real. Cuesta unos ms más por campo, pero la confiabilidad lo compensa. Ejemplo:
+  ```typescript
+  // ✅ Correcto
+  await this.inputUsuario.pressSequentially(usuario);
+  // ❌ NO usar fill, aunque el nodo diga accion: "fill"
+  // await this.inputUsuario.fill(usuario);
+  ```
 - **Métodos que devuelven otra page** terminan con `await this.page.waitForLoadState('networkidle')` (o `'domcontentloaded'` si `networkidle` se cuelga por long-polling) **antes** del `return new SiguientePage(this.page)`. Sin eso, el siguiente PO se instancia mientras el DOM todavía no terminó de pintar y el primer locator del nuevo PO falla en `actionTimeout`.
 
 ### Asserts
