@@ -17,6 +17,7 @@ Este directorio contiene los **prompts del agente AutoFlow**, sus **convenciones
 ├── fingerprints/           # un sidecar JSON por page con nodos[], asserts[], conecta[]
 ├── testsets/               # un JSON por test set
 ├── alm-exports/            # xlsx exportados desde ALM, fuente para "crear caso" desde ALM
+├── auth/                   # storageState .json para login reusable (gitignored)
 ├── captures/               # HTML + intent + razonamiento de cada nodo capturar/verificar
 ├── grafos/                 # diagramas Mermaid (.md) y vista interactiva (.html)
 ├── consolegraph/           # banner ASCII que el agente muestra al arrancar
@@ -34,6 +35,8 @@ Este directorio contiene los **prompts del agente AutoFlow**, sus **convenciones
 **No** se commitea (ya está en `.gitignore`):
 - `user.json` — identidad personal del QA.
 - `recordings/*` — estado efímero de grabaciones (excepto el `.gitkeep`).
+- `auth/*.json` — storageState con tokens de sesión sensibles.
+- `alm-exports/*.xlsx` — exports propietarios del usuario.
 
 ## Archivos de una sesión de grabación
 
@@ -58,21 +61,22 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 | `testsets/{slug}.json` | Definición de cada test set (id, nombre, descripción, casos). |
 | `urls/urls.json` | Canales reusables al crear un caso: `{ canales: [{ nombre, url }, ...] }`. |
 | `alm-exports/` | xlsx exportados desde ALM. El QA suelta el archivo acá y `crear-caso.md` lo levanta vía `parse-alm-export.js` para prellenar nombre/TC/enfoque. |
+| `auth/{canal-slug}-{userKey}.json` | StorageState (cookies + localStorage) post-login. Generado por `setup-auth.md`. Permite que los casos arranquen logueados sin re-grabar el login. **Sensible** — gitignored. |
 | `captures/{numero}/{key}.json` | Por cada nodo `capturar`/`verificar` armado vía "HTML + intent": guarda el HTML pegado, el intent del QA, el locator propuesto, el final, y el razonamiento. Sirve para `actualizar-nodos.md` cuando el front cambia. |
-| `grafos/grafo.md` | Mermaid del grafo de pages (alto nivel). |
-| `grafos/grafo.html` | Vista interactiva del mismo grafo con pan/zoom — abrir en navegador. |
-| `grafos/grafo-nodos.md` | Mermaid del grafo de nodos coloreado por confiabilidad del locator (1-5) y por tipo (capturar/verificar). |
-| `grafos/grafo-nodos.html` | Vista interactiva del grafo de nodos. Mucho mejor que el preview de VSCode para grafos grandes. |
+| `grafos/grafo.md` · `grafo.html` | Grafo de pages (alto nivel). |
+| `grafos/grafo-nodos.md` · `grafo-nodos.html` | Grafo de nodos coloreado por confiabilidad (1-5) y por tipo (capturar/verificar). |
+| `grafos/cobertura.md` · `cobertura.html` | Cobertura de nodos: qué pisa cada test, qué nodos no pisa nadie, % por page. Generado por `cobertura.js`. |
 
 ## Prompts disponibles
 
 | Prompt | Para qué |
 | --- | --- |
-| `setup-entorno.md` | Se carga al activar el modo. Verifica `node_modules` y los browsers de Playwright; si falta algo, guía al QA para instalarlo. |
+| `setup-entorno.md` | Se carga al activar el modo. Verifica `node_modules` y los browsers de Playwright; además detecta sesiones zombi (grabaciones con `activa: true` de hace > 30 min) y le pregunta al QA qué hacer con ellas. |
+| `setup-auth.md` | Graba un `storageState` por (canal, usuario) en `.autoflow/auth/`. Sirve para que los casos arranquen logueados sin volver a grabar el login. |
 | `onboarding.md` | Primer uso — pide nombre, legajo, equipo, tribu. |
-| `menu-principal.md` | Menú con las 6 acciones. |
-| `crear-caso.md` | Lanza grabación con codegen. Antes pregunta si los datos del caso vienen de un Export ALM (xlsx) o se cargan a mano; si son ALM, levanta nombre/TC/enfoque desde `alm-exports/`. |
-| `editar-caso.md` | Regrabar / editar código / append / insertar nodo de captura/verificación. |
+| `menu-principal.md` | Menú con todas las acciones disponibles. |
+| `crear-caso.md` | Lanza grabación con codegen. Pregunta primero si los datos del caso vienen de un Export ALM (xlsx) o se cargan a mano. Después pregunta si arranca logueado (lista los `auth/*.json` del canal). |
+| `editar-caso.md` | Regrabar / editar código / append (mergea pasos al final del spec existente) / insertar nodo de captura/verificación. |
 | `insertar-nodo-especial.md` | Sub-flow invocado desde `editar-caso.md`. Inserta un nodo `capturar` o `verificar` en un caso existente. Para armar el locator ofrece 4 caminos: abrir Chrome hasta el paso N (`page.pause()`), pegar HTML + intent (el agente arma el locator), reusar un locator de un nodo existente, o pegar a mano. |
 | `correr-caso.md` | Corre un caso puntual. |
 | `crear-test-set.md` | Agrupa casos en un test set. |
@@ -85,10 +89,13 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 
 | Script | Para qué |
 | --- | --- |
-| `start-recording.js` | Lanza `playwright codegen` con la URL de la sesión activa. |
+| `start-recording.js` | Lanza `playwright codegen` con la URL de la sesión activa. Si la sesión tiene `authState`, agrega `--load-storage` para arrancar logueado. |
+| `record-auth.js <canal-slug> <userKey> <urlInicial>` | Lanza codegen con `--save-storage` para grabar un login reusable. Output en `auth/{canal-slug}-{userKey}.json`. |
 | `parse-codegen-output.js <numero>` | Parsea el `.spec.ts` crudo y emite nodos crudos con selector normalizado y confiabilidad 1-5. |
 | `parse-alm-export.js <archivo>` | Lee un xlsx exportado de ALM (A2 = testId, C2 = nombre, G2 = enfoque). Resuelve la ruta tal cual o dentro de `alm-exports/`. Emite JSON por stdout. |
 | `generar-traza.js <numero>` | Reconstruye `path.json` desde `parsed.json` + `grupos.json` + `nodos.json`. Aborta si algún nodo queda sin asignar. |
+| `validar-coherencia.js [<slug>]` | Valida coherencia: specs referenciados que no existen, sidecars con ids inexistentes en `nodos.json`, POs sin sidecar, deprecated sin reemplazo. Sin slug valida todo; con slug solo ese test set. Salida `AUTOFLOW_VALIDACION:` con `{ ok, errores, warnings }`. Lo corre `correr-test-set.md` antes de ejecutar. |
+| `cobertura.js` | Agrega todas las trazas (`*-path.json`) y emite `grafos/cobertura.md` + `grafos/cobertura.html` con qué nodos están cubiertos, por qué tests, % por page, y nodos sin cobertura. |
 | `grafo.js` | Regenera `grafos/grafo.md` y `grafos/grafo.html` (pages y `conecta`). |
 | `grafo-nodos.js` | Regenera `grafos/grafo-nodos.md` y `grafos/grafo-nodos.html` (nodos coloreados por confiabilidad y tipo). |
 | `lib/render-html.js` | Helper compartido: envuelve un diagrama Mermaid en un HTML autocontenido con pan/zoom (mermaid + svg-pan-zoom desde CDN). |

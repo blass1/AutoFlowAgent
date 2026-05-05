@@ -15,6 +15,10 @@ blob-report/
 .autoflow/user.json
 .autoflow/recordings/*
 !.autoflow/recordings/.gitkeep
+.autoflow/auth/*.json
+!.autoflow/auth/.gitkeep
+.autoflow/alm-exports/*.xlsx
+!.autoflow/alm-exports/.gitkeep
 
 # VSCode (mantenemos solo tasks.json versionado)
 .vscode/*

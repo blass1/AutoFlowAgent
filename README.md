@@ -180,12 +180,14 @@ El front del banco es lento, así que los defaults van más holgados que los de 
 
 | Acción | Sub-prompt | Qué hace |
 | --- | --- | --- |
-| ✨ Crear un caso | `crear-caso.md` | Antes de grabar pregunta si los datos vienen de un Export ALM (.xlsx) o se cargan a mano. Después pide canal (de `urls/urls.json`), lanza codegen, captura el flujo, genera POMs y spec. |
-| ✏️ Editar un caso | `editar-caso.md` | Regrabar, editar código a mano, appendear pasos, o **insertar nodo de captura/verificación** (ver más abajo). |
+| ✨ Crear un caso | `crear-caso.md` | Pregunta si los datos vienen de un Export ALM (.xlsx) o se cargan a mano, después si arranca logueado (storageState reusable). Pide canal, lanza codegen, captura el flujo, genera POMs y spec. |
+| ✏️ Editar un caso | `editar-caso.md` | Regrabar, editar código a mano, **appendear pasos al final** del caso, o **insertar nodo de captura/verificación**. |
 | ▶️ Correr un caso | `correr-caso.md` | Ejecuta un spec puntual con UI mode. |
 | 📦 Crear test set | `crear-test-set.md` | Agrupa varios casos en un JSON dentro de `testsets/`. |
 | 🔧 Editar test set | `editar-test-set.md` | Modifica un set existente. |
-| 🚀 Correr test set | `correr-test-set.md` | Corre toda la regresión del set. |
+| 🚀 Correr test set | `correr-test-set.md` | Valida coherencia del proyecto (`validar-coherencia.js`) y después corre toda la regresión del set. |
+| 🔐 Configurar login reusable | `setup-auth.md` | Graba un storageState por (canal, usuario) para que los siguientes casos arranquen logueados sin re-grabar el login. |
+| 📊 Ver cobertura de nodos | (corre `cobertura.js`) | Agrega todas las trazas y emite un reporte HTML con qué nodos están cubiertos, por qué tests, y qué pages tienen 0 cobertura. |
 
 Sub-prompts adicionales que el agente carga sin que el QA los pida:
 - `setup-entorno.md` — al activar el modo, verifica `node_modules` y browsers de Playwright.
@@ -193,6 +195,26 @@ Sub-prompts adicionales que el agente carga sin que el QA los pida:
 - `menu-principal.md` — menú de las 6 acciones.
 - `generar-pom.md` — post-grabación, agrupa nodos en pages y genera código.
 - `insertar-nodo-especial.md` — invocado desde "Editar caso" → "Insertar nodo de captura/verificación".
+
+## Login reusable (storageState)
+
+El front del banco tiene login con OTP, y volver a hacerlo cada vez que se graba un caso es un dolor. AutoFlow lo resuelve grabando el login **una sola vez** por (canal, usuario) y reusando el `storageState` (cookies + localStorage) en los siguientes casos.
+
+1. Desde el menú: **🔐 Configurar login reusable** → `setup-auth.md`.
+2. Elegís canal, usuario (de `data/usuarios.ts`), y lanzás codegen. Te logueás una vez (incluyendo OTP si aplica) y cerrás el browser.
+3. El estado queda en `.autoflow/auth/{canal-slug}-{userKey}.json` (gitignored, sensible).
+4. Cuando creás un caso nuevo en ese canal, AutoFlow detecta los logins disponibles y te pregunta si arranca logueado. Si decís sí, codegen arranca con `--load-storage`, el spec generado lleva `test.use({ storageState: ... })` y omite el bloque de login.
+
+Eso reduce la grabación de un caso de "12 pasos (login + OTP + flujo)" a "2 pasos (solo flujo)" cuando ya tenés el auth.
+
+## Validación de coherencia y cobertura
+
+Dos checks automáticos para detectar deuda y guiar la prioridad:
+
+- **Pre-corrida** (`validar-coherencia.js`): se invoca antes de **🚀 Correr Test set**. Detecta specs faltantes, sidecars con ids inexistentes en `nodos.json`, POs sin sidecar, y deprecated sin reemplazo. Si hay errores, te frena antes de gastar tiempo corriendo.
+- **Cobertura** (`cobertura.js`): agrega todas las trazas (`recordings/*-path.json`) y te dice qué nodos pisa cada test, qué nodos no pisa nadie, y % de cobertura por page. La salida es un HTML interactivo en `.autoflow/grafos/cobertura.html` con un grafo de pages coloreado de rojo (0% cubierto) a verde (100%).
+
+Es la diferencia entre "tenemos N tests" y "qué del producto está testeado de verdad".
 
 ## Importar casos desde ALM
 
@@ -272,6 +294,7 @@ La **primera vez** detecta que faltan `node_modules` y los browsers de Playwrigh
 | `.autoflow/fingerprints/` | Sidecar por page con `nodos[]`, `asserts[]` y `conecta[]`. |
 | `.autoflow/testsets/` | Definición de cada test set como JSON. |
 | `.autoflow/alm-exports/` | xlsx exportados desde ALM. El QA suelta el archivo acá para arrancar un caso con datos prellenados. |
+| `.autoflow/auth/` | StorageState (cookies + localStorage) por (canal, usuario) para que los casos arranquen logueados. **Gitignored** — contiene tokens de sesión. |
 | `.autoflow/captures/` | Por cada nodo `capturar`/`verificar`: HTML pegado, intent del QA, locator propuesto/final y razonamiento. Histórico para reparar locators cuando el front cambia. |
 | `.autoflow/urls/urls.json` | Catálogo de canales (nombre + URL inicial) reusables al crear casos. |
 | `.autoflow/scripts/` | Scripts Node: parser de codegen, parser de ALM, generador de traza, grafos (md + html), runners. |
@@ -306,8 +329,18 @@ node .autoflow/scripts/parse-codegen-output.js <numero>
 # Parsear un xlsx exportado de ALM (usado por crear-caso al importar)
 node .autoflow/scripts/parse-alm-export.js <archivo-en-alm-exports-o-ruta-completa>
 
+# Grabar un login reusable (storageState)
+node .autoflow/scripts/record-auth.js <canal-slug> <userKey> <urlInicial>
+
 # Generar la traza de un recording (path.json)
 node .autoflow/scripts/generar-traza.js <numero>
+
+# Validar coherencia (testsets/specs/sidecars/nodos)
+node .autoflow/scripts/validar-coherencia.js          # todo
+node .autoflow/scripts/validar-coherencia.js <slug>   # solo un test set
+
+# Reporte de cobertura (.autoflow/grafos/cobertura.{md,html})
+node .autoflow/scripts/cobertura.js
 
 # Regenerar los grafos (escriben .md + .html en .autoflow/grafos/)
 node .autoflow/scripts/grafo.js

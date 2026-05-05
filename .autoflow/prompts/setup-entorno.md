@@ -37,10 +37,33 @@ Leé el output con `terminalLastCommand`. Solo seguí el branch de "falta instal
      - `🚪 Salir y resolverlo manualmente`
   3. **Si pasó**: `✅ Dependencias instaladas.` y seguí al menú.
 
-## 2. Cierre
+## 2. Sesiones zombi (grabaciones colgadas)
 
-- **Sin instalaciones**: pasá silencioso al flujo siguiente.
+Antes de pasar al menú, chequeá si hay alguna grabación huérfana. Esto pasa cuando el QA cerró VSCode mientras `playwright codegen` corría: la sesión queda con `"activa": true` y el siguiente arranque la levanta y se confunde.
+
+1. Listá `.autoflow/recordings/*-session.json` y filtrá las que tengan `activa === true`.
+2. Para cada una, calculá la antigüedad: `ahora - fechaInicio`. Si la diferencia es **mayor a 30 minutos**, considerala zombi (las activas reales acaban de empezar).
+3. Si no hay zombis, seguí silencioso al cierre.
+4. Si hay una o más, abrí `vscode/askQuestions` single-select:
+
+   ```
+   Encontré {N} grabación(es) sin cerrar:
+     • TC-{numero} "{nombre}" — arrancada hace {hh:mm}
+     • ...
+
+   ¿Qué hacemos?
+   ```
+
+   Opciones:
+   - `🔧 Retomar la última (cargo generar-pom.md con el spec que quedó)` — solo si existe `{numero}.spec.ts` para esa sesión. Marcá `activa: false`, `fechaFin: <ahora>` y cargá `.autoflow/prompts/generar-pom.md`.
+   - `🗑️ Cerrar y borrar todo lo temporal` — para cada zombi, marcá `activa: false`, `fechaFin: <ahora>` y borrá los temporales (`{numero}.spec.ts`, `{numero}-parsed.json`, `{numero}-grupos.json`). Mantené `session.json` y `path.json` si existieran.
+   - `⏭️ Dejar como está y seguir` — solo marcá `activa: false` (sin borrar nada). Útil si el QA quiere inspeccionar a mano.
+
+## 3. Cierre
+
+- **Sin instalaciones ni zombis**: pasá silencioso al flujo siguiente.
 - **Con instalaciones**: cerrá con `🚀 Todo listo. Ahora sí, vamos a lo nuestro.`
+- **Con zombis resueltos**: si elegiste retomar, ya delegaste a `generar-pom.md`. Si elegiste borrar/dejar, una línea corta tipo `Limpié {N} sesiones colgadas.` y seguí.
 
 ## Reinstalación manual
 

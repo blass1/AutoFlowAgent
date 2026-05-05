@@ -21,6 +21,21 @@ Usá `vscode/askQuestions` single-select: `"¿Corro \"{nombre}\" con {N} casos?"
 - `▶️ Sí, dale`
 - `❌ Cancelar`
 
+## 2.5. Validar coherencia antes de correr
+
+Ejecutá con `runCommands`:
+```
+node .autoflow/scripts/validar-coherencia.js {slug}
+```
+
+Leé la última línea con `terminalLastCommand`. Tiene el prefijo `AUTOFLOW_VALIDACION:` seguido de un JSON `{ ok, errores, warnings }`.
+
+- **`ok: true`**: si hay `warnings`, mostralos breve y seguí. Si no, pasá silencioso al paso 3.
+- **`ok: false`**: mostrale al QA los `errores` (lista corta) y abrí `vscode/askQuestions` single-select:
+  - `🔧 Reparar a mano y reintentar` → volvé al paso 1.
+  - `▶️ Correr igual (puede fallar feo)` → seguí al paso 3 con la advertencia incluida.
+  - `🏠 Volver al menú`
+
 ## 3. Ejecutar
 
 Dispará la VSCode task **`autoflow:run-testset-headed`** con el `slug`. La task corre `node .autoflow/scripts/run-testset.js <slug> --headed` que arma `npx playwright test <specPath> --reporter=line --headed --workers=1` con navegador visible (el QA quiere ver la corrida).

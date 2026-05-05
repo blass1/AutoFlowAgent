@@ -29,12 +29,19 @@ if (!sesion) {
   process.exit(1);
 }
 
-const { numero, urlInicial, specPath } = sesion.data;
+const { numero, urlInicial, specPath, authState } = sesion.data;
+
+const usaAuth = authState && existsSync(authState);
 
 console.log('');
 console.log(`🎬 Grabando ${numero}`);
 console.log(`   URL inicial: ${urlInicial}`);
 console.log(`   Output:      ${specPath}`);
+if (usaAuth) {
+  console.log(`   Login:       ${authState} (arrancás logueado)`);
+} else if (authState) {
+  console.log(`   ⚠️  authState configurado pero ${authState} no existe — grabando sin login.`);
+}
 console.log('');
 console.log('Cuando termines, cerrá el browser y volvé al chat de Copilot.');
 console.log('');
@@ -44,8 +51,11 @@ const args = [
   'codegen',
   `--output=${specPath}`,
   '--target=playwright-test',
-  urlInicial,
 ];
+if (usaAuth) {
+  args.push(`--load-storage=${authState}`);
+}
+args.push(urlInicial);
 
 const proc = spawn('npx', args, { stdio: 'inherit', shell: true });
 proc.on('exit', (code) => process.exit(code ?? 0));

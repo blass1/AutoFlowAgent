@@ -32,6 +32,8 @@ Usá `#tool:vscode/askQuestions` con una pregunta single-select: `"¿Qué queré
 - `📦 Crear un Test set`
 - `🔧 Editar un Test set`
 - `🚀 Correr un Test set`
+- `🔐 Configurar login reusable`
+- `📊 Ver cobertura de nodos`
 
 ## Routing
 
@@ -45,3 +47,5 @@ Según la opción que elija el QA, cargá el sub-prompt correspondiente:
 | `📦 Crear un Test set` | `.autoflow/prompts/crear-test-set.md` |
 | `🔧 Editar un Test set` | `.autoflow/prompts/editar-test-set.md` |
 | `🚀 Correr un Test set` | `.autoflow/prompts/correr-test-set.md` |
+| `🔐 Configurar login reusable` | `.autoflow/prompts/setup-auth.md` |
+| `📊 Ver cobertura de nodos` | corré `node .autoflow/scripts/cobertura.js` y abrí `.autoflow/grafos/cobertura.html` con `runCommands` (`start ` en Windows, `open ` en macOS, `xdg-open ` en Linux). Mostrale al QA un resumen de 3 líneas con totales (cubiertos/no cubiertos/% cobertura). |

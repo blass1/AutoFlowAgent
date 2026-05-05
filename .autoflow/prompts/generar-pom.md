@@ -8,6 +8,12 @@ tools: ['vscode/askQuestions', 'edit', 'read', 'runCommands', 'runTasks']
 
 Se carga cuando vuelve el control después de `playwright codegen` (la task `autoflow:start-recording` retornó porque el QA cerró el browser).
 
+## 0. ¿Modo append?
+
+Leé `.autoflow/recordings/{numero}-session.json`. Si tiene `"modo": "append"`, **saltás todo el flujo normal** y vas al **bloque APPEND** al final de este prompt. En modo append no se generan POMs nuevos ni test sets nuevos: se mergean los pasos al spec existente reusando los locators que ya están.
+
+Si no hay `modo` o es `"crear"` (o cualquier otro valor), seguí con el flujo normal del paso 1 en adelante.
+
 ## 1. Cerrar la sesión
 
 Si todavía no se hizo:
@@ -276,6 +282,12 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
 
    **Template obligatorio del bloque `test()`** (aplica tanto si el test set es nuevo como si es existente). Este patrón evita los 4 fallos más típicos de primera corrida — goto faltante, datos sin destructurar, chaining roto, primitivos vs objeto:
 
+   **Si la sesión tiene `authState`** (caso arrancó logueado), agregá **antes** del bloque `test()` la línea:
+   ```typescript
+   test.use({ storageState: '{authState}' });
+   ```
+   y **omití el login** del bloque test (el `urlInicial` debe ser una URL post-login válida; el QA típicamente arranca el recording desde el dashboard, no desde la pantalla de login).
+
    ```typescript
    test('TC-{numero} {nombre}', async ({ page }) => {
      const { urlInicial, loginPrincipal /*, otrosDatos */ } = data{PascalSlug};
@@ -331,6 +343,79 @@ Una vez que `path.json` existe (verificá su existencia antes de borrar nada), b
 **Mantené** como historial:
 - `.autoflow/recordings/{numero}-session.json` (con `activa: false`)
 - `.autoflow/recordings/{numero}-path.json` (traza de nodos)
+
+## Bloque APPEND — pasos nuevos al final de un caso existente
+
+Solo se entra acá si `session.modo === "append"`. La sesión ya trae:
+- `numero` del caso original
+- `specPath` del spec ya existente (`tests/{slug}-{id}.spec.ts`)
+- `testNombre` (ej: `"TC-4521 Login con OTP"`) — el `test('...')` que se va a extender
+
+### A.1. Cerrar la sesión y parsear
+
+Igual al paso 1 (marcar `activa: false`, `fechaFin`) y al paso 2 (correr `parse-codegen-output.js {numero}` para tener `parsed.json`).
+
+### A.2. Matchear contra pages existentes
+
+Igual al paso 3 (prefix matching contra `.autoflow/fingerprints/*.json`). En modo append esperamos que **TODOS** los nodos matcheen con pages conocidas — el QA está extendiendo un flujo, no creando pantallas nuevas.
+
+Si quedan pasos en "Nuevo" sin matchear:
+- Mostralos al QA y abrí `vscode/askQuestions` single-select:
+  - `🆕 Agruparlos como pages nuevas (caemos al flujo normal del paso 4)` — si el QA confirma, salí del bloque APPEND y seguí desde el paso 4 normal.
+  - `↩️ Cancelar el append (no toco nada)` — borrá los archivos temporales y volvé al menú.
+
+### A.3. Confirmar con el QA
+
+Mostrá el listado de los pasos nuevos asignados a sus pages existentes, formato similar al paso 4, y confirmá:
+
+```
+Voy a agregar al final de TC-{numero} estos pasos:
+
+✅ AccesoFima
+   ✅ Paso 1: Click en botón "Fondos Fima"           [4/5]
+   ✅ Paso 2: Click en botón "Fima Premium"          [2/5]
+
+✅ ConfirmarSuscripcion
+   ✅ Paso 3: Click en botón "Suscribir"             [4/5]
+```
+
+`vscode/askQuestions` single-select: `"¿Confirmás el append?"`:
+- `✅ Sí, agregalos`
+- `❌ Cancelar`
+
+### A.4. Editar el spec (sin regenerar)
+
+1. Leé `tests/{slug}-{id}.spec.ts`.
+2. Localizá el bloque `test('{testNombre}', ...)` exacto. Si no aparece, frená y avisá al QA.
+3. Inferí qué variables de page están vivas al final del bloque (ej: la última `const acceso = await overview.abrirInversiones()`). Esa es la **page activa** sobre la que se appendean los métodos.
+4. Para cada page del append, ejecutá los métodos que correspondan a sus pasos. Si la page ya está instanciada en el flujo, reusá la variable; si no, llamá al método que la crea (típicamente el último click de la page anterior). **Reusá los nombres de método que ya existen en cada PO** — no inventes métodos nuevos en append. Si los pasos del recording no encajan en ningún método público existente, frená y avisá al QA: el caso requiere editar los POs, lo que cae fuera del scope de append.
+5. Insertá las llamadas justo **antes del cierre** del bloque `test()`, después de la última línea ejecutable.
+
+### A.5. Sidecars y `nodos.json`
+
+- Los nodos del append ya existen en `nodos.json` (son los mismos ids reusados de pages conocidas) — no se agregan ni modifican.
+- Los sidecars de las pages involucradas tampoco cambian — el matcheo confirmó que el flujo de cada page es el mismo.
+- Si surgió un assert nuevo (`assert` que no estaba en el sidecar.asserts[]), sí sumalo a `asserts[]` del sidecar correspondiente y a `nodos.json`.
+
+### A.6. Traza
+
+Generá la traza igual que en el paso 9 (`generar-traza.js {numero}`) — la nueva traza reemplaza a la vieja en `{numero}-path.json`. El append redefine el camino completo del caso, no solo lo nuevo.
+
+### A.7. Limpieza
+
+Borrá `parsed.json`, `grupos.json` (si se creó) y el `.spec.ts` temporal de codegen (no el spec del caso, que vive en `tests/`). Mantené `session.json` (con `modo: "append"` para historial) y `path.json`.
+
+### A.8. Resumen
+
+```
+✅ Append listo. Sumé al final de TC-{numero} en {specPath}:
+  • {N} pasos nuevos en {pages involucradas}
+```
+
+`vscode/askQuestions` single-select: `"¿Qué hacemos?"`:
+- `▶️ Correrlo ahora`
+- `✏️ Editar otra cosa`
+- `🏠 Volver al menú`
 
 ## 11. Resumen final
 
