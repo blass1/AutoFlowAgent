@@ -397,9 +397,9 @@ export interface DataDolarMep {
 }
 
 export const dataDolarMep: DataDolarMep = {
-  urlInicial: 'https://www.icbc.com.ar/personas',
+  urlInicial: 'https://www.banco.com.ar/personas',
   usuarioPrincipal: {
-    canal: 'ICBC PROD',
+    canal: 'BANCO HOMO',
     user: 'qa.estandar',
     pass: 'Qa12345!',
     dni: '12345678',
@@ -602,9 +602,9 @@ export interface DataDolarMep {
 }
 
 export const dataDolarMep: DataDolarMep = {
-  urlInicial: 'https://www.icbc.com.ar/personas',
+  urlInicial: 'https://www.banco.com.ar/personas',
   usuarioPrincipal: {
-    canal: 'ICBC PROD',
+    canal: 'BANCO HOMO',
     user: 'qa.estandar',
     pass: 'Qa12345!',
     dni: '12345678',

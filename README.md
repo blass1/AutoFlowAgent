@@ -227,8 +227,8 @@ export interface DataDolarMep {
 }
 
 export const dataDolarMep: DataDolarMep = {
-  urlInicial: 'https://www.icbc.com.ar/personas',
-  usuarioPrincipal: { canal: 'ICBC PROD', user: 'qa.estandar', pass: 'Qa12345!' },
+  urlInicial: 'https://www.banco.com.ar/personas',
+  usuarioPrincipal: { canal: 'Home banking', user: 'usuarioPlazoFijo', pass: 'Qa12345!' },
   importeOperacion: 100000,
 };
 ```
