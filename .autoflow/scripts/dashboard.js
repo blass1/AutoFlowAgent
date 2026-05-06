@@ -594,7 +594,11 @@ function html(modelo) {
       const paso = JSON.parse(pasoJsonStr);
       const n = paso.nodo;
       if (!n) return;
-      const promptCopiar = \`Actualizá el **Nodo** \\\`\${n.id}\\\`. El locator actual es \\\`\${n.selectorRaw}\\\` (confiabilidad \${n.confiabilidad ?? '—'}/5). Decime el nuevo locator y aplicá el cambio en pages/\${n.page}.ts, .autoflow/nodos.json y el sidecar correspondiente, marcando el viejo como deprecated.\`;
+      const t = getTest();
+      const promptActualizar = \`Actualizá el **Nodo** \\\`\${n.id}\\\`. El locator actual es \\\`\${n.selectorRaw}\\\` (confiabilidad \${n.confiabilidad ?? '—'}/5). Decime el nuevo locator y aplicá el cambio en pages/\${n.page}.ts, .autoflow/nodos.json y el sidecar correspondiente, marcando el viejo como deprecated.\`;
+      const promptBifurcar = t
+        ? \`Bifurcar **Test** [testId:\${t.testId}] desde el **Nodo** \\\`\${n.id}\\\`. Cargá .autoflow/prompts/bifurcar-caso.md con numeroFuente=\${t.testId} y nodoId=\${n.id} para crear un Test nuevo que reuse el prefix hasta este punto y grabe sólo la cola con codegen + storageState.\`
+        : null;
       const ubic = paso.abrir;
       $('modalContent').innerHTML = \`
         <h3>Nodo</h3>
@@ -607,10 +611,11 @@ function html(modelo) {
           <dt>confiabilidad</dt><dd>\${n.confiabilidad ?? '—'}/5</dd>
           \${n.deprecated ? '<dt>deprecated</dt><dd class="bad">true → ' + esc(n.reemplazadoPor || '?') + '</dd>' : ''}
         </dl>
-        <div class="acciones">
+        <div class="acciones" style="flex-wrap:wrap">
           <button onclick="cerrarModal()">Cerrar</button>
           \${ubic ? \`<button onclick="abrirVSCode('\${esc(ubic.archivo)}', \${ubic.line});cerrarModal()">📂 Abrir en VSCode</button>\` : ''}
-          <button class="primary" onclick="copiar(\${JSON.stringify(promptCopiar)})">📋 Copiar prompt</button>
+          \${promptBifurcar ? \`<button onclick="copiar(\${JSON.stringify(promptBifurcar)})">🍴 Bifurcar Test desde acá</button>\` : ''}
+          <button class="primary" onclick="copiar(\${JSON.stringify(promptActualizar)})">📋 Copiar prompt: actualizar Nodo</button>
         </div>
       \`;
       $('modal').classList.add('show');

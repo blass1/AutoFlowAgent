@@ -36,6 +36,7 @@ Usá `vscode/askQuestions` single-select: `"¿Qué hacés con el **Test** [testI
 - `📝 Editar el código manualmente`
 - `➕ Añadir pasos al final del **Test**`
 - `🎯 Insertar **Nodo** de captura/verificación`
+- `🍴 Bifurcar **Test** desde un **Nodo** (crear Test nuevo a partir de éste)`
 
 ### Opción `🔄 Regrabar desde cero`
 
@@ -75,6 +76,10 @@ Cargá [.autoflow/prompts/append-manual.md](append-manual.md) pasándole `numero
 ### Opción `🎯 Insertar Nodo de captura/verificación`
 
 Cargá [insertar-nodo-especial.md](insertar-nodo-especial.md) pasándole `numero` y la ruta del spec del **Test** elegido. Ese sub-prompt maneja toda la interacción y la edición de archivos.
+
+### Opción `🍴 Bifurcar Test desde un Nodo`
+
+Cargá [bifurcar-caso.md](bifurcar-caso.md) pasándole `numeroFuente: numero`. Ese sub-prompt arma el warm-up con storageState, lanza codegen para grabar la cola, y materializa el **Test** nuevo reusando el prefix de Page Objects + datos del **Test** fuente.
 
 ## 4. Volver al menú
 

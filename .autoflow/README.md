@@ -77,6 +77,7 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 | `crear-caso.md` | Lanza grabación con codegen. Pregunta primero si los datos del caso vienen de un Export ALM (xlsx) o se cargan a mano. Después pregunta si arranca logueado (lista los `auth/*.json` del canal). |
 | `editar-caso.md` | Regrabar / editar código / **añadir pasos al final del Test** (mergea pasos al final del `test()` existente reusando POMs) / insertar nodo de captura/verificación. |
 | `insertar-nodo-especial.md` | Sub-flow invocado desde `editar-caso.md`. Inserta un nodo `capturar` o `verificar` en un caso existente. Para armar el locator ofrece 4 caminos: abrir Chrome hasta el paso N (`page.pause()`), pegar HTML + intent (el agente arma el locator), reusar un locator de un nodo existente, o pegar a mano. |
+| `bifurcar-caso.md` | Sub-flow invocado desde `editar-caso.md` (o desde el botón "🍴 Bifurcar Test desde acá" del dashboard). Crea un **Test** nuevo a partir de un step de un **Test** existente: corre un warm-up que ejecuta el prefix y guarda `storageState`, después lanza codegen con `--load-storage` para grabar sólo la cola, y materializa el nuevo `test()` con prefix copiado + tail recién agrupado. |
 | `correr-caso.md` | Corre un caso puntual. |
 | `crear-test-set.md` | Agrupa casos en un test set. |
 | `editar-test-set.md` | Modifica un test set existente. |

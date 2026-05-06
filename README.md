@@ -81,6 +81,10 @@ flowchart LR
     EditarQue --> EditCodigo[Editar código a mano]
     EditarQue --> EditAppend[Añadir pasos al final del Test]
     EditarQue --> EditNodo[Insertar nodo<br/>capturar / verificar]
+    EditarQue --> EditFork[🍴 Bifurcar Test<br/>desde un Nodo]
+    EditFork --> ForkWarmup[Warm-up: ejecuta prefix<br/>y guarda storageState]
+    ForkWarmup --> ForkTail[Codegen con --load-storage<br/>graba solo la cola]
+    ForkTail --> ForkSpec[Test nuevo:<br/>prefix heredado + tail agrupado]
     EditNodo --> EditNodoLoc{Armar locator}
     EditNodoLoc --> LocPause[🔧 Abrir Chrome hasta paso N]
     EditNodoLoc --> LocHTML[📋 HTML + intent]
@@ -248,7 +252,7 @@ El front del banco es lento, así que los defaults van más holgados que los de 
 | Acción | Sub-prompt | Qué hace |
 | --- | --- | --- |
 | ✨ Crear un caso | `crear-caso.md` | Pregunta si los datos vienen de un Export ALM (.xlsx) o se cargan a mano, después si arranca logueado (storageState reusable). Pide canal, lanza codegen, captura el flujo, genera POMs y spec. |
-| ✏️ Editar un caso | `editar-caso.md` | Regrabar, editar código a mano, **appendear pasos al final** del caso, o **insertar nodo de captura/verificación**. |
+| ✏️ Editar un caso | `editar-caso.md` | Regrabar, editar código a mano, **añadir pasos al final** del caso, **insertar nodo de captura/verificación** o **bifurcar el Test desde un Nodo** para crear uno nuevo que reuse el prefix. |
 | ▶️ Correr un caso | `correr-caso.md` | Ejecuta un spec puntual con UI mode. |
 | 📦 Crear test set | `crear-test-set.md` | Agrupa varios casos en un JSON dentro de `testsets/`. |
 | 🔧 Editar test set | `editar-test-set.md` | Modifica un set existente. |
