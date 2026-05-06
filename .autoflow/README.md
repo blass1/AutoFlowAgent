@@ -91,7 +91,7 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 | --- | --- |
 | `start-recording.js` | Lanza `playwright codegen` con la URL de la sesión activa. Si la sesión tiene `authState`, agrega `--load-storage` para arrancar logueado. |
 | `record-auth.js <canal-slug> <userKey> <urlInicial>` | Lanza codegen con `--save-storage` para grabar un login reusable. Output en `auth/{canal-slug}-{userKey}.json`. |
-| `parse-codegen-output.js <numero>` | Parsea el `.spec.ts` crudo y emite nodos crudos con selector normalizado y confiabilidad 1-5. |
+| `parse-codegen-output.js <numero>` | Parsea el `.spec.ts` crudo y emite nodos crudos con selector normalizado y confiabilidad 1-5. **Descarta** los `press` de Ctrl+C / Ctrl+V / Cmd+C / Cmd+V (shortcuts de portapapeles que el QA suele meter sin querer durante la grabación). |
 | `parse-alm-export.js <archivo>` | Lee un xlsx exportado de ALM (A2 = testId, C2 = nombre, G2 = enfoque). Resuelve la ruta tal cual o dentro de `alm-exports/`. Emite JSON por stdout. |
 | `generar-traza.js <numero>` | Reconstruye `path.json` desde `parsed.json` + `grupos.json` + `nodos.json`. Aborta si algún nodo queda sin asignar. |
 | `validar-coherencia.js [<slug>]` | Valida coherencia: specs referenciados que no existen, sidecars con ids inexistentes en `nodos.json`, POs sin sidecar, deprecated sin reemplazo. Sin slug valida todo; con slug solo ese test set. Salida `AUTOFLOW_VALIDACION:` con `{ ok, errores, warnings }`. Lo corre `correr-test-set.md` antes de ejecutar. |

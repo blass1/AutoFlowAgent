@@ -39,6 +39,7 @@ Shape:
 
 - **id**: `{page}::{accion}::{selector}` — determinístico. El mismo nodo en distintas grabaciones colapsa al mismo id.
 - **accion**: `goto | fill | click | press | check | uncheck | selectOption | hover | dragTo | assert`.
+  - **Filtro de portapapeles**: el parser descarta `press` con valor `Control+C`/`Control+V`/`Meta+C`/`Meta+V` (case-insensitive). Es muy común que el QA pegue valores durante la grabación y esos shortcuts no representan una acción del usuario que queramos reproducir — además, el valor pegado ya queda capturado en el `fill` posterior. Estos nodos no aparecen en `parsed.json`, no se cuentan en el `indice` y no terminan en el PO.
 - **selector**: firma normalizada del locator. Ejemplos:
   - `getByLabel:Usuario`
   - `getByRole:button:Ingresar`

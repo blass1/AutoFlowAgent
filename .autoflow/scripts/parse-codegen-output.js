@@ -269,6 +269,12 @@ for (const linea of lineas) {
   // page.<SEL>.press('Key')
   m = limpia.match(new RegExp(`^await page\\.${SEL}\\.press\\(['"](.+?)['"]\\)`));
   if (m) {
+    // Filtrar shortcuts de portapapeles (Ctrl+C / Ctrl+V / Cmd+C / Cmd+V) que el QA suele
+    // tipear sin querer o para pegar valores durante la grabación. No deben terminar en el
+    // PO porque (a) raramente representan una acción real del usuario que queramos
+    // reproducir, y (b) si el QA pegó datos reales esos valores ya quedaron capturados en
+    // el `fill` posterior. Sin chistar y sin contar el indice — como si nunca hubieran existido.
+    if (/^(Control|Meta)\+[cv]$/i.test(m[2])) continue;
     indice++;
     const selectorRaw = m[1];
     const selector = normalizarSelector(selectorRaw);
