@@ -76,7 +76,7 @@ Si el archivo no existe o el array está vacío, tratalo como lista vacía.
 Usá `#tool:vscode/askQuestions` con estas preguntas en **una sola llamada** (carousel):
 
 1. `"¿Cómo se llama el caso? (ej: Login con OTP)"` → text input
-2. `"¿Qué número tiene? (ej: TC-4521)"` → text input
+2. `"¿Qué número tiene? (testId, ej: 43213)"` → text input
 3. `"¿En qué canal?"` → single-select. Las opciones se arman **dinámicamente** desde `data/urls.ts`:
    - Una opción por cada canal guardado, mostrando `{nombre} — {url}`.
    - Al final, siempre: `➕ Crear nuevo canal`.

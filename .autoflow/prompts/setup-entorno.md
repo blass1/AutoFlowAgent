@@ -48,7 +48,7 @@ Antes de pasar al menú, chequeá si hay alguna grabación huérfana. Esto pasa 
 
    ```
    Encontré {N} grabación(es) sin cerrar:
-     • TC-{numero} "{nombre}" — arrancada hace {hh:mm}
+     • [testId:{numero}] "{nombre}" — arrancada hace {hh:mm}
      • ...
 
    ¿Qué hacemos?

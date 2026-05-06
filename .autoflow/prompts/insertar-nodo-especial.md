@@ -73,7 +73,7 @@ Objetivo: dejarle al QA un Chrome real navegado hasta `indiceInsercion`, con el 
 
 Pasos:
 
-1. **Generar spec temporal** en `.autoflow/recordings/{numero}-inspect-{ts}.spec.ts`:
+1. **Generar spec temporal** en `tests/_temp/{numero}-inspect-{ts}.spec.ts` (la carpeta `tests/_temp/` está excluida del runner via `testIgnore` en `playwright.config.ts`, así que un temp olvidado no se va a colar en una corrida general; igual lo borrás siempre al volver):
    - Copiá los `import` del spec original verbatim (incluye fixtures y datos del test set).
    - Copiá la firma `test('...', async ({ page, ... }) => {`.
    - Copiá las líneas del cuerpo del test **hasta `indiceInsercion` inclusive**.
@@ -90,9 +90,9 @@ Pasos:
       • Alternativa: F12 → inspeccionar → click derecho en el contenedor → "Copy outerHTML".
       • Cerrá el Inspector cuando termines y vuelvo yo.
    ```
-3. **Lanzar** con `runCommands` (bloquea hasta que el QA cierre el Inspector):
+3. **Lanzar** con `runCommands` (bloquea hasta que el QA cierre el Inspector). Pasale el `testIgnore` vacío para que no aplique la exclusión global de `_temp/` cuando el path apunta explícitamente al archivo:
    ```
-   npx playwright test --headed --project=chromium .autoflow/recordings/{numero}-inspect-{ts}.spec.ts
+   npx playwright test --headed --project=chromium tests/_temp/{numero}-inspect-{ts}.spec.ts
    ```
 4. **Cuando vuelve el control**, borrá el spec temporal **siempre** (incluso si el QA canceló o falló).
 5. `vscode/askQuestions` single-select: `"¿Qué te trajiste?"`:
@@ -312,7 +312,7 @@ Actualizá `.autoflow/recordings/{numero}-path.json` insertando el id en la posi
 Mostrale al QA un mensaje corto:
 
 ```
-✅ Listo. Inserté {accion} en TC-{numero} (paso {indiceInsercion}).
+✅ Listo. Inserté {accion} en el **Test** [testId:{numero}] (paso {indiceInsercion}).
    Te recomiendo correr el caso para verificar que el locator funciona:
    npm run run:test -- tests/{archivo}.spec.ts
 ```

@@ -315,10 +315,38 @@ Esta prioridad la usa **codegen al grabar**, no el agente al generar el PO. El a
 
 ## Tests
 
-- Archivo en `tests/` con nombre `{slug}-{idTestSet}.spec.ts` (un spec por test set, no por caso). El `slug` es camelCase del nombre del test set; el id va separado por un único guion. Ejemplo: test set `Regresion de compras` con id `44534` → `tests/regresionDeCompras-44534.spec.ts`.
+- Archivo en `tests/` con nombre `{slug}-{idTestSet}.spec.ts` (un spec por **Test Set**, no por **Test**). El `slug` es camelCase del nombre del **Test Set**; el id va separado por un único guion. Ejemplo: **Test Set** `Dolar MEP` con id `12345` → `tests/dolarMep-12345.spec.ts`.
 - Usar `test.extend` desde `fixtures/index.ts`. **Nada de clases base, nada de `BaseTest`.**
-- Cada test arranca con `await page.goto(urlInicial)` o usa una fixture que lo haga por él.
-- Nombre del test: `'TC-{numero} {nombre}'`.
+
+### Estructura: `test.describe` + `test.step`
+
+Cada **Test Set** = un único `test.describe` que envuelve a todos los `test()` del set. Cada **Test** dentro = un `test('...')` con sus pasos lógicos en `test.step`.
+
+**Formato de los nombres** (contrato del repo, no improvisar):
+- Describe: `"{nombreTestSet} [testSetId:{id}]"` — ej: `"Dolar MEP [testSetId:12345]"`.
+- Test: `"{nombreCaso} [testId:{numero}]"` — ej: `"Compra de dolar mep con CA [testId:43213]"`.
+- **Sin prefijo `TC-`** ni nada antes del nombre. El id va al final entre corchetes con la key correspondiente (`testSetId` o `testId`).
+
+**Reglas de `test.step`**:
+- Cada acción lógica del **Test** (abrir el canal, loguearse, navegar a una pantalla, ejecutar la operación, verificar) va envuelta en `await test.step('comentario corto', async () => { ... })`.
+- El comentario describe **qué hace el paso** desde la perspectiva del usuario (`'Loguearse y entrar al overview'`, `'Suscribir al fondo Fima Premium'`). No hablar de tipos ni clases.
+- Si el step produce una page nueva, **retornala** del callback y asignala a una `const`: `const overview = await test.step('...', async () => login.ingresar(...));`.
+- El `await page.goto(urlInicial)` también va en su propio step (`'Abrir el canal'`).
+- Una declaración por step. No mezclar dos navegaciones distintas en el mismo step — partilas.
+
+### `test.use({ storageState })`
+
+Si el caso arranca logueado, va **dentro del `describe`** (afecta a todos los `test()` del set):
+
+```typescript
+test.describe('Dolar MEP [testSetId:12345]', () => {
+  test.use({ storageState: '.autoflow/auth/icbc-prod-usuarioPrincipal.json' });
+
+  test('Compra de dolar mep con CA [testId:43213]', async ({ page }) => { ... });
+});
+```
+
+Si distintos **Tests** del set necesitan distintos storage states, usá `test.use` dentro de un `test.describe` anidado o repensá si en realidad son **Test Sets** distintos.
 
 ## Fixtures
 
@@ -328,16 +356,15 @@ Esta prioridad la usa **codegen al grabar**, no el agente al generar el PO. El a
 
 ## Datos de prueba — `data/`
 
-Los inputs de los tests (usuarios, montos, búsquedas, cuentas, etc.) **siempre** viven en archivos `.ts` dentro de `data/` en la raíz. Nunca hardcodees literales en el spec ni en el PO.
+Los inputs de los tests (usuarios, contraseñas, montos, búsquedas, cuentas, etc.) **siempre** viven en archivos `.ts` dentro de `data/` en la raíz. Nunca hardcodees literales en el spec ni en el PO.
 
-La estructura tiene **dos capas**:
+### Cada Test Set se autocontiene en su propio `data-{slug}.ts`
 
-1. **`data/usuarios.ts`** — catálogo único de usuarios reusables. Cada usuario respeta la interface `User`. Si una contraseña cambia acá, se propaga a todos los test sets que lo usen.
-2. **`data/data-{slugTestSet}.ts`** — un archivo por test set. Contiene los datos específicos de ese test set (montos, búsquedas, productos, etc.) y **referencia a `usuarios`** para asociar el escenario con un usuario concreto.
+**No hay catálogo central de usuarios.** Cada **Test Set** define sus usuarios, contraseñas, montos y datos en un único archivo: `data/data-{slugTestSet}.ts`. El archivo declara una **interface** propia que tipa la forma del data file y exporta una constante con los valores.
 
-Ambas capas se re-exportan desde `data/index.ts`.
+Ventaja: cada **Test Set** es independiente. Un cambio en un set no afecta a otros, y el archivo se lee de punta a punta sin saltar entre archivos.
 
-### `data/types.ts`
+### `data/types.ts` (compartido — solo contratos genéricos)
 
 ```typescript
 export interface User {
@@ -346,66 +373,72 @@ export interface User {
   pass: string;
   dni?: string;
 }
+
+export interface Canal {
+  nombre: string;
+  url: string;
+}
 ```
 
-### `data/usuarios.ts`
+`User` y `Canal` son tipos reusables: cada `data-{slug}.ts` los importa para tipar sus campos de usuario y URL.
+
+### `data/data-{slugTestSet}.ts` — autocontenido (interface + valores)
+
+Un archivo por **Test Set**, naming `data-{slug}.ts` donde `slug` es el camelCase del nombre del **Test Set** (mismo slug que el spec y el JSON del set).
 
 ```typescript
 import type { User } from './types';
 
-export const usuarios = {
-  qaIcbcEstandar: {
+export interface DataDolarMep {
+  urlInicial: string;
+  usuarioPrincipal: User;
+  importeOperacion: number;
+  cuentaOrigen: string;
+}
+
+export const dataDolarMep: DataDolarMep = {
+  urlInicial: 'https://www.icbc.com.ar/personas',
+  usuarioPrincipal: {
     canal: 'ICBC PROD',
     user: 'qa.estandar',
     pass: 'Qa12345!',
     dni: '12345678',
   },
-} as const satisfies Record<string, User>;
+  importeOperacion: 100000,
+  cuentaOrigen: '0290011200000000123456',
+};
 ```
 
-- La key del usuario describe el **escenario + canal** (`qaIcbcEstandar`, `clienteVipIcbc`, `qaDemoblaze`), no el valor.
-- `as const satisfies Record<string, User>` da inmutabilidad y validación de shape al mismo tiempo.
-
-### `data/data-{slugTestSet}.ts`
-
-Un archivo por test set, naming `data-{slug}.ts` donde `slug` es el camelCase del nombre del test set (mismo slug que el spec y el JSON del set).
-
-```typescript
-import { usuarios } from './usuarios';
-
-export const dataRegresionDeCompras = {
-  loginPrincipal: usuarios.qaIcbcEstandar,
-  importeTransferencia: 100000,
-  productoBuscado: 'iPhone 15',
-  cuentaDestino: '0290011200000000123456',
-} as const;
-```
-
-- La constante exportada se llama `data{PascalCase del slug}` (ej: `dataRegresionDeCompras`).
-- Las keys internas describen el rol del dato en el flujo (`loginPrincipal`, `importeTransferencia`), no el valor.
-- **Números siempre planos**: sin separadores de miles ni decimales formateados. `100000` ✓, `100.000` ✗, `100_000` ✗, `'100.000'` ✗. Esto vale para montos, IDs, números de cuenta, etc. Si el front muestra `$100.000`, el dato del test es `100000` — el formateo lo hace la UI, no el data file. Si el formulario **exige** el valor con separador para aceptarlo, formatealo en el momento del `fill` (en el método del PO), no en el data file.
+Reglas:
+- La interface se llama `Data{PascalSlug}` y la constante `data{PascalSlug}` (ej: `DataDolarMep` / `dataDolarMep`).
+- **No usar `as const`** — la interface ya da el contrato de tipos.
+- Los usuarios viven como propiedades del data file (`usuarioPrincipal`, `usuarioVendedor`, etc.), tipados con `User`. Si el flujo usa varios usuarios, asigná un nombre distinto a cada uno (no agrupes en un sub-objeto `usuarios`).
+- Las contraseñas en homologación quedan en texto plano. El password se mueve solo si cambia en homologación.
+- Las keys internas describen el rol del dato en el flujo (`importeOperacion`, `cuentaOrigen`), no el valor.
+- **Números siempre planos**: sin separadores de miles ni decimales formateados. `100000` ✓, `100.000` ✗, `100_000` ✗, `'100.000'` ✗. Si el formulario exige el valor con separador, formatealo en el método del PO al hacer el `fill`, no en el data file.
 
 ### `data/index.ts`
 
-Re-exporta todo:
+Re-exporta tipos compartidos, urls y los data files de cada **Test Set**:
 
 ```typescript
 export * from './types';
-export * from './usuarios';
-export * from './data-regresionDeCompras';
+export * from './urls';
+export * from './parsers';
+export * from './data-dolarMep';
 // (sumá una línea por cada data-{slug}.ts que crees)
 ```
 
 ### Uso en el spec
 
 ```typescript
-import { dataRegresionDeCompras } from '../data';
+import { dataDolarMep } from '../data';
 
-const { loginPrincipal, importeTransferencia } = dataRegresionDeCompras;
-await login.ingresar(loginPrincipal.user, loginPrincipal.pass);
+const { urlInicial, usuarioPrincipal, importeOperacion } = dataDolarMep;
+await login.ingresar(usuarioPrincipal.user, usuarioPrincipal.pass);
 ```
 
-El spec **nunca** importa `usuarios` directamente; siempre pasa por el `data-{slug}.ts` del test set. Eso da una sola fuente de verdad por test set y deja la composición de usuario+datos en un lugar visible.
+El spec destructura el `data{PascalSlug}` al inicio del `test()` y pasa los **campos primitivos** a los métodos del PO (`usuarioPrincipal.user`, no `usuarioPrincipal` entero — los métodos reciben strings, no `User`).
 
 ## Naming — tabla resumen
 
@@ -522,33 +555,60 @@ export const test = base.extend<AutoFlowFixtures>({
 export { expect } from '@playwright/test';
 ```
 
-> Los **datos** no van en `fixtures/`. Van en `data/usuarios.ts` (catálogo de usuarios) y en `data/data-{slugTestSet}.ts` (datos del test set, que referencia a `usuarios`).
+> Los **datos** no van en `fixtures/`. Van en `data/data-{slugTestSet}.ts` — cada **Test Set** se autocontiene (interface + usuarios + datos).
 
-## Test: `tests/regresionDeLogin-4521.spec.ts`
+## Test: `tests/dolarMep-12345.spec.ts`
 
 ```typescript
 import { test, expect } from '../fixtures';
-import { dataRegresionDeLogin } from '../data';
+import { dataDolarMep } from '../data';
 import LoginPage from '../pages/LoginPage';
+import OverviewPage from '../pages/OverviewPage';
+import AccesoFimaPage from '../pages/AccesoFimaPage';
 
-test('TC-4521 Login con OTP', async ({ page }) => {
-  const { urlInicial, loginPrincipal } = dataRegresionDeLogin;
+test.describe('Dolar MEP [testSetId:12345]', () => {
+  test('Compra de dolar mep con CA [testId:43213]', async ({ page }) => {
+    const { urlInicial, usuarioPrincipal, importeOperacion } = dataDolarMep;
 
-  await page.goto(urlInicial);
-  const login = new LoginPage(page);
+    await test.step('Abrir el canal', async () => {
+      await page.goto(urlInicial);
+    });
 
-  const dashboard = await login.ingresar(loginPrincipal.user, loginPrincipal.pass);
-  await dashboard.estaVisible();
+    const overview = await test.step('Loguearse y entrar al overview', async () => {
+      const login = new LoginPage(page);
+      return login.ingresar(usuarioPrincipal.user, usuarioPrincipal.pass);
+    });
+
+    const acceso = await test.step('Abrir Inversiones → Fondos Fima', async () => {
+      return overview.abrirInversiones();
+    });
+
+    await test.step('Suscribir al Fima Premium', async () => {
+      await acceso.suscribir(importeOperacion);
+    });
+  });
 });
 ```
 
-## Datos: `data/data-regresionDeLogin.ts`
+## Datos: `data/data-dolarMep.ts`
 
 ```typescript
-import { usuarios } from './usuarios';
+import type { User } from './types';
 
-export const dataRegresionDeLogin = {
+export interface DataDolarMep {
+  urlInicial: string;
+  usuarioPrincipal: User;
+  importeOperacion: number;
+}
+
+export const dataDolarMep: DataDolarMep = {
   urlInicial: 'https://www.icbc.com.ar/personas',
-  loginPrincipal: usuarios.qaIcbcEstandar,
-} as const;
+  usuarioPrincipal: {
+    canal: 'ICBC PROD',
+    user: 'qa.estandar',
+    pass: 'Qa12345!',
+    dni: '12345678',
+  },
+  importeOperacion: 100000,
+};
 ```

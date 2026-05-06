@@ -1,49 +1,50 @@
 ---
 mode: agent
-description: Crea un test set agrupando casos existentes en un JSON dentro de .autoflow/testsets/.
+description: Crea un Test Set agrupando Tests existentes en un JSON dentro de .autoflow/testsets/.
 tools: ['vscode/askQuestions', 'edit', 'read', 'runCommands', 'runTasks']
 ---
 
-# Crear test set
+# Crear Test Set
 
 ## 1. Datos del set
 
 Usá `#tool:vscode/askQuestions` con tres text inputs en una sola llamada (carousel):
-1. `"¿Cómo querés llamar al test set?"` → text input (ej: `Regresion de compras`)
-2. `"Test Set ID"` → text input (ej: `44534`)
+1. `"¿Cómo querés llamar al **Test Set**?"` → text input (ej: `Dolar MEP`)
+2. `"Test Set ID"` → text input (ej: `12345`)
 3. `"Dame una descripción corta."` → text input
 
-Generá `slug` desde `nombre` en **camelCase**: sin acentos, primera palabra minúscula, resto capitalizado, sin separadores. Ej: `Regresion de compras` → `regresionDeCompras`.
+Generá `slug` desde `nombre` en **camelCase**: sin acentos, primera palabra minúscula, resto capitalizado, sin separadores. Ej: `Dolar MEP` → `dolarMep`, `Regresion de compras` → `regresionDeCompras`.
 
-El nombre del archivo spec asociado a este test set será `tests/{slug}-{id}.spec.ts` (camelCase + guion + id). Ej: `tests/regresionDeCompras-44534.spec.ts`.
+El nombre del archivo spec asociado a este **Test Set** será `tests/{slug}-{id}.spec.ts` (camelCase + guion + id). Ej: `tests/dolarMep-12345.spec.ts`. Adentro va un único `test.describe('{nombre} [testSetId:{id}]', () => { ... })` que va a contener todos los **Tests** del set.
 
-Si `.autoflow/testsets/{slug}.json` ya existe, abrí `vscode/askQuestions` single-select: `"Ya existe un set con ese nombre, ¿qué hacemos?"`:
+Si `.autoflow/testsets/{slug}.json` ya existe, abrí `vscode/askQuestions` single-select: `"Ya existe un **Test Set** con ese nombre, ¿qué hacemos?"`:
 - `✏️ Probar otro nombre`
 - `⚠️ Sobrescribir`
 - `❌ Cancelar`
 
-## 2. Elegir casos (multi-select)
+## 2. Elegir Tests (multi-select)
 
-Listá todos los `tests/*.spec.ts`. Para cada archivo, inferí un nombre legible.
+Listá todos los `tests/*.spec.ts` (excluido `tests/_temp/`). Para cada archivo, leé los `test('...')` adentro y extraé el nombre completo (incluido el sufijo `[testId:N]`).
 
-Usá `vscode/askQuestions` **multi-select**: `"¿Qué casos incluyo?"` con cada test como opción tildable, **más** una opción extra al final:
-- `TC-4521 - Login con OTP`
-- `TC-4522 - Login con biometría`
-- `TC-4530 - Transferencia entre cuentas propias`
+Usá `vscode/askQuestions` **multi-select**: `"¿Qué **Tests** incluyo?"` con cada `test()` como opción tildable, **más** una opción extra al final:
+- `Compra de dolar mep con CA [testId:43213]`
+- `Compra de dolar mep con CC [testId:43214]`
+- `Login con OTP [testId:4521]`
 - ...
-- `📭 Crear vacío (sin casos por ahora)`
+- `📭 Crear vacío (sin **Tests** por ahora)`
 
 Si tilda `📭 Crear vacío`, ignorá cualquier otra selección y seguí con `casos = []`.
 
-Si todavía no hay tests en `tests/*.spec.ts`, no bloquees el flujo: mostrale solo la opción `📭 Crear vacío (sin casos por ahora)` y un mensaje corto: `Todavía no hay casos en tests/. Podés crear el test set vacío y agregar casos después.`
+Si todavía no hay **Tests** en `tests/*.spec.ts`, no bloquees el flujo: mostrale solo la opción `📭 Crear vacío` y un mensaje corto: `Todavía no hay **Tests** en tests/. Podés crear el **Test Set** vacío y agregar **Tests** después.`
 
 ## 3. Confirmar y guardar
 
 Mostrale los seleccionados:
 ```
-Voy a crear el test set "{nombre}" con estos casos:
+Voy a crear el **Test Set** "{nombre}" [testSetId:{id}] con estos **Tests**:
 
-  • tests/regresionDeCompras-44534.spec.ts
+  • Compra de dolar mep con CA [testId:43213]
+  • Compra de dolar mep con CC [testId:43214]
 ```
 
 Después abrí `vscode/askQuestions` single-select: `"¿Va?"`:
@@ -63,28 +64,28 @@ Si confirma:
      "creadoPor": { "nombre": "<qa.nombre>", "legajo": "<qa.legajo>" },
      "creadoEn": "<iso-ahora>",
      "casos": [
-       { "numero": "TC-<numero>", "nombre": "<nombre del caso>", "specPath": "tests/{slug}-{id}.spec.ts" }
+       { "numero": "<testId>", "nombre": "<nombre del Test>", "specPath": "tests/{slug}-{id}.spec.ts" }
      ]
    }
    ```
    Si el set se creó vacío, `casos: []`.
 
-2. **Creá siempre el archivo spec en `tests/{slug}-{id}.spec.ts`** — cada test set tiene sí o sí un archivo de test asociado, aunque arranque vacío. Si el archivo ya existe, no lo pises: avisá y abortá el guardado del JSON.
-   - **Si el set es vacío**, escribí solo el header:
+2. **Creá siempre el archivo spec en `tests/{slug}-{id}.spec.ts`** — cada **Test Set** tiene sí o sí un archivo de spec asociado, aunque arranque vacío. Si el archivo ya existe, no lo pises: avisá y abortá el guardado del JSON.
+   - **Si el set es vacío**, escribí solo el header con el `test.describe` listo para recibir **Tests**:
      ```ts
-     import { expect } from '@playwright/test';
-     import { test } from '../fixtures/index';
+     import { test, expect } from '../fixtures';
 
-     // Test set: <nombre> (ID <id>)
-     // Agregá los casos con la opción "Crear caso" del menú.
+     test.describe('<nombre> [testSetId:<id>]', () => {
+       // Agregá los **Tests** con la opción "Crear caso" del menú.
+     });
      ```
-   - **Si tiene casos seleccionados**, copiá los bloques `test(...)` originales desde sus specs de origen al nuevo archivo, junto con los imports de pages que usen. Después de copiarlos, borrá esos bloques del spec original (si queda vacío, borrá el archivo) y actualizá el JSON del test set anterior sacando esos casos. Cada caso vive en un solo test set.
+   - **Si tiene Tests seleccionados**, moveé los bloques `test('...', ...)` originales desde sus specs de origen al `test.describe` del nuevo archivo, junto con los imports de **Page Objects** y data que usen. Después de copiarlos, borrá esos bloques del spec original (si queda vacío, borrá el archivo) y actualizá el JSON del **Test Set** anterior sacando esos **Tests**. Cada **Test** vive en un solo **Test Set**.
 
 ## 4. Cierre
 
 Mostrá:
 ```
-✅ Test set "{nombre}" creado con {N} casos.
+✅ **Test Set** "{nombre}" [testSetId:{id}] creado con {N} **Tests**.
 Path: .autoflow/testsets/{slug}.json
 ```
 

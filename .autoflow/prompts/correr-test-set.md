@@ -66,17 +66,17 @@ Abrí `vscode/askQuestions` single-select: `"¿Qué hacemos?"`:
 
 ### Si fallaron
 
-Parseá las líneas previas del reporter `line` para identificar qué `test()` dentro del spec fallaron y mostralos por su nombre (`TC-{numero} {nombre}`):
+Parseá las líneas previas del reporter `line` para identificar qué `test()` dentro del spec fallaron y mostralos por su nombre completo (`{nombre} [testId:{numero}]`):
 ```
-Casos que fallaron:
-  • TC-4521 Login con OTP
-  • TC-4530 Transferencia entre cuentas propias
+**Tests** que fallaron:
+  • Compra de dolar mep con CA [testId:43213]
+  • Compra de dolar mep con CC [testId:43214]
 ```
 
 Después abrí `vscode/askQuestions` single-select: `"¿Qué hacemos?"`:
-- `▶️ Correr solo los que fallaron` → corré con `runCommands` el comando `npx playwright test {specPath} --reporter=line,html --trace=retain-on-failure --headed --workers=1 --grep "<TC-numero1>|<TC-numero2>|..."` armando el grep con los TC que fallaron.
-- `🧩 Actualizar nodos sospechosos de un caso` → si hay más de un TC fallado, abrí `vscode/askQuestions` single-select primero para elegir cuál reparar. Después cargá `.autoflow/prompts/actualizar-nodos.md` con el contexto `{ specPath, numeroTC: <elegido> }`. Al volver, releé este menú.
-- `📊 Abrir el reporte HTML de Playwright` → ejecutá con `runCommands`: `npx playwright show-report`. El reporte tiene traces, screenshots y stack de cada test fallido. Al volver, releé este menú.
+- `▶️ Correr solo los que fallaron` → corré con `runCommands` el comando `npx playwright test {specPath} --reporter=line,html --trace=retain-on-failure --headed --workers=1 --grep "\\[testId:{n1}\\]|\\[testId:{n2}\\]|..."` armando el grep con los testId que fallaron.
+- `🧩 Actualizar **Nodos** sospechosos de un **Test**` → si hay más de un **Test** fallado, abrí `vscode/askQuestions` single-select primero para elegir cuál reparar. Después cargá `.autoflow/prompts/actualizar-nodos.md` con el contexto `{ specPath, numeroTC: <elegido> }`. Al volver, releé este menú.
+- `📊 Abrir el reporte HTML de Playwright` → ejecutá con `runCommands`: `npx playwright show-report`. El reporte tiene traces, screenshots y stack de cada **Test** fallido. Al volver, releé este menú.
 - `🔍 Ver el primer error en detalle`
-- `🚀 Correr otro test set`
+- `🚀 Correr otro **Test Set**`
 - `🏠 Volver al menú`

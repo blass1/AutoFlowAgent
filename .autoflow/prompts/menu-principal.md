@@ -26,14 +26,14 @@ Adaptá la redacción si querés, pero respetá el espíritu: corto, en castella
 
 Usá `#tool:vscode/askQuestions` con una pregunta single-select: `"¿Qué querés hacer?"` con estas opciones:
 
-- `✨ Crear un nuevo caso de prueba automatizado`
-- `✏️ Editar un caso de prueba existente`
-- `▶️ Correr un caso de prueba`
-- `📦 Crear un Test set`
-- `🔧 Editar un Test set`
-- `🚀 Correr un Test set`
-- `🔐 Configurar login reusable`
-- `📊 Ver cobertura de nodos`
+- `✨ Crear un nuevo **Test** automatizado`
+- `✏️ Editar un **Test** existente`
+- `▶️ Correr un **Test**`
+- `📦 Crear un **Test Set**`
+- `🔧 Editar un **Test Set**`
+- `🚀 Correr un **Test Set**`
+- `🔐 Configurar login reusable (experimental)`
+- `📊 Ver cobertura de **Nodos**`
 
 ## Routing
 

@@ -32,27 +32,19 @@ const carpetasAVaciar = [
 ];
 
 // `data/` recibe trato especial: se borra todo menos los seeds del proyecto
-// (`index.ts`, `types.ts`, `usuarios.ts`, `urls.ts`, `parsers.ts`), que se resetean a su estado inicial.
+// (`index.ts`, `types.ts`, `urls.ts`, `parsers.ts`), que se resetean a su estado inicial.
+// Cada test set vive en su propio `data-{slug}.ts` autocontenido (usuarios + datos + interface) y se borra.
 const dataDir = 'data';
-const dataSeeds = new Set(['index.ts', 'types.ts', 'usuarios.ts', 'urls.ts', 'parsers.ts']);
+const dataSeeds = new Set(['index.ts', 'types.ts', 'urls.ts', 'parsers.ts']);
 
 // Contenido inicial de los seeds de `data/`.
 const SEED_INDEX = `export * from './types';
-export * from './usuarios';
 export * from './urls';
 export * from './parsers';
 
-// Cada test set agrega su propio archivo \`data-{slug}.ts\` y suma una línea acá:
+// Cada test set agrega su propio archivo \`data-{slug}.ts\` (autocontenido: interface + usuarios + datos)
+// y suma una línea acá:
 //   export * from './data-{slug}';
-`;
-
-const SEED_USUARIOS = `import type { User } from './types';
-
-/**
- * Catálogo de usuarios de prueba (homologación).
- * El agente AutoFlow agrega entradas acá durante "Crear caso".
- */
-export const usuarios = {} as const satisfies Record<string, User>;
 `;
 
 const SEED_URLS = `import type { Canal } from './types';
@@ -127,9 +119,6 @@ function ejecutarBorrado() {
     if (existsSync(join(dataDir, 'index.ts'))) {
       writeFileSync(join(dataDir, 'index.ts'), SEED_INDEX, 'utf8');
     }
-    if (existsSync(join(dataDir, 'usuarios.ts'))) {
-      writeFileSync(join(dataDir, 'usuarios.ts'), SEED_USUARIOS, 'utf8');
-    }
     if (existsSync(join(dataDir, 'urls.ts'))) {
       writeFileSync(join(dataDir, 'urls.ts'), SEED_URLS, 'utf8');
     }
@@ -159,7 +148,7 @@ function preguntar(mensaje) {
   console.log(`Se van a borrar ${objetivos.length} archivos:`);
   for (const o of objetivos) console.log(`  • ${o}`);
   console.log('');
-  console.log('Y data/index.ts se resetea a "export {};".');
+  console.log('Los seeds de data/ (index.ts, urls.ts) se resetean a su estado inicial.');
   console.log('');
 
   if (!skipConfirm) {

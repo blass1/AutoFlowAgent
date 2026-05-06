@@ -148,7 +148,7 @@ Archivos que voy a tocar:
    ```
 3. Mostrale al QA un cierre corto:
    ```
-   ✅ Listo. Sumé {N} pasos a TC-{numero}.
+   ✅ Listo. Añadí {N} pasos al **Test** [testId:{numero}].
       Te recomiendo correr el caso para verificar:
       npm run run:test -- tests/{archivo}.spec.ts
    ```

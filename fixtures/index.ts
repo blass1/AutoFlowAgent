@@ -57,6 +57,7 @@ export const test = base.extend<AutoFlowFixtures>({
 export { expect } from '@playwright/test';
 
 // Los datos de prueba viven en `data/` en la raíz:
-//   - data/usuarios.ts      → catálogo de usuarios reusables (interface User).
-//   - data/data-{slug}.ts   → datos del test set, referenciando a `usuarios`.
-// Importalos desde el spec: `import { dataRegresionDeCompras } from '../data';`
+//   - data/types.ts         → interfaces compartidas (User, Canal).
+//   - data/urls.ts          → catálogo de canales (nombre + URL inicial).
+//   - data/data-{slug}.ts   → datos autocontenidos del Test Set (interface + usuarios + valores).
+// Importalos desde el spec: `import { dataDolarMep } from '../data';`

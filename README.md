@@ -78,7 +78,7 @@ flowchart LR
     Editar --> EditarQue{¿Qué editar?}
     EditarQue --> EditRegrabar[Regrabar de cero]
     EditarQue --> EditCodigo[Editar código a mano]
-    EditarQue --> EditAppend[Appendear pasos al final]
+    EditarQue --> EditAppend[Añadir pasos al final del Test]
     EditarQue --> EditNodo[Insertar nodo<br/>capturar / verificar]
     EditNodo --> EditNodoLoc{Armar locator}
     EditNodoLoc --> LocPause[🔧 Abrir Chrome hasta paso N]
@@ -213,12 +213,25 @@ Detalle completo del shape, escala de confiabilidad y reglas: [.autoflow/convent
 
 ## Datos de prueba
 
-Dos capas, ambas en `data/`:
+Cada **Test Set** es **autocontenido** en su propio archivo `data/data-{slug}.ts`: declara una `interface Data{PascalSlug}` con todos los campos que necesita (URL inicial, usuarios, montos, búsquedas, productos) y exporta una constante tipada con los valores. **No hay catálogo central de usuarios** — los usuarios viven dentro del data file de su Test Set como propiedades tipadas con la interface `User`.
 
-1. **`data/usuarios.ts`** — catálogo único de usuarios reusables. Cada entrada respeta la interface `User { canal, user, pass, dni? }`. Si una contraseña cambia en homologación, se cambia acá una sola vez y se propaga a todos los test sets que la usen.
-2. **`data/data-{slug}.ts`** — un archivo por test set. Contiene los datos específicos (montos, búsquedas, productos) y **referencia a `usuarios`** para asociar el escenario con un usuario concreto.
+```typescript
+import type { User } from './types';
 
-El spec **solo importa `data{PascalSlug}` del archivo del test set**, nunca `usuarios` directo. La composición usuario+datos vive en el archivo del test set, en un solo lugar visible.
+export interface DataDolarMep {
+  urlInicial: string;
+  usuarioPrincipal: User;
+  importeOperacion: number;
+}
+
+export const dataDolarMep: DataDolarMep = {
+  urlInicial: 'https://www.icbc.com.ar/personas',
+  usuarioPrincipal: { canal: 'ICBC PROD', user: 'qa.estandar', pass: 'Qa12345!' },
+  importeOperacion: 100000,
+};
+```
+
+Ventaja: cada Test Set es independiente. Un cambio en un set no afecta a los otros y el archivo se lee de punta a punta sin saltar entre archivos. El spec destructura `data{PascalSlug}` al inicio del `test()` y pasa los campos primitivos a los métodos del PO (`usuarioPrincipal.user`, no `usuarioPrincipal` entero).
 
 ## Esperas y timeouts
 
@@ -253,7 +266,7 @@ Sub-prompts adicionales que el agente carga sin que el QA los pida:
 El front del banco tiene login con OTP, y volver a hacerlo cada vez que se graba un caso es un dolor. AutoFlow lo resuelve grabando el login **una sola vez** por (canal, usuario) y reusando el `storageState` (cookies + localStorage) en los siguientes casos.
 
 1. Desde el menú: **🔐 Configurar login reusable** → `setup-auth.md`.
-2. Elegís canal, usuario (de `data/usuarios.ts`), y lanzás codegen. Te logueás una vez (incluyendo OTP si aplica) y cerrás el browser.
+2. Elegís canal y usuario (escaneados de los `data/data-*.ts` que los referencian, o cargados a mano), y lanzás codegen. Te logueás una vez (incluyendo OTP si aplica) y cerrás el browser.
 3. El estado queda en `.autoflow/auth/{canal-slug}-{userKey}.json` (gitignored, sensible).
 4. Cuando creás un caso nuevo en ese canal, AutoFlow detecta los logins disponibles y te pregunta si arranca logueado. Si decís sí, codegen arranca con `--load-storage`, el spec generado lleva `test.use({ storageState: ... })` y omite el bloque de login.
 
@@ -358,9 +371,10 @@ La **primera vez** detecta que faltan `node_modules` y los browsers de Playwrigh
 | `pages/` | Page Objects (los puebla el agente). |
 | `tests/` | Specs Playwright (los puebla el agente). |
 | `fixtures/index.ts` | Fixtures tipadas (`test.extend`). Sin clase base. Incluye fixture `humanize`. |
-| `data/types.ts` · `data/usuarios.ts` | Seeds: interface `User` y catálogo de usuarios reusables. |
+| `data/types.ts` | Seeds: interfaces `User` y `Canal` (compartidas por todos los Test Sets). |
+| `data/data-{slug}.ts` | Datos autocontenidos del Test Set (interface + usuarios + valores). Lo crea el agente. |
+| `data/urls.ts` | Catálogo de canales (nombre + URL inicial) reusables al crear casos. Lo lee/edita el agente. |
 | `data/parsers.ts` | Parsers reusables (`parseText`, `parseNumber`, `parseCurrencyAR`, `parseDate`) para nodos `capturar`/`verificar`. |
-| `data/data-{slug}.ts` | Datos por test set, referencian a `usuarios`. Los crea el agente. |
 | `playwright.config.ts` | Timeouts amplios (`actionTimeout`/`navigationTimeout` = 60s) para fronts lentos. |
 | `clearSession.js` | Resetea el proyecto borrando todo lo generado por el agente. |
 

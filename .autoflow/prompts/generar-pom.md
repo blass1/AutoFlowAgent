@@ -8,9 +8,9 @@ tools: ['vscode/askQuestions', 'edit', 'read', 'runCommands', 'runTasks']
 
 Se carga cuando vuelve el control después de `playwright codegen` (la task `autoflow:start-recording` retornó porque el QA cerró el browser).
 
-## 0. ¿Modo append?
+## 0. ¿Modo añadir pasos?
 
-Leé `.autoflow/recordings/{numero}-session.json`. Si tiene `"modo": "append"`, **saltás todo el flujo normal** y vas al **bloque APPEND** al final de este prompt. En modo append no se generan POMs nuevos ni test sets nuevos: se mergean los pasos al spec existente reusando los locators que ya están.
+Leé `.autoflow/recordings/{numero}-session.json`. Si tiene `"modo": "append"` (flag interno del flujo de **añadir pasos al final del Test**), **saltás todo el flujo normal** y vas al **Bloque AÑADIR PASOS** al final de este prompt. En este modo no se generan **Page Objects** nuevos ni **Test Sets** nuevos: se mergean los pasos al spec existente reusando los locators que ya están.
 
 Si no hay `modo` o es `"crear"` (o cualquier otro valor), seguí con el flujo normal del paso 1 en adelante.
 
@@ -195,130 +195,164 @@ node .autoflow/scripts/grafo-nodos.js
 
 Eso reescribe `.autoflow/grafos/grafo.md` (grafo de pages) y `.autoflow/grafos/grafo-nodos.md` (grafo de nodos coloreado por confiabilidad). Si alguno de los scripts falla (por ejemplo, todavía no hay fingerprints), seguí adelante igual — no es bloqueante. También callado salvo error. **Nunca te saltes el de nodos** — es la herramienta principal de análisis del flujo del usuario.
 
-## 7. Elegir / crear test set
+## 7. Elegir / crear Test Set
 
-Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar el caso a un test set. Nunca lo dejes suelto.
+Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar el **Test** a un **Test Set**. Nunca lo dejes suelto.
 
 1. Listá los archivos en `.autoflow/testsets/*.json`.
-2. Abrí `vscode/askQuestions` single-select: `"¿En qué test set va este caso?"` con:
-   - cada test set existente como opción (mostrá `{nombre} (ID {id})`)
-   - `➕ Crear nuevo test set` al final
+2. Abrí `vscode/askQuestions` single-select: `"¿En qué **Test Set** va este **Test**?"` con:
+   - cada **Test Set** existente como opción (mostrá `{nombre} [testSetId:{id}]`)
+   - `➕ Crear nuevo **Test Set**` al final
 3. **Si elige uno existente**: anotá su `slug` e `id`.
 4. **Si elige crear nuevo**: usá `vscode/askQuestions` con tres inputs en una sola llamada (carousel):
-   1. `"¿Cómo se llama el test set?"` → text input (ej: `Regresion de compras`)
-   2. `"Test Set ID"` → text input (ej: `44534`)
+   1. `"¿Cómo se llama el **Test Set**?"` → text input (ej: `Dolar MEP`)
+   2. `"Test Set ID"` → text input (ej: `12345`)
    3. `"Descripción corta"` → text input
 
-   Generá `slug` desde `nombre` en **camelCase**: sin acentos, primera palabra minúscula, resto capitalizado, sin separadores. Ej: `Regresion de compras` → `regresionDeCompras`. Si `.autoflow/testsets/{slug}.json` ya existe, pedí otro nombre.
+   Generá `slug` desde `nombre` en **camelCase**: sin acentos, primera palabra minúscula, resto capitalizado, sin separadores. Ej: `Dolar MEP` → `dolarMep`, `Regresion de compras` → `regresionDeCompras`. Si `.autoflow/testsets/{slug}.json` ya existe, pedí otro nombre.
 
-## 8. Cierre — generar el test
+## 8. Cierre — generar el Test
 
 1. Mostrá la propuesta:
    ```
-   📋 Pages cubiertas:
+   📋 **Page Objects** cubiertos:
      • LoginPage
      • OverviewPage
-     • AccesoFima           (nueva)
-     • ConfirmarSuscripcion (nueva)
+     • AccesoFima           (nuevo)
+     • ConfirmarSuscripcion (nuevo)
 
-   Test set → "{nombre}" (ID {id})
-   Test     → tests/{slug}-{id}.spec.ts
+   **Test Set** → "{nombre}" [testSetId:{id}]
+   **Test**     → "{nombre del caso}" [testId:{numero}]
+   Archivo  → tests/{slug}-{id}.spec.ts
    ```
-2. Abrí `vscode/askQuestions` single-select: `"¿Confirmas que agregue el test en el Test set?"`:
+2. Abrí `vscode/askQuestions` single-select: `"¿Confirmás que agregue el **Test** al **Test Set**?"`:
    - `✅ Sí, generarlo`
-   - `✏️ Rehacer alguna page` → volvé al paso 4 con la opción `rehacer`
+   - `✏️ Rehacer alguna **Page Object**` → volvé al paso 4 con la opción `rehacer`
 3. Si confirma:
-   - El path del spec es **siempre** `tests/{slug}-{id}.spec.ts` (uno por test set, no por caso).
+   - El path del spec es **siempre** `tests/{slug}-{id}.spec.ts` (uno por **Test Set**, no por **Test**).
 
-   ### 8.a. Extraer datos a `data/` — OBLIGATORIO ANTES DE ESCRIBIR EL SPEC
+   ### 8.a. Generar / actualizar `data/data-{slug}.ts` — OBLIGATORIO ANTES DE ESCRIBIR EL SPEC
 
-   **Aplica siempre, sin excepciones, tanto si el test set es nuevo como existente.** Los specs **nunca** llevan literales de input. La estructura tiene dos capas (ver `pom-rules.md` → "Datos de prueba"):
-
-   - `data/usuarios.ts` — catálogo de usuarios reusables (interface `User`).
-   - `data/data-{slug}.ts` — datos del test set, referenciando a `usuarios`.
-
-   El spec **solo importa `data{PascalSlug}` del archivo del test set**, nunca `usuarios` directo. La composición usuario+datos vive en el archivo del test set.
+   **Aplica siempre, sin excepciones, tanto si el Test Set es nuevo como existente.** Los specs **nunca** llevan literales de input. Cada **Test Set** tiene un único archivo `data/data-{slug}.ts` **autocontenido**: define una `interface Data{PascalSlug}` con todos los campos que usa, y exporta `data{PascalSlug}: Data{PascalSlug}` con los valores. **No hay catálogo central de usuarios** — los usuarios viven dentro del data file de su **Test Set**.
 
    Pasos, en este orden:
 
    **(1) Identificar y separar los literales del recording**
    - Recorré los argumentos de `fill`, `press`, `selectOption`. Ignorá los strings de UI fija (títulos, labels, nombres de botones) — esos viven en locators del PO.
    - Clasificá cada literal en dos baldes:
-     - **Datos de usuario**: usuario, contraseña, DNI. (En el flujo típico viene de los primeros `fill` del login.) También incluí el `canal` del caso (que ya tenés en `session.json`).
+     - **Usuarios**: usuario, contraseña, DNI. (En el flujo típico viene de los primeros `fill` del login.) Sumá `canal` del caso (lo tenés en `session.json`). Si el flujo usa más de un usuario (ej: comprador + vendedor), asigná un nombre distinto a cada uno (`usuarioPrincipal`, `usuarioVendedor`, etc.).
      - **Datos del test**: importes, búsquedas, productos, cuentas destino, fechas, todo lo demás.
 
-   **(2) Cargar / actualizar `data/usuarios.ts`**
-   - Si el archivo no existe, creá:
-     ```typescript
-     import type { User } from './types';
+   **(2) Crear / actualizar `data/data-{slug}.ts` (autocontenido)**
+   - Naming: `data-{slug}.ts` donde `{slug}` es el slug del **Test Set** en camelCase.
+   - Importá `User` desde `./types` (ya existe; expone `interface User { canal; user; pass; dni? }`).
+   - Definí una `interface Data{PascalSlug}` que liste **todos** los campos del data file: `urlInicial`, los usuarios (cada uno como `User`), los datos del test (con sus tipos concretos: `number`, `string`, etc.).
+   - Exportá `data{PascalSlug}: Data{PascalSlug}` con los valores. **No uses `as const`** — la interface ya da el contrato.
+   - Si el archivo **ya existe** (caso nuevo en un **Test Set** existente): enriquecé la `interface` agregando los campos nuevos que necesite este caso, y sumá los valores correspondientes en el objeto `data{PascalSlug}`. **No rompas keys** que ya estaban en uso.
+   - **Reuso de usuario**: si el mismo `user`+`canal` ya está como propiedad del data file, reusalo (apuntá la nueva variable a la misma constante intermedia o duplicá los datos sólo si conceptualmente son escenarios distintos). En la duda, pedile al QA por `vscode/askQuestions` text input cómo describiría este usuario (sugerencia por default: `usuarioPrincipal`).
+   - **Importante**: el password en homologación queda en texto plano en el repo. Confirmá con el QA que el usuario es de homologación antes de commitearlo.
+   - **`urlInicial` siempre presente**: copiá la URL exacta del campo `urlInicial` de `.autoflow/recordings/{numero}-session.json`.
+   - **Números planos**: si el recording capturó `'100.000'` o `'1,000'`, guardalo como `number` plano (`100000`). Si el form exige el separador, formatealo en el método del PO, no en el data file.
 
-     export const usuarios = {} as const satisfies Record<string, User>;
-     ```
-     y asegurate de que `data/types.ts` exporte `interface User { canal: string; user: string; pass: string; dni?: string; }`. Si tampoco existe, creá `types.ts` también.
-   - Para el usuario del recording: si ya existe una entrada con el mismo `user` + `canal`, **reusala**. Si no, **agregá una nueva entrada** con key `{escenario}{Canal}` en camelCase (ej: `qaIcbcEstandar`, `clienteVipDemoblaze`). Pedile al QA por `vscode/askQuestions` con un text input cuál es el escenario que describe a este usuario, sugiriendo `qaEstandar` por default.
-   - **Importante**: el password en homologación queda en texto plano en el repo. Confirmar con el QA que el usuario es de homologación antes de commitearlo.
+   **Template del data file**:
 
-   **(3) Crear / actualizar `data/data-{slug}.ts`**
-   - Naming: `data-{slug}.ts` donde `{slug}` es el slug del test set en camelCase (mismo que el spec).
-   - Si no existe, creá:
-     ```typescript
-     import { usuarios } from './usuarios';
+   ```typescript
+   import type { User } from './types';
 
-     export const data{PascalSlug} = {
-       urlInicial: '<urlInicial del session.json>',
-       loginPrincipal: usuarios.{keyDelUsuario},
-     } as const;
-     ```
-   - **`urlInicial` siempre presente**: copiá la URL exacta del campo `urlInicial` de `.autoflow/recordings/{numero}-session.json` (es la URL del canal con la que arrancó la grabación). El spec la usa en `await page.goto(urlInicial)` antes de instanciar el primer PO.
-   - Sumá los datos del test del balde (2): `importeTransferencia`, `productoBuscado`, etc. Las keys describen el rol del dato en el flujo, no el valor.
-   - **Números planos, sin separadores**: si el recording capturó `'100.000'` o `'1,000'` (porque el QA tipeó así en el form), guardalo en el data file como `100000` (sin punto, sin coma, sin guion bajo, **como `number`** si es claramente un valor numérico). Si el form requiere el separador para aceptar el valor, formatealo en el `fill` del PO con `String(monto).replace(...)` — el data file siempre tiene el número crudo.
-   - Si el caso es nuevo en un test set existente: enriquecé el `data-{slug}.ts` que ya está, sin romper las keys que ya usaban otros casos.
+   export interface DataDolarMep {
+     urlInicial: string;
+     usuarioPrincipal: User;
+     importeOperacion: number;
+     cuentaOrigen: string;
+   }
 
-   **(4) Re-exportar desde `data/index.ts`**
-   - Sumá `export * from './types';`, `export * from './usuarios';`, `export * from './data-{slug}';` si todavía no están.
+   export const dataDolarMep: DataDolarMep = {
+     urlInicial: 'https://...',
+     usuarioPrincipal: {
+       canal: 'ICBC PROD',
+       user: 'qa.estandar',
+       pass: 'Qa12345!',
+       dni: '12345678',
+     },
+     importeOperacion: 100000,
+     cuentaOrigen: '0290011200000000123456',
+   };
+   ```
 
-   **Checklist pre-escritura** (mental, no se lo muestres al QA): antes de llamar a `edit` para escribir el spec, releé el bloque que vas a escribir y confirmá que NO contiene comillas con datos de input — solo destructurings desde `data{PascalSlug}`. Si encontrás un literal ahí, frená y volvé al paso 8.a.3.
+   **(3) Re-exportar desde `data/index.ts`**
+   - Sumá `export * from './data-{slug}';` si todavía no está.
 
-   ### 8.b. Escribir el spec
+   **Checklist pre-escritura** (mental, no se lo muestres al QA): antes de llamar a `edit` para escribir el spec, releé el bloque que vas a escribir y confirmá que NO contiene comillas con datos de input — solo destructurings desde `data{PascalSlug}`. Si encontrás un literal ahí, frená y volvé al paso 8.a.2.
 
-   **Template obligatorio del bloque `test()`** (aplica tanto si el test set es nuevo como si es existente). Este patrón evita los 4 fallos más típicos de primera corrida — goto faltante, datos sin destructurar, chaining roto, primitivos vs objeto:
+   ### 8.b. Escribir el spec — `test.describe` + `test.step`
 
-   **Si la sesión tiene `authState`** (caso arrancó logueado), agregá **antes** del bloque `test()` la línea:
+   **Template obligatorio del archivo `tests/{slug}-{id}.spec.ts`**. Cada **Test Set** = un `test.describe` que envuelve a todos los **Tests** del set. Cada **Test** dentro = un `test('...', ...)` con sus pasos en `test.step`.
+
+   **Formato exacto de los nombres** (no improvisar — el formato es contrato del repo):
+   - Describe: `"{nombreTestSet} [testSetId:{idTestSet}]"` — ej: `"Dolar MEP [testSetId:12345]"`.
+   - Test: `"{nombreCaso} [testId:{numero}]"` — ej: `"Compra de dolar mep con CA [testId:43213]"`.
+   - **No hay prefijo `TC-`** ni `TC-{numero}` antes del nombre. El id va al final entre corchetes.
+
+   **`test.step`**:
+   - Cada acción lógica del **Test** (instanciar una page, ejecutar un método de PO, hacer un assert) va envuelta en `await test.step('comentario corto y concreto', async () => { ... })`.
+   - El comentario describe **qué hace el paso** desde la perspectiva del usuario (ej: `'Loguearse y entrar al overview'`, `'Suscribir al fondo Fima Premium'`). No describir tipos ni clases.
+   - Si el step produce una page nueva, **retornala** del callback y asignala a una `const`: `const overview = await test.step('...', async () => login.ingresar(...));`.
+   - El `await page.goto(urlInicial)` también va en su propio step (`'Abrir el canal'` o similar).
+
+   **Si la sesión tiene `authState`** (caso arrancó logueado), agregá **dentro del `describe`** la línea:
    ```typescript
    test.use({ storageState: '{authState}' });
    ```
-   y **omití el login** del bloque test (el `urlInicial` debe ser una URL post-login válida; el QA típicamente arranca el recording desde el dashboard, no desde la pantalla de login).
+   y omití el step de login (el `urlInicial` ya es post-login).
+
+   **Template completo (Test Set nuevo, primer Test del set)**:
 
    ```typescript
-   test('TC-{numero} {nombre}', async ({ page }) => {
-     const { urlInicial, loginPrincipal /*, otrosDatos */ } = data{PascalSlug};
+   import { test, expect } from '../fixtures';
+   import { dataDolarMep } from '../data';
+   import LoginPage from '../pages/LoginPage';
+   import OverviewPage from '../pages/OverviewPage';
+   import AccesoFimaPage from '../pages/AccesoFimaPage';
 
-     await page.goto(urlInicial);
-     const login = new LoginPage(page);
-     // (no hay loginPage.estaVisible() obligatorio — agregá uno solo si la page expone el método)
+   test.describe('Dolar MEP [testSetId:12345]', () => {
+     test('Compra de dolar mep con CA [testId:43213]', async ({ page }) => {
+       const { urlInicial, usuarioPrincipal, importeOperacion } = dataDolarMep;
 
-     const overview = await login.ingresar(loginPrincipal.user, loginPrincipal.pass);
-     const acceso = await overview.abrirInversiones();
-     // ... encadenado, una variable por page nueva.
+       await test.step('Abrir el canal', async () => {
+         await page.goto(urlInicial);
+       });
 
-     await acceso.suscribir();
+       const overview = await test.step('Loguearse y entrar al overview', async () => {
+         const login = new LoginPage(page);
+         return login.ingresar(usuarioPrincipal.user, usuarioPrincipal.pass);
+       });
+
+       const acceso = await test.step('Abrir Inversiones → Fondos Fima', async () => {
+         return overview.abrirInversiones();
+       });
+
+       await test.step('Suscribir al Fima Premium', async () => {
+         await acceso.suscribir(importeOperacion);
+       });
+     });
    });
    ```
 
    Reglas concretas:
-   - **Imports fijos al tope**: `import { test, expect } from '../fixtures';` + `import { data{PascalSlug} } from '../data';`. Más los `import LoginPage from '../pages/LoginPage';` (uno por cada PO usado).
-   - **`page.goto(urlInicial)` siempre** como primera línea ejecutable. No instancies ningún PO antes.
-   - **Destructurá `data{PascalSlug}`** al inicio del `test()`. Pasá los campos primitivos al método (`loginPrincipal.user`, `loginPrincipal.pass`), no el objeto entero — los métodos del PO reciben strings, no `User`.
-   - **Chaining**: cada método que devuelve la próxima page asignás a una variable nueva (`const overview = await login.ingresar(...)`). No reuses la variable anterior.
-   - **Asserts opcionales**: si la próxima page tiene un método `estaVisible()`, llamalo después de instanciarla. Si no lo tiene, no inventes asserts genéricos como `expect(page).toHaveURL()` salvo que sean parte de los nodos `assert` del recording.
+   - **Imports fijos al tope**: `import { test, expect } from '../fixtures';` + `import { data{PascalSlug} } from '../data';` + un `import` por cada PO usado.
+   - **Un solo `test.describe` por archivo**, con el formato exacto del nombre.
+   - **Destructurá `data{PascalSlug}`** al inicio del `test()`. Pasá los campos primitivos a los métodos del PO (`usuarioPrincipal.user`, `usuarioPrincipal.pass`), no el objeto `User` entero.
+   - **Chaining via `test.step` con return**: cuando un step produce la próxima page, retornala del callback y asignala a una `const` afuera. No anides instancias dentro del callback sin retornarlas.
+   - **Asserts opcionales**: si la próxima page tiene un método `estaVisible()`, llamalo en su propio step (`'Verificar que cargó el overview'`). Si no lo tiene, no inventes asserts genéricos.
 
-   **Si el test set es nuevo** (el archivo spec no existe):
-   - Creá `tests/{slug}-{id}.spec.ts` con los imports + el primer bloque `test('TC-{numero} {nombre}', ...)` siguiendo el template.
+   **Si el Test Set es nuevo** (el archivo spec no existe):
+   - Creá `tests/{slug}-{id}.spec.ts` con el `test.describe('{nombreSet} [testSetId:{idSet}]', () => { ... })` y adentro el primer `test('{nombreCaso} [testId:{numero}]', ...)`.
    - Creá `.autoflow/testsets/{slug}.json` con el shape de `crear-test-set.md` paso 3, incluyendo `id` y el path del spec en `casos`.
 
-   **Si el test set es existente** (el archivo spec ya existe):
-   - **No crees un archivo nuevo**. Editá `tests/{slug}-{id}.spec.ts` y agregá un nuevo bloque `test('TC-{numero} {nombre}', ...)` al final, antes del cierre del archivo. Reusá los imports que ya estén; sumá `LoginPage`/etc. si este caso usa pages que el archivo todavía no tenía.
-   - El JSON del test set ya tiene el path en `casos`; no hace falta tocarlo.
+   **Si el Test Set es existente** (el archivo spec ya existe):
+   - **No crees un archivo nuevo y no toques el `test.describe`** — ya existe con su `[testSetId:...]`.
+   - Insertá el nuevo `test('{nombreCaso} [testId:{numero}]', ...)` **dentro** del `test.describe` existente, al final (antes del `})` de cierre del describe). Reusá los imports que ya estén; sumá los nuevos `import` de POs si este caso usa pages que el archivo todavía no tenía.
+   - El JSON del **Test Set** ya tiene el path en `casos`; no hace falta tocarlo.
 
    Si hace falta, agregá fixtures a `fixtures/index.ts` (pero **datos no van en fixtures**, van en `data/`).
 
@@ -345,32 +379,32 @@ Una vez que `path.json` existe (verificá su existencia antes de borrar nada), b
 - `.autoflow/recordings/{numero}-session.json` (con `activa: false`)
 - `.autoflow/recordings/{numero}-path.json` (traza de nodos)
 
-## Bloque APPEND — pasos nuevos al final de un caso existente
+## Bloque AÑADIR PASOS — pasos nuevos al final de un Test existente
 
-Solo se entra acá si `session.modo === "append"`. La sesión ya trae:
-- `numero` del caso original
+Solo se entra acá si `session.modo === "append"` (flag interno; visible al QA como **"Añadir pasos al final del Test"**). La sesión ya trae:
+- `numero` del **Test** original (testId)
 - `specPath` del spec ya existente (`tests/{slug}-{id}.spec.ts`)
-- `testNombre` (ej: `"TC-4521 Login con OTP"`) — el `test('...')` que se va a extender
+- `testNombre` — el nombre del `test('...')` que se va a extender (formato `"{nombre} [testId:{numero}]"`)
 
 ### A.1. Cerrar la sesión y parsear
 
 Igual al paso 1 (marcar `activa: false`, `fechaFin`) y al paso 2 (correr `parse-codegen-output.js {numero}` para tener `parsed.json`).
 
-### A.2. Matchear contra pages existentes
+### A.2. Matchear contra Page Objects existentes
 
-Igual al paso 3 (prefix matching contra `.autoflow/fingerprints/*.json`). En modo append esperamos que **TODOS** los nodos matcheen con pages conocidas — el QA está extendiendo un flujo, no creando pantallas nuevas.
+Igual al paso 3 (prefix matching contra `.autoflow/fingerprints/*.json`). En este modo esperamos que **TODOS** los nodos matcheen con **Page Objects** conocidos — el QA está extendiendo un flujo, no creando pantallas nuevas.
 
 Si quedan pasos en "Nuevo" sin matchear:
 - Mostralos al QA y abrí `vscode/askQuestions` single-select:
-  - `🆕 Agruparlos como pages nuevas (caemos al flujo normal del paso 4)` — si el QA confirma, salí del bloque APPEND y seguí desde el paso 4 normal.
-  - `↩️ Cancelar el append (no toco nada)` — borrá los archivos temporales y volvé al menú.
+  - `🆕 Agruparlos como **Page Objects** nuevos (caemos al flujo normal del paso 4)` — si el QA confirma, salí del bloque AÑADIR PASOS y seguí desde el paso 4 normal.
+  - `↩️ Cancelar (no toco nada)` — borrá los archivos temporales y volvé al menú.
 
 ### A.3. Confirmar con el QA
 
-Mostrá el listado de los pasos nuevos asignados a sus pages existentes, formato similar al paso 4, y confirmá:
+Mostrá el listado de los pasos nuevos asignados a sus **Page Objects** existentes, formato similar al paso 4, y confirmá:
 
 ```
-Voy a agregar al final de TC-{numero} estos pasos:
+Voy a añadir al final del **Test** [testId:{numero}] estos pasos:
 
 ✅ AccesoFima
    ✅ Paso 1: Click en botón "Fondos Fima"           [4/5]
@@ -380,36 +414,36 @@ Voy a agregar al final de TC-{numero} estos pasos:
    ✅ Paso 3: Click en botón "Suscribir"             [4/5]
 ```
 
-`vscode/askQuestions` single-select: `"¿Confirmás el append?"`:
-- `✅ Sí, agregalos`
+`vscode/askQuestions` single-select: `"¿Confirmás añadir los pasos?"`:
+- `✅ Sí, añadirlos`
 - `❌ Cancelar`
 
 ### A.4. Editar el spec (sin regenerar)
 
 1. Leé `tests/{slug}-{id}.spec.ts`.
-2. Localizá el bloque `test('{testNombre}', ...)` exacto. Si no aparece, frená y avisá al QA.
-3. Inferí qué variables de page están vivas al final del bloque (ej: la última `const acceso = await overview.abrirInversiones()`). Esa es la **page activa** sobre la que se appendean los métodos.
-4. Para cada page del append, ejecutá los métodos que correspondan a sus pasos. Si la page ya está instanciada en el flujo, reusá la variable; si no, llamá al método que la crea (típicamente el último click de la page anterior). **Reusá los nombres de método que ya existen en cada PO** — no inventes métodos nuevos en append. Si los pasos del recording no encajan en ningún método público existente, frená y avisá al QA: el caso requiere editar los POs, lo que cae fuera del scope de append.
-5. Insertá las llamadas justo **antes del cierre** del bloque `test()`, después de la última línea ejecutable.
+2. Localizá el bloque `test('{testNombre}', ...)` exacto **dentro del `test.describe`**. El nombre tiene formato `"{nombre} [testId:{numero}]"`. Si no aparece, frená y avisá al QA.
+3. Inferí qué variables de page están vivas al final del bloque (típicamente asignadas vía `await test.step(...)` con return, ej: `const acceso = await test.step('...', async () => overview.abrirInversiones())`). Esa es la **page activa** sobre la que se añaden los métodos.
+4. Para cada page del añadido, ejecutá los métodos que correspondan a sus pasos **envolviendolos en su propio `test.step`** con un comentario corto y concreto (mismo estilo que el resto del **Test**). Si la page ya está instanciada en el flujo, reusá la variable; si no, llamá al método que la crea retornándola desde el step. **Reusá los nombres de método que ya existen en cada PO** — no inventes métodos nuevos. Si los pasos del recording no encajan en ningún método público existente, frená y avisá al QA: el caso requiere editar los POs, lo que cae fuera del scope de este modo.
+5. Insertá los nuevos `test.step(...)` justo **antes del cierre** del bloque `test()`, después del último step.
 
 ### A.5. Sidecars y `nodos.json`
 
-- Los nodos del append ya existen en `nodos.json` (son los mismos ids reusados de pages conocidas) — no se agregan ni modifican.
+- Los nodos añadidos ya existen en `nodos.json` (son los mismos ids reusados de pages conocidas) — no se agregan ni modifican.
 - Los sidecars de las pages involucradas tampoco cambian — el matcheo confirmó que el flujo de cada page es el mismo.
 - Si surgió un assert nuevo (`assert` que no estaba en el sidecar.asserts[]), sí sumalo a `asserts[]` del sidecar correspondiente y a `nodos.json`.
 
 ### A.6. Traza
 
-Generá la traza igual que en el paso 9 (`generar-traza.js {numero}`) — la nueva traza reemplaza a la vieja en `{numero}-path.json`. El append redefine el camino completo del caso, no solo lo nuevo.
+Generá la traza igual que en el paso 9 (`generar-traza.js {numero}`) — la nueva traza reemplaza a la vieja en `{numero}-path.json`. El añadido redefine el camino completo del **Test**, no solo lo nuevo.
 
 ### A.7. Limpieza
 
-Borrá `parsed.json`, `grupos.json` (si se creó) y el `.spec.ts` temporal de codegen (no el spec del caso, que vive en `tests/`). Mantené `session.json` (con `modo: "append"` para historial) y `path.json`.
+Borrá `parsed.json`, `grupos.json` (si se creó) y el `.spec.ts` temporal de codegen (no el spec del **Test Set**, que vive en `tests/`). Mantené `session.json` (con `modo: "append"` para historial) y `path.json`.
 
 ### A.8. Resumen
 
 ```
-✅ Append listo. Sumé al final de TC-{numero} en {specPath}:
+✅ Listo. Añadí al final del **Test** [testId:{numero}] en {specPath}:
   • {N} pasos nuevos en {pages involucradas}
 ```
 
@@ -425,15 +459,16 @@ Borrá `parsed.json`, `grupos.json` (si se creó) y el `.spec.ts` temporal de co
 
   • pages/AccesoFimaPage.ts
   • pages/ConfirmarSuscripcionPage.ts
-  • tests/regresionDeCompras-44534.spec.ts
+  • tests/dolarMep-12345.spec.ts
 
 Reusé:
   • pages/LoginPage.ts
   • pages/OverviewPage.ts
 
-Test set: "{nombre}" (ID {id}) {nuevo|actualizado}.
+**Test Set**: "{nombre}" [testSetId:{id}] {nuevo|actualizado}.
+**Test**:     "{nombre}" [testId:{numero}]
 ```
 
 Abrí `vscode/askQuestions` single-select: `"¿Qué hacemos?"`:
-- `▶️ Correrlo ahora` → dispará la VSCode task **`autoflow:run-test-headed`** con el path del test. Corre con navegador visible (`--headed --workers=1`) para que el QA vea la prueba que acabamos de grabar ejecutándose en pantalla.
+- `▶️ Correrlo ahora` → dispará la VSCode task **`autoflow:run-test-headed`** con el path del spec del **Test Set**. Corre con navegador visible (`--headed --workers=1`) para que el QA vea la prueba que acabamos de grabar ejecutándose en pantalla.
 - `🏠 Volver al menú`

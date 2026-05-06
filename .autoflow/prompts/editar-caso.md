@@ -1,39 +1,41 @@
 ---
 mode: agent
-description: Edita un caso existente — regrabar desde cero, abrir el código, o agregar pasos al final.
+description: Edita un Test existente — regrabar desde cero, abrir el código, o añadir pasos al final.
 tools: ['vscode/askQuestions', 'edit', 'read', 'runCommands', 'runTasks']
 ---
 
-# Editar caso
+# Editar Test
 
-## 1. Elegir test set
+> **Glosario rápido (objetos manipulables)**: **Test Set** = agrupador de **Tests** (un archivo `tests/{slug}-{id}.spec.ts` con varios `test()` adentro envueltos en un `test.describe`). **Test** = un `test('...')` puntual dentro del spec (lo que el QA llama "caso"). **Page Object** = clase en `pages/`. **Nodo** = acción atómica del flujo. Donde diga **Test Set**, **Test**, **Page Object** o **Nodo** en los mensajes al QA, mantenelo en negrita.
 
-Leé todos los `.json` en `.autoflow/testsets/`. Para los archivos de `tests/` que no estén en ningún set, sumá la opción "Casos sueltos".
+## 1. Elegir Test Set
 
-Usá `#tool:vscode/askQuestions` single-select: `"¿De qué test set?"` con opciones:
+Leé todos los `.json` en `.autoflow/testsets/`. Para los archivos de `tests/` que no estén en ningún set, sumá la opción "Tests sueltos".
+
+Usá `#tool:vscode/askQuestions` single-select: `"¿De qué **Test Set**?"` con opciones:
 - `📦 {nombre del set 1}`
 - `📦 {nombre del set 2}`
 - ...
-- `📂 Casos sueltos (sin test set)`
+- `📂 Tests sueltos (sin **Test Set**)`
 
-Si no hay ningún test set, saltá este paso y pasá directo al paso 2 con la lista de casos sueltos.
+Si no hay ningún **Test Set**, saltá este paso y pasá directo al paso 2 con la lista de **Tests** sueltos.
 
-## 2. Elegir caso
+## 2. Elegir Test
 
-Leé los casos del set elegido (o los sueltos). Para cada archivo, inferí un nombre legible (extraído del `test('...')` interno o del filename).
+Leé los **Tests** del set elegido (o los sueltos). Para cada bloque `test()` dentro del archivo, extraé el nombre del test (parámetro de `test('...')`).
 
-Usá `vscode/askQuestions` single-select: `"¿Qué caso?"` con cada caso como opción:
-- `✏️ TC-4521 - Login con OTP`
-- `✏️ TC-4522 - Login con biometría`
+Usá `vscode/askQuestions` single-select: `"¿Qué **Test**?"` con cada uno como opción:
+- `✏️ Compra de dolar mep con CA [testId:43213]`
+- `✏️ Compra de dolar mep con CC [testId:43214]`
 - ...
 
 ## 3. Acción a tomar
 
-Usá `vscode/askQuestions` single-select: `"¿Qué hacés con TC-{numero}?"`:
+Usá `vscode/askQuestions` single-select: `"¿Qué hacés con el **Test** [testId:{numero}]?"`:
 - `🔄 Regrabar desde cero`
 - `📝 Editar el código manualmente`
-- `➕ Agregar pasos al final (modo append)`
-- `🎯 Insertar nodo de captura/verificación`
+- `➕ Añadir pasos al final del **Test**`
+- `🎯 Insertar **Nodo** de captura/verificación`
 
 ### Opción `🔄 Regrabar desde cero`
 
@@ -54,28 +56,28 @@ Usá `vscode/askQuestions` single-select: `"¿Qué hacés con TC-{numero}?"`:
    ```
 4. Decile al QA: `Te abrí el test y los Page Objects relacionados.`
 
-### Opción `➕ Agregar pasos al final`
+### Opción `➕ Añadir pasos al final del Test`
 
-`vscode/askQuestions` single-select: `"¿Cómo agregás los pasos?"`:
+`vscode/askQuestions` single-select: `"¿Cómo añadís los pasos al **Test**?"`:
 - `🎬 Regrabar todo desde cero` → flujo clásico con codegen.
 - `🧱 Construir paso a paso (HTML + acción)` → flujo manual sin volver a navegar.
 
 #### Modo `🎬 Regrabar todo desde cero`
 
-1. Marcá en `.autoflow/recordings/{numero}-session.json` el campo `"modo": "append"`.
-2. Inferí URL final del test (último `page.goto` o estado tras la última acción) y lanzá codegen apuntando ahí.
-3. Cuando el QA diga `terminé`, `generar-pom.md` detecta el `modo: "append"` y entra al **Bloque APPEND** (matchea pages existentes, mergea al spec sin regenerar POMs).
+1. Marcá en `.autoflow/recordings/{numero}-session.json` el campo `"modo": "append"` (es el flag interno del flujo de añadir pasos; mantenerlo en código).
+2. Inferí URL final del **Test** (último `page.goto` o estado tras la última acción) y lanzá codegen apuntando ahí.
+3. Cuando el QA diga `terminé`, `generar-pom.md` detecta el `modo: "append"` y entra al **Bloque AÑADIR PASOS** (matchea **Page Objects** existentes, mergea al spec sin regenerar POMs).
 
 #### Modo `🧱 Construir paso a paso (HTML + acción)`
 
 Cargá [.autoflow/prompts/append-manual.md](append-manual.md) pasándole `numero` y la ruta del spec del caso elegido. Ese sub-prompt arma cada paso nuevo a partir del HTML que pega el QA y la acción que elige, sin re-navegar la web.
 
-### Opción `🎯 Insertar nodo de captura/verificación`
+### Opción `🎯 Insertar Nodo de captura/verificación`
 
-Cargá [insertar-nodo-especial.md](insertar-nodo-especial.md) pasándole `numero` y la ruta del spec del caso elegido. Ese sub-prompt maneja toda la interacción y la edición de archivos.
+Cargá [insertar-nodo-especial.md](insertar-nodo-especial.md) pasándole `numero` y la ruta del spec del **Test** elegido. Ese sub-prompt maneja toda la interacción y la edición de archivos.
 
 ## 4. Volver al menú
 
 Después de cualquier opción, abrí `vscode/askQuestions` single-select: `"¿Qué hacemos?"` con:
-- `✏️ Editar otro caso`
+- `✏️ Editar otro **Test**`
 - `🏠 Volver al menú`

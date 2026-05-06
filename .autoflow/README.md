@@ -27,7 +27,7 @@ Este directorio contiene los **prompts del agente AutoFlow**, sus **convenciones
 ## Qué se commitea y qué no
 
 **Sí** se commitean:
-- `prompts/`, `conventions/`, `scripts/`, `urls/`, este README, `user.json.example`, los `.gitkeep` de las carpetas runtime.
+- `prompts/`, `conventions/`, `scripts/`, este README, `user.json.example`, los `.gitkeep` de las carpetas runtime.
 - `fingerprints/`, `testsets/`, `nodos.json` y `grafos/` — son los assets del proyecto que el equipo va construyendo.
 
 **No** se commitea (ya está en `.gitignore`):
@@ -73,7 +73,7 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 | `onboarding.md` | Primer uso — pide nombre, legajo, equipo, tribu. |
 | `menu-principal.md` | Menú con todas las acciones disponibles. |
 | `crear-caso.md` | Lanza grabación con codegen. Pregunta primero si los datos del caso vienen de un Export ALM (xlsx) o se cargan a mano. Después pregunta si arranca logueado (lista los `auth/*.json` del canal). |
-| `editar-caso.md` | Regrabar / editar código / append (mergea pasos al final del spec existente) / insertar nodo de captura/verificación. |
+| `editar-caso.md` | Regrabar / editar código / **añadir pasos al final del Test** (mergea pasos al final del `test()` existente reusando POMs) / insertar nodo de captura/verificación. |
 | `insertar-nodo-especial.md` | Sub-flow invocado desde `editar-caso.md`. Inserta un nodo `capturar` o `verificar` en un caso existente. Para armar el locator ofrece 4 caminos: abrir Chrome hasta el paso N (`page.pause()`), pegar HTML + intent (el agente arma el locator), reusar un locator de un nodo existente, o pegar a mano. |
 | `correr-caso.md` | Corre un caso puntual. |
 | `crear-test-set.md` | Agrupa casos en un test set. |

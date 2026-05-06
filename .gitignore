@@ -11,6 +11,9 @@ playwright-report/
 test-results/
 blob-report/
 
+# Specs temporales generados por el agente (page.pause(), prueba de auth, etc.)
+tests/_temp/
+
 # AutoFlow runtime
 .autoflow/user.json
 .autoflow/recordings/*
