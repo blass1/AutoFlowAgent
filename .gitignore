@@ -22,6 +22,9 @@ tests/_temp/
 !.autoflow/auth/.gitkeep
 .autoflow/alm-exports/*.xlsx
 !.autoflow/alm-exports/.gitkeep
+.autoflow/runs/*.json
+!.autoflow/runs/.gitkeep
+.autoflow/dashboard.html
 
 # VSCode (mantenemos solo tasks.json versionado)
 .vscode/*

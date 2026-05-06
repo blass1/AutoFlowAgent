@@ -4,7 +4,8 @@
 // Uso: node .autoflow/scripts/run-test.js <archivo> [--headed] [--grep <texto>]
 
 const { spawnSync } = require('node:child_process');
-const { existsSync } = require('node:fs');
+const { existsSync, mkdirSync, writeFileSync } = require('node:fs');
+const { join, basename } = require('node:path');
 
 const archivo = process.argv[2];
 const headed = process.argv.includes('--headed');
@@ -42,6 +43,34 @@ const resultado = {
   archivo,
   grep,
 };
+
+// Persistir el run para el dashboard. Ids extraídos del grep si tiene forma `\[testId:NNN\]`.
+const runId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${Math.random().toString(36).slice(2, 6)}`;
+const testIds = [];
+if (grep) {
+  for (const m of grep.matchAll(/testId:(\d+)/g)) testIds.push(m[1]);
+}
+const slugMatch = basename(archivo).match(/^(.+)-(\d+)\.spec\.ts$/);
+const run = {
+  id: runId,
+  timestamp: new Date().toISOString(),
+  tipo: 'test',
+  specPath: archivo,
+  testSetSlug: slugMatch ? slugMatch[1] : null,
+  testSetId: slugMatch ? slugMatch[2] : null,
+  grep: grep ?? null,
+  testIds,
+  status: resultado.status,
+  exitCode,
+  duration,
+};
+const runsDir = '.autoflow/runs';
+try {
+  mkdirSync(runsDir, { recursive: true });
+  writeFileSync(join(runsDir, `${runId}.json`), JSON.stringify(run, null, 2), 'utf8');
+} catch (err) {
+  console.error(`⚠ No se pudo persistir el run: ${err.message}`);
+}
 
 console.log('');
 console.log(`AUTOFLOW_RESULT: ${JSON.stringify(resultado)}`);

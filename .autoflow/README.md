@@ -63,6 +63,8 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 | `grafos/grafo.md` · `grafo.html` | Grafo de pages (alto nivel). |
 | `grafos/grafo-nodos.md` · `grafo-nodos.html` | Grafo de nodos coloreado por confiabilidad (1-5) y por tipo (capturar/verificar). |
 | `grafos/cobertura.md` · `cobertura.html` | Cobertura de nodos: qué pisa cada test, qué nodos no pisa nadie, % por page. Generado por `cobertura.js`. |
+| `runs/{timestamp}.json` | Historial de ejecuciones. Lo escriben `run-test.js` y `run-testset.js` en cada corrida. Lo lee el dashboard para mostrar la pestaña "Ejecuciones". **Gitignored** — es estado local del dev. |
+| `dashboard.html` | Vista navegable del proyecto (Test Sets, Tests, pasos, ejecuciones, grafo). Generado por `dashboard.js`. **Gitignored** — se regenera bajo demanda. |
 
 ## Prompts disponibles
 
@@ -96,5 +98,6 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 | `grafo.js` | Regenera `grafos/grafo.md` y `grafos/grafo.html` (pages y `conecta`). |
 | `grafo-nodos.js` | Regenera `grafos/grafo-nodos.md` y `grafos/grafo-nodos.html` (nodos coloreados por confiabilidad y tipo). |
 | `lib/render-html.js` | Helper compartido: envuelve un diagrama Mermaid en un HTML autocontenido con pan/zoom (mermaid + svg-pan-zoom desde CDN). |
-| `run-test.js <path>` | Corre un spec puntual. Acepta `--headed`. |
-| `run-testset.js <slug>` | Corre todos los casos de un test set. Acepta `--headed`. |
+| `dashboard.js` | Genera `.autoflow/dashboard.html` — vista única navegable del proyecto (Test Sets, Tests, pasos del flujo, historial de ejecuciones, grafo Mermaid del paso a paso del Test con click-to-edit). Acepta `--open` para abrir en el browser. |
+| `run-test.js <path>` | Corre un spec puntual. Acepta `--headed`. Persiste el run en `runs/`. |
+| `run-testset.js <slug>` | Corre todos los casos de un test set. Acepta `--headed`. Persiste el run en `runs/`. |

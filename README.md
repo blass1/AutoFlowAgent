@@ -66,6 +66,7 @@ flowchart LR
     Menu --> CorrerTS[🚀 Correr test set]
     Menu --> Auth[🔐 Login reusable<br/><i>experimental</i>]
     Menu --> Cob[📊 Ver cobertura]
+    Menu --> Dash[🖥️ Dashboard del proyecto]
 
     Crear --> CrearOrigen{Origen de datos}
     CrearOrigen --> CrearManual[Cargar nombre/TC a mano]
@@ -97,6 +98,7 @@ flowchart LR
     Auth --> AuthReuso[Reusable al crear caso<br/>en ese canal]
 
     Cob --> CobReporte[Reporte HTML:<br/>nodos cubiertos / huérfanos<br/>% por page]
+    Dash --> DashHtml[HTML estático:<br/>Test Sets · Tests · pasos<br/>· ejecuciones · grafo<br/>+ click-to-edit en VSCode]
 ```
 
 ## Cómo funciona por dentro
@@ -253,6 +255,7 @@ El front del banco es lento, así que los defaults van más holgados que los de 
 | 🚀 Correr test set | `correr-test-set.md` | Valida coherencia del proyecto (`validar-coherencia.js`) y después corre toda la regresión del set. |
 | 🔐 Configurar login reusable | `setup-auth.md` | Graba un storageState por (canal, usuario) para que los siguientes casos arranquen logueados sin re-grabar el login. |
 | 📊 Ver cobertura de nodos | (corre `cobertura.js`) | Agrega todas las trazas y emite un reporte HTML con qué nodos están cubiertos, por qué tests, y qué pages tienen 0 cobertura. |
+| 🖥️ Abrir dashboard del proyecto | (corre `dashboard.js`) | HTML único navegable con Test Sets, Tests, pasos del flujo, historial de ejecuciones y grafo del paso a paso. Cada nodo se puede abrir en VSCode con un click o copiar como prompt para que el agente lo repare. |
 
 Sub-prompts adicionales que el agente carga sin que el QA los pida:
 - `setup-entorno.md` — al activar el modo, verifica `node_modules` y browsers de Playwright.
@@ -407,6 +410,11 @@ node .autoflow/scripts/validar-coherencia.js <slug>   # solo un test set
 
 # Reporte de cobertura (.autoflow/grafos/cobertura.{md,html})
 node .autoflow/scripts/cobertura.js
+
+# Dashboard del proyecto (.autoflow/dashboard.html)
+node .autoflow/scripts/dashboard.js          # solo genera
+node .autoflow/scripts/dashboard.js --open   # genera y abre en el browser
+npm run dashboard                            # alias del anterior
 
 # Regenerar los grafos (escriben .md + .html en .autoflow/grafos/)
 node .autoflow/scripts/grafo.js

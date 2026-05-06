@@ -3,7 +3,7 @@
 // Uso: node .autoflow/scripts/run-testset.js <slug> [--headed]
 
 const { spawnSync } = require('node:child_process');
-const { readFileSync, existsSync } = require('node:fs');
+const { readFileSync, existsSync, mkdirSync, writeFileSync } = require('node:fs');
 const { join } = require('node:path');
 
 const slug = process.argv[2];
@@ -55,6 +55,30 @@ const resultado = {
   slug: set.slug,
   specPath: set.specPath,
 };
+
+// Persistir el run para el dashboard.
+const runId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${Math.random().toString(36).slice(2, 6)}`;
+const run = {
+  id: runId,
+  timestamp: new Date().toISOString(),
+  tipo: 'testset',
+  specPath: set.specPath,
+  testSetSlug: set.slug,
+  testSetId: set.id,
+  grep: null,
+  testIds: [],
+  status: resultado.status,
+  exitCode,
+  duration,
+  total: totalCasos,
+};
+const runsDir = '.autoflow/runs';
+try {
+  mkdirSync(runsDir, { recursive: true });
+  writeFileSync(join(runsDir, `${runId}.json`), JSON.stringify(run, null, 2), 'utf8');
+} catch (err) {
+  console.error(`⚠ No se pudo persistir el run: ${err.message}`);
+}
 
 console.log('');
 console.log(`AUTOFLOW_RESULT: ${JSON.stringify(resultado)}`);
