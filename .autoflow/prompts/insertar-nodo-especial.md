@@ -17,6 +17,7 @@ Si llegaste sin esos datos, pediselos al QA antes de seguir (single-select con l
 
 Leé:
 - `tests/{archivo}.spec.ts` — para tener los pasos en orden y saber dónde insertar.
+- `.autoflow/recordings/{numero}-session.json` — anotá `bufferTiempo` para usarlo si terminás emitiendo código nuevo en algún PO (si falta, asumí `false`).
 - `.autoflow/recordings/{numero}-path.json` si existe — orden canónico de los nodos.
 - `.autoflow/nodos.json` — para resolver cada id a su definición.
 - Los sidecars de cada page que aparezca en el path.

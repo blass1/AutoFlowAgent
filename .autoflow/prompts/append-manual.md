@@ -21,6 +21,7 @@ Igual al paso 1 de [insertar-nodo-especial.md](insertar-nodo-especial.md):
 - Leé el spec, el `path.json`, `nodos.json` y todos los sidecars de las pages que aparecen en el path.
 - Construí en memoria la lista ordenada `pasos[]` con `{ indice, id, page, accion, label }`.
 - Cargá los locators existentes de cada PO involucrado (lectura del `pages/{Page}.ts`) — el agente los usa después para razonar sobre el HTML.
+- Leé `.autoflow/recordings/{numero}-session.json` y anotá `bufferTiempo` (puede no estar; tratalo como `false` si falta). Vas a usarlo en el paso 3.g al emitir métodos nuevos del PO: si está en `true`, después de cada `pressSequentially(...)` dentro del método agregás `await this.page.waitForTimeout(500); // Wait: buffer anti-solape (heredado del Test fuente)`.
 
 ## 2. Punto de inserción
 

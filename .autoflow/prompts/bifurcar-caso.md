@@ -18,7 +18,7 @@ Si no recibís nada, pediselo al QA con `vscode/askQuestions` (single-select de 
 
 Leé:
 - `.autoflow/testsets/*.json` → identificá el **Test Set** que contiene `numeroFuente`. Anotá `slugFuente`, `setNombreFuente`, `setIdFuente`, `specPathFuente`.
-- `.autoflow/recordings/{numeroFuente}-session.json` → `urlInicial`, `canal`, `authState`.
+- `.autoflow/recordings/{numeroFuente}-session.json` → `urlInicial`, `canal`, `authState`, `bufferTiempo` (heredado al **Test** bifurcado; si falta, asumí `false`).
 - `.autoflow/recordings/{numeroFuente}-path.json` → traza del **Test** fuente.
 - `.autoflow/nodos.json` → para resolver cada id a su definición.
 - Sidecars de las pages que aparezcan en la traza.
@@ -155,6 +155,7 @@ Cuando vuelve el control, codegen escribió `tests/_temp/{nuevoTestId}-tail-{ts}
      "urlInicial": "<urlInicial del fuente>",
      "qa": <user.json>,
      "specPath": "{specPathDestino}",
+     "bufferTiempo": <heredado del Test fuente>,
      "modo": "fork",
      "forkContext": {
        "desdeTestId": "<numeroFuente>",

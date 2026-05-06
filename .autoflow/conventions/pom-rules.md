@@ -302,6 +302,20 @@ Esta prioridad la usa **codegen al grabar**, no el agente al generar el PO. El a
 - Web-first con `expect()` de Playwright. Nunca `.then()`.
 - Si un PO necesita verificar que cargó, exponé un método `estaVisible(): Promise<void>` que haga `await expect(this.heading).toBeVisible()`.
 
+### Buffer de tiempo per-Test (anti-solape de validación on-input)
+
+Cuando el QA crea un **Test**, `crear-caso.md` paso 1.6 le pregunta si activar un **buffer de 500ms** entre inputs. La decisión se persiste en `session.json` como `bufferTiempo: true | false`. Si está en `true`, `generar-pom.md` paso 6 emite, **después de cada `pressSequentially(...)`** dentro de un método público:
+
+```typescript
+await this.<locator>.pressSequentially(valor);
+// Wait: buffer anti-solape de validación on-input (configurado al crear el Test).
+await this.page.waitForTimeout(500);
+```
+
+Ese único patrón cubre los dos casos típicos: input → input (la espera queda después del primero) e input → click de avanzar/continuar/siguiente (la espera queda entre ambos). Es el único lugar donde `waitForTimeout` se inserta de forma "automática" — el resto de las esperas siguen las reglas de la próxima sección.
+
+**Herencia**: en flujos que reusan un **Test** existente (añadir pasos al final, bifurcar, insertar nodo especial), el setting se hereda de la sesión del **Test** original. Si la sesión original no tiene el campo (Tests viejos previos a esta convención), se asume `false`. Por lo tanto el buffer queda **baked en el método del PO** en el momento de generación: si dos **Tests** comparten el mismo PO con buffer distinto, gana el primero que lo generó. Para cambiar después, editar el PO a mano.
+
 ### Esperas
 
 - **Preferí siempre el auto-wait** de los locators y `expect(...).toBeVisible()` / `toHaveText()`. Para navegaciones, `await this.page.waitForLoadState('networkidle')` o `'domcontentloaded'` dentro del método del PO que dispara la navegación.

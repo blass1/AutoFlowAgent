@@ -146,6 +146,12 @@ Cuando el comando es válido:
    - **Constructor: copiá `selectorRaw` verbatim.** Para cada nodo del rango, leé `nodos.json[<id>].selectorRaw` y pegalo tal cual en `this.<nombreLocator> = page.<selectorRaw>`. **No simplifiques** ni reconstruyas desde el `selector` normalizado, porque podés perder modificadores (`.first()`, `.nth(N)`, `.filter(...)`, chains de `.locator(...)`, `.contentFrame()`) y apuntar a otro elemento.
    - **Método público: ejecutá todos los nodos del rango en orden, sin saltearte ninguno.** Codegen suele emitir `click` antes de cada `fill` (focus + máscara + validación que el front escucha). Si el rango tiene `click(usuario) + fill(usuario) + click(password) + fill(password) + click(Ingresar)`, el método tiene esos 5 pasos, no solo los 3 "lógicos".
    - **`fill` se traduce siempre a `pressSequentially`** (ver `pom-rules.md` → "Fidelidad al recording"). El nodo en `nodos.json` lleva `accion: "fill"` (lógico), pero en el código del PO emitís `await this.<locator>.pressSequentially(valor)`. Sin excepciones — los campos del banco tienen máscaras y validators que rompen con `fill`.
+   - **Buffer de tiempo (anti-solape)**: leé `session.bufferTiempo`. Si es `true`, **después de cada `pressSequentially(...)`** dentro del método, agregá:
+     ```typescript
+     // Wait: buffer anti-solape de validación on-input (configurado al crear el Test).
+     await this.page.waitForTimeout(500);
+     ```
+     Eso cubre los dos casos que motivan el buffer: input seguido de otro input, e input seguido de un botón de avanzar/continuar/siguiente. **No** repliques el wait si ya hay un `waitForLoadState` consecutivo (sería redundante). Si `session.bufferTiempo` es `false` o falta el campo, no agregues nada.
    - **Si el método retorna otra page**, terminá con `await this.page.waitForLoadState('networkidle')` (o `'domcontentloaded'` si `networkidle` cuelga) **antes** del `return new SiguientePage(this.page)`. Sin eso, el siguiente PO se instancia con DOM a medio pintar y rompe el primer locator.
    - **Si el primer nodo del rango es `goto`**, **no lo metas en un método del PO**. El `goto` lo dispara el spec antes de instanciar la page (`await page.goto(urlInicial)` + `new LoginPage(page)`). El nodo `goto` queda registrado en `sidecar.nodos[]` igual (es parte de la firma de la page para el matcheo), pero sin código en la clase. Los demás nodos del rango sí tienen métodos.
 3. **Materializá los nodos del rango**:

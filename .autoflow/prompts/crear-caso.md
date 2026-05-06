@@ -111,16 +111,29 @@ Si hay uno o más, abrí `vscode/askQuestions` single-select: `"¿El caso arranc
 
 Si elige uno, guardá el path en `authState`. Si elige no, `authState = null`.
 
+## 1.6. ¿Buffer de tiempo entre inputs?
+
+Algunos forms del banco tienen validación on-input que se ejecuta de forma asíncrona y, si el siguiente keystroke llega antes de que termine, se solapan los eventos y la grabación queda inestable (campos que se autocompletan mal, botones que no se habilitan, etc.). El buffer es una espera corta que se inserta **después de cada input** (sea otro input el siguiente paso, o un botón de avanzar/continuar/siguiente) para darle aire a esa validación.
+
+Abrí `vscode/askQuestions` single-select: `"¿Aplicar buffer de 500ms entre inputs?"`:
+- `✅ Sí, recomendado para UIs lentas (anti-solape de eventos)`
+- `⏭️ No, sin buffer (más rápido pero puede haber solape)`
+
+Guardá la decisión en memoria como `bufferTiempo: true | false`. Va a viajar al `session.json` en el paso 3 y la consume `generar-pom.md` paso 6 al emitir los métodos del **Page Object**.
+
+> Solo se pregunta al **crear** un **Test**. En las opciones que reusan un **Test** existente (añadir pasos, bifurcar, insertar nodo especial), el setting se hereda de la sesión original. Si la sesión original no tiene el campo (Tests viejos), `generar-pom.md` asume `false`.
+
 ## 2. Confirmar
 
 Mostrale al QA el resumen:
 ```
 Vamos a grabar:
-  • Nombre:       {nombre}
-  • Número:       {numero}
-  • Canal:        {canal.nombre}
-  • URL inicial:  {canal.url}
-  • Login previo: {authState ? userKey : "no, grabamos desde cero"}
+  • Nombre:        {nombre}
+  • Número:        {numero}
+  • Canal:         {canal.nombre}
+  • URL inicial:   {canal.url}
+  • Login previo:  {authState ? userKey : "no, grabamos desde cero"}
+  • Buffer 500ms:  {bufferTiempo ? "sí (anti-solape)" : "no"}
 ```
 
 Después abrí `vscode/askQuestions` single-select: `"¿Confirmás los datos?"` con:
@@ -145,6 +158,7 @@ Leé `.autoflow/user.json` y escribí:
   "fechaInicio": "<iso-ahora>",
   "specPath": ".autoflow/recordings/{numero}.spec.ts",
   "authState": <ruta al .json de auth si vino del paso 1.5, sino omitido>,
+  "bufferTiempo": <true|false según paso 1.6>,
   "almContext": <ver abajo>
 }
 ```
