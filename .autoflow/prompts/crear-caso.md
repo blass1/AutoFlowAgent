@@ -65,27 +65,25 @@ Seguí con el flujo tradicional desde el paso 1.
 
 ## 1. Pedir datos en un solo carousel (modo manual)
 
-Antes del carousel, leé `.autoflow/urls/urls.json`. Tiene la forma:
-```json
-{
-  "canales": [
-    { "nombre": "Demoblaze", "url": "https://www.demoblaze.com/" }
-  ]
-}
+Antes del carousel, leé `data/urls.ts`. Exporta `canales: readonly Canal[]` con la forma:
+```ts
+export const canales: readonly Canal[] = [
+  { nombre: 'Demoblaze', url: 'https://www.demoblaze.com/' },
+];
 ```
-Si el archivo no existe o `canales` está vacío, tratalo como lista vacía.
+Si el archivo no existe o el array está vacío, tratalo como lista vacía.
 
 Usá `#tool:vscode/askQuestions` con estas preguntas en **una sola llamada** (carousel):
 
 1. `"¿Cómo se llama el caso? (ej: Login con OTP)"` → text input
 2. `"¿Qué número tiene? (ej: TC-4521)"` → text input
-3. `"¿En qué canal?"` → single-select. Las opciones se arman **dinámicamente** desde `urls.json`:
+3. `"¿En qué canal?"` → single-select. Las opciones se arman **dinámicamente** desde `data/urls.ts`:
    - Una opción por cada canal guardado, mostrando `{nombre} — {url}`.
    - Al final, siempre: `➕ Crear nuevo canal`.
 
 Limpiá `numero` (sin espacios extras, mayúsculas consistentes).
 
-> **Si venís del paso 0.a (import ALM)**, ya tenés `nombre` y `numero`. Acá pedí solamente la pregunta 3 (canal), reusando la misma lógica de `urls.json` y `➕ Crear nuevo canal`.
+> **Si venís del paso 0.a (import ALM)**, ya tenés `nombre` y `numero`. Acá pedí solamente la pregunta 3 (canal), reusando la misma lógica de `data/urls.ts` y `➕ Crear nuevo canal`.
 
 ### 1.b. Si eligió `➕ Crear nuevo canal`
 
@@ -95,7 +93,7 @@ Hacé una segunda llamada a `vscode/askQuestions` con dos text inputs en carouse
 
 Validá que el `nombre` no choque con uno ya existente (case-insensitive). Si choca, decilo corto y volvé a pedir.
 
-Agregá el nuevo canal al array `canales` de `.autoflow/urls/urls.json` y guardá. Usalo como canal seleccionado para este caso.
+Agregá el nuevo canal al array `canales` de `data/urls.ts` (insertá un nuevo objeto `{ nombre: '...', url: '...' }` antes del `]` final, manteniendo el formato del resto). Guardá. Usalo como canal seleccionado para este caso.
 
 ### 1.c. Si eligió uno existente
 

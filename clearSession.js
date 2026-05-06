@@ -32,13 +32,15 @@ const carpetasAVaciar = [
 ];
 
 // `data/` recibe trato especial: se borra todo menos los seeds del proyecto
-// (`index.ts`, `types.ts`, `usuarios.ts`), que se resetean a su estado inicial.
+// (`index.ts`, `types.ts`, `usuarios.ts`, `urls.ts`, `parsers.ts`), que se resetean a su estado inicial.
 const dataDir = 'data';
-const dataSeeds = new Set(['index.ts', 'types.ts', 'usuarios.ts']);
+const dataSeeds = new Set(['index.ts', 'types.ts', 'usuarios.ts', 'urls.ts', 'parsers.ts']);
 
 // Contenido inicial de los seeds de `data/`.
 const SEED_INDEX = `export * from './types';
 export * from './usuarios';
+export * from './urls';
+export * from './parsers';
 
 // Cada test set agrega su propio archivo \`data-{slug}.ts\` y suma una línea acá:
 //   export * from './data-{slug}';
@@ -51,6 +53,15 @@ const SEED_USUARIOS = `import type { User } from './types';
  * El agente AutoFlow agrega entradas acá durante "Crear caso".
  */
 export const usuarios = {} as const satisfies Record<string, User>;
+`;
+
+const SEED_URLS = `import type { Canal } from './types';
+
+/**
+ * Catálogo de canales (nombre + URL inicial) reusables al crear casos.
+ * El agente AutoFlow agrega entradas acá cuando el QA elige "Crear nuevo canal".
+ */
+export const canales: readonly Canal[] = [];
 `;
 
 // No tocar archivos del proyecto que viven dentro de las carpetas a vaciar
@@ -119,7 +130,10 @@ function ejecutarBorrado() {
     if (existsSync(join(dataDir, 'usuarios.ts'))) {
       writeFileSync(join(dataDir, 'usuarios.ts'), SEED_USUARIOS, 'utf8');
     }
-    // types.ts es contrato puro (interface User), no se toca.
+    if (existsSync(join(dataDir, 'urls.ts'))) {
+      writeFileSync(join(dataDir, 'urls.ts'), SEED_URLS, 'utf8');
+    }
+    // types.ts y parsers.ts son contrato puro, no se tocan.
   }
   return borrados;
 }

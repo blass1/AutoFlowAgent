@@ -47,6 +47,58 @@ flowchart LR
     Chat -- enriquece --> Estado
 ```
 
+## Flujos del QA hoy
+
+Esto es lo que el QA puede hacer hoy desde el chat. Cada hoja del árbol es una opción real del menú o de un sub-prompt.
+
+```mermaid
+flowchart LR
+    QA([QA])
+    Menu{Menú principal}
+
+    QA --> Menu
+
+    Menu --> Crear[✨ Crear caso]
+    Menu --> Editar[✏️ Editar caso]
+    Menu --> Correr[▶️ Correr caso]
+    Menu --> CrearTS[📦 Crear test set]
+    Menu --> EditarTS[🔧 Editar test set]
+    Menu --> CorrerTS[🚀 Correr test set]
+    Menu --> Auth[🔐 Login reusable<br/><i>experimental</i>]
+    Menu --> Cob[📊 Ver cobertura]
+
+    Crear --> CrearOrigen{Origen de datos}
+    CrearOrigen --> CrearManual[Cargar nombre/TC a mano]
+    CrearOrigen --> CrearALM[📄 Importar Export ALM .xlsx]
+    CrearManual --> CrearLogin{¿Arranca logueado?}
+    CrearALM --> CrearLogin
+    CrearLogin --> CrearGrabar[Grabar flujo en codegen]
+    CrearGrabar --> CrearPOM[Agrupar pasos en pages<br/>+ generar POM, sidecar,<br/>nodos, traza, spec]
+
+    Editar --> EditarQue{¿Qué editar?}
+    EditarQue --> EditRegrabar[Regrabar de cero]
+    EditarQue --> EditCodigo[Editar código a mano]
+    EditarQue --> EditAppend[Appendear pasos al final]
+    EditarQue --> EditNodo[Insertar nodo<br/>capturar / verificar]
+    EditNodo --> EditNodoLoc{Armar locator}
+    EditNodoLoc --> LocPause[🔧 Abrir Chrome hasta paso N]
+    EditNodoLoc --> LocHTML[📋 HTML + intent]
+    EditNodoLoc --> LocReusar[🔁 Reusar locator existente]
+    EditNodoLoc --> LocPegar[✍️ Pegar selector Playwright]
+
+    Correr --> CorrerUI[Ejecuta spec puntual<br/>en UI mode]
+
+    CrearTS --> TSAgrupar[Agrupar casos<br/>en testsets/.json]
+    EditarTS --> TSEditar[Modificar test set<br/>existente]
+    CorrerTS --> TSValidar[Valida coherencia<br/>specs / sidecars / nodos]
+    TSValidar --> TSCorrer[Corre todos los casos<br/>del set]
+
+    Auth --> AuthGrabar[Grabar storageState<br/>por canal+usuario]
+    Auth --> AuthReuso[Reusable al crear caso<br/>en ese canal]
+
+    Cob --> CobReporte[Reporte HTML:<br/>nodos cubiertos / huérfanos<br/>% por page]
+```
+
 ## Cómo funciona por dentro
 
 El cerebro está en tres lugares:
@@ -69,7 +121,7 @@ flowchart TB
 
     subgraph Estado[".autoflow/ — estado del proyecto"]
       User[user.json]
-      Urls[urls/urls.json]
+      Urls[data/urls.ts]
       Recordings[recordings/]
       Fingerprints[fingerprints/]
       Nodos[nodos.json]
@@ -296,7 +348,7 @@ La **primera vez** detecta que faltan `node_modules` y los browsers de Playwrigh
 | `.autoflow/alm-exports/` | xlsx exportados desde ALM. El QA suelta el archivo acá para arrancar un caso con datos prellenados. |
 | `.autoflow/auth/` | StorageState (cookies + localStorage) por (canal, usuario) para que los casos arranquen logueados. **Gitignored** — contiene tokens de sesión. |
 | `.autoflow/captures/` | Por cada nodo `capturar`/`verificar`: HTML pegado, intent del QA, locator propuesto/final y razonamiento. Histórico para reparar locators cuando el front cambia. |
-| `.autoflow/urls/urls.json` | Catálogo de canales (nombre + URL inicial) reusables al crear casos. |
+| `data/urls.ts` | Catálogo de canales (nombre + URL inicial) reusables al crear casos. Lo lee/edita el agente. |
 | `.autoflow/scripts/` | Scripts Node: parser de codegen, parser de ALM, generador de traza, grafos (md + html), runners. |
 | `.autoflow/nodos.json` | Diccionario global de nodos — fuente de verdad de cada acción. |
 | `.autoflow/grafos/` | Diagramas Mermaid (`grafo.md`, `grafo-nodos.md`) y vistas interactivas con pan/zoom (`grafo.html`, `grafo-nodos.html`) para abrir en navegador. |

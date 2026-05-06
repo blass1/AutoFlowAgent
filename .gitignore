@@ -23,3 +23,6 @@ blob-report/
 # VSCode (mantenemos solo tasks.json versionado)
 .vscode/*
 !.vscode/tasks.json
+
+# Claude Code (config local del dev, no se versiona)
+.claude/

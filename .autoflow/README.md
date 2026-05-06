@@ -11,8 +11,6 @@ Este directorio contiene los **prompts del agente AutoFlow**, sus **convenciones
 │   └── pom-rules.md        # reglas que el agente sigue al generar POMs y tests
 ├── scripts/                # parser, generador de traza, scripts de grafo, runners
 │   └── lib/                # helpers compartidos entre scripts (render-html, etc.)
-├── urls/
-│   └── urls.json           # catálogo de canales (nombre + URL inicial)
 ├── recordings/             # archivos generados durante una sesión de grabación
 ├── fingerprints/           # un sidecar JSON por page con nodos[], asserts[], conecta[]
 ├── testsets/               # un JSON por test set
@@ -59,7 +57,6 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 | `nodos.json` | Diccionario `{ id: nodo }` con todos los nodos conocidos. Cada id es `{page}::{accion}::{selector}`. Se enriquece con cada grabación; los nodos existentes no se sobreescriben. |
 | `fingerprints/{Page}.json` | Sidecar de cada Page Object: `{ page, nodos: [id, ...], asserts: [id, ...], conecta: [destino, ...] }`. `nodos[]` participa del matcheo de prefijo; `asserts[]` no. |
 | `testsets/{slug}.json` | Definición de cada test set (id, nombre, descripción, casos). |
-| `urls/urls.json` | Canales reusables al crear un caso: `{ canales: [{ nombre, url }, ...] }`. |
 | `alm-exports/` | xlsx exportados desde ALM. El QA suelta el archivo acá y `crear-caso.md` lo levanta vía `parse-alm-export.js` para prellenar nombre/TC/enfoque. |
 | `auth/{canal-slug}-{userKey}.json` | StorageState (cookies + localStorage) post-login. Generado por `setup-auth.md`. Permite que los casos arranquen logueados sin re-grabar el login. **Sensible** — gitignored. |
 | `captures/{numero}/{key}.json` | Por cada nodo `capturar`/`verificar` armado vía "HTML + intent": guarda el HTML pegado, el intent del QA, el locator propuesto, el final, y el razonamiento. Sirve para `actualizar-nodos.md` cuando el front cambia. |

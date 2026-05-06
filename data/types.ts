@@ -5,3 +5,9 @@ export interface User {
   pass: string;
   dni?: string;
 }
+
+/** Canal de prueba — nombre + URL inicial desde donde arranca un caso. */
+export interface Canal {
+  nombre: string;
+  url: string;
+}

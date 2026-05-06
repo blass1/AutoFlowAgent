@@ -33,7 +33,7 @@ Logins guardados:
 
 #### 2.a. Elegir canal
 
-Leé `.autoflow/urls/urls.json`. `vscode/askQuestions` single-select: `"¿En qué canal?"` con cada canal como opción + `➕ Crear nuevo canal` (igual que en `crear-caso.md`).
+Leé `data/urls.ts` (export `canales`). `vscode/askQuestions` single-select: `"¿En qué canal?"` con cada canal como opción + `➕ Crear nuevo canal` (igual que en `crear-caso.md`).
 
 #### 2.b. Elegir usuario
 
