@@ -834,6 +834,7 @@ function html(modelo) {
       if (!n) return;
       const t = getTest();
       const promptActualizar = \`Actualizá el **Nodo** \\\`\${n.id}\\\`. El locator actual es \\\`\${n.selectorRaw}\\\` (confiabilidad \${n.confiabilidad ?? '—'}/5). Decime el nuevo locator y aplicá el cambio en pages/\${n.page}.ts, .autoflow/nodos.json y el sidecar correspondiente, marcando el viejo como deprecated.\`;
+      const promptAutoHeal = \`🪄 Auto-Health Node sobre \\\`\${n.id}\\\`. Cargá .autoflow/prompts/auto-health-node.md con nodoId=\${n.id} para que navegues hasta el punto donde se usa, captures el DOM (elemento + 7 ancestros) y propongas un locator más confiable razonando sobre el HTML capturado.\`;
       const promptBifurcar = t
         ? \`Bifurcar **Test** [testId:\${t.testId}] desde el **Nodo** \\\`\${n.id}\\\`. Cargá .autoflow/prompts/bifurcar-caso.md con numeroFuente=\${t.testId} y nodoId=\${n.id} para crear un Test nuevo que reuse el prefix hasta este punto y grabe sólo la cola con codegen + storageState.\`
         : null;
@@ -853,6 +854,7 @@ function html(modelo) {
           <button onclick="cerrarModal()">Cerrar</button>
           \${ubic ? \`<button onclick="abrirVSCode('\${esc(ubic.archivo)}', \${ubic.line});cerrarModal()">📂 Abrir en VSCode</button>\` : ''}
           \${promptBifurcar ? \`<button onclick="copiar(\${JSON.stringify(promptBifurcar)})">🍴 Bifurcar Test desde acá</button>\` : ''}
+          <button onclick="copiar(\${JSON.stringify(promptAutoHeal)})">🪄 Auto-Health (capturar DOM)</button>
           <button class="primary" onclick="copiar(\${JSON.stringify(promptActualizar)})">📋 Copiar prompt: actualizar Nodo</button>
         </div>
       \`;
@@ -894,26 +896,62 @@ function html(modelo) {
         stage.outerHTML = '<div class="grafo-vacio">No hay traza para este Test.</div>';
         return;
       }
-      // Armamos un mermaid simple del paso a paso, agrupando nodos contiguos por page.
-      const lines = ['flowchart TD'];
+
+      // Agrupamos los pasos en bloques contiguos por page. Cada bloque es un subgraph
+      // (las pages se ven como cajas con sus pasos adentro flow LR; las cajas fluyen TD).
       const idsLimpios = test.pasos.map((p, i) => ({ ...p, mid: 'n' + i }));
-      let prev = null;
+      const bloques = [];
+      let bloqueActual = null;
       for (const p of idsLimpios) {
-        const n = p.nodo;
-        const label = n
-          ? \`\${n.page}<br/>\${n.accion} \${(n.selector || '').slice(0, 30)}\`
-          : 'desconocido';
-        const conf = n?.confiabilidad ?? 0;
-        lines.push(\`  \${p.mid}["\${label}"]\`);
-        if (n?.deprecated) lines.push(\`  class \${p.mid} dep\`);
-        else if (conf <= 1) lines.push(\`  class \${p.mid} c1\`);
-        else if (conf === 2) lines.push(\`  class \${p.mid} c2\`);
-        else if (conf === 3) lines.push(\`  class \${p.mid} c3\`);
-        else if (conf === 4) lines.push(\`  class \${p.mid} c4\`);
-        else if (conf === 5) lines.push(\`  class \${p.mid} c5\`);
-        if (prev) lines.push(\`  \${prev.mid} --> \${p.mid}\`);
-        prev = p;
+        const pageNombre = p.nodo?.page || '_desconocido_';
+        if (!bloqueActual || bloqueActual.page !== pageNombre) {
+          bloqueActual = { page: pageNombre, pasos: [], idx: bloques.length };
+          bloques.push(bloqueActual);
+        }
+        bloqueActual.pasos.push(p);
       }
+
+      const lines = ['flowchart TD'];
+
+      // Subgraph por bloque (page). Steps fluyen LR adentro.
+      for (const b of bloques) {
+        const safeName = b.page.replace(/[^a-zA-Z0-9]/g, '');
+        const sgId = \`sg_\${safeName}_\${b.idx}\`;
+        lines.push(\`  subgraph \${sgId}["\${b.page} (\${b.pasos.length} \${b.pasos.length === 1 ? 'paso' : 'pasos'})"]\`);
+        lines.push('    direction LR');
+        for (const p of b.pasos) {
+          const n = p.nodo;
+          const label = n
+            ? \`\${n.accion}<br/>\${(n.selector || '').slice(0, 28)}\`
+            : 'desconocido';
+          lines.push(\`    \${p.mid}["\${label}"]\`);
+          const conf = n?.confiabilidad ?? 0;
+          if (n?.deprecated) lines.push(\`    class \${p.mid} dep\`);
+          else if (conf <= 1) lines.push(\`    class \${p.mid} c1\`);
+          else if (conf === 2) lines.push(\`    class \${p.mid} c2\`);
+          else if (conf === 3) lines.push(\`    class \${p.mid} c3\`);
+          else if (conf === 4) lines.push(\`    class \${p.mid} c4\`);
+          else if (conf === 5) lines.push(\`    class \${p.mid} c5\`);
+        }
+        // Edges intra-page (LR, secuenciales).
+        for (let j = 0; j < b.pasos.length - 1; j++) {
+          lines.push(\`    \${b.pasos[j].mid} --> \${b.pasos[j + 1].mid}\`);
+        }
+        lines.push('  end');
+        // Color del subgraph según el hue de la page (semitransparente).
+        const info = datos.paginas[b.page];
+        const hue = info ? info.hue : Math.abs([...b.page].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0)) % 360;
+        lines.push(\`  style \${sgId} fill:hsl(\${hue},35%,18%),stroke:hsl(\${hue},65%,55%),stroke-width:2px,color:#e7eaf0\`);
+      }
+
+      // Edges inter-page: del último paso de cada bloque al primero del siguiente.
+      for (let i = 0; i < bloques.length - 1; i++) {
+        const a = bloques[i].pasos[bloques[i].pasos.length - 1];
+        const b = bloques[i + 1].pasos[0];
+        lines.push(\`  \${a.mid} ==> \${b.mid}\`);
+      }
+
+      // Estilos de nodos por confiabilidad.
       lines.push('  classDef dep fill:#444,stroke:#777,color:#bbb,stroke-dasharray:4');
       lines.push('  classDef c1 fill:#3a1a22,stroke:#ff5c7a,color:#ffd');
       lines.push('  classDef c2 fill:#3a2e1a,stroke:#ffb454,color:#ffd');
@@ -921,7 +959,7 @@ function html(modelo) {
       lines.push('  classDef c4 fill:#1f3a1a,stroke:#b6e88f,color:#fff');
       lines.push('  classDef c5 fill:#1a3a2a,stroke:#3ddc97,color:#fff');
 
-      // Click handlers en mermaid via la directiva click → función JS global.
+      // Click handlers — abrir modal del nodo al hacer click.
       for (const p of idsLimpios) {
         lines.push(\`  click \${p.mid} call abrirNodoPorIndice("\${idsLimpios.indexOf(p)}")\`);
       }

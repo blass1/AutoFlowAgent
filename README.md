@@ -258,6 +258,7 @@ El front del banco es lento, así que los defaults van más holgados que los de 
 | 🚀 Correr test set | `correr-test-set.md` | Valida coherencia del proyecto (`validar-coherencia.js`) y después corre toda la regresión del set. |
 | 🔐 Configurar login reusable | `setup-auth.md` | Graba un storageState por (canal, usuario) para que los siguientes casos arranquen logueados sin re-grabar el login. |
 | 📊 Ver cobertura de nodos | (corre `cobertura.js`) | Agrega todas las trazas y emite un reporte HTML con qué nodos están cubiertos, por qué tests, y qué pages tienen 0 cobertura. |
+| 🪄 Auto-Health Node | `auto-health-node.md` | Lista los Nodos con confiabilidad ≤3 ordenados por fragilidad + cantidad de Tests que los usan. Para el elegido, navega el flujo hasta el paso anterior, captura el DOM (elemento + 7 ancestros) y propone un locator más confiable razonando sobre el HTML. Solo aplica si la confiabilidad mejora. |
 | 🖥️ Abrir dashboard del proyecto | (corre `dashboard.js`) | HTML único navegable con Test Sets, Tests, pasos del flujo, historial de ejecuciones y grafo del paso a paso. Cada nodo se puede abrir en VSCode con un click o copiar como prompt para que el agente lo repare. |
 
 Sub-prompts adicionales que el agente carga sin que el QA los pida:

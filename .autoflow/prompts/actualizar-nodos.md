@@ -49,7 +49,11 @@ Por cada nodo elegido, en orden:
       Confiabilidad:   {n}/5
    ```
 
-2. Abrí `vscode/askQuestions` con un text input:
+2. Abrí `vscode/askQuestions` single-select: `"¿Cómo querés armar el locator nuevo?"`:
+   - `🪄 Capturar DOM y dejar que el agente proponga` → cargá `.autoflow/prompts/auto-health-node.md` con `{ nodoId }` del nodo elegido. Al volver, seguí con el siguiente nodo de la lista (saltate el resto del paso 4 para este nodo — `auto-health-node.md` ya hizo la edición atómica de PO + nodos.json + sidecar).
+   - `✍️ Pegarlo a mano` → seguí al text input de abajo.
+
+3. Si elige pegar a mano, abrí `vscode/askQuestions` con un text input:
    ```
    "Nuevo locator (formato Playwright literal — ej: getByRole('button', { name: 'OK' }))"
    ```
