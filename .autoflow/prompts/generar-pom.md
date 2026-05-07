@@ -223,7 +223,7 @@ Single-select `vscode/askQuestions`: `"⚠️ {Nombre}Page ya existe. ¿Qué hac
 - **NO** se crea archivo nuevo. **EDITÁ** `pages/{Nombre}Page.ts`:
   1. Si los nodos del rango usan locators que ya están en el constructor (mismo `selectorRaw`), reusalos. NO sumes locators duplicados.
   2. Para cada locator nuevo, sumá `private readonly {nombreLocator}: Locator;` al bloque de declaraciones y la inicialización en el constructor (`selectorRaw` verbatim, ver paso 6).
-  3. Sumá el método público nuevo siguiendo todas las reglas del paso 6 (verbo en infinitivo, JSDoc de una línea, `pressSequentially`, buffer si aplica, `waitForLoadState('domcontentloaded')` si retorna otra page).
+  3. Sumá el método público nuevo siguiendo todas las reglas del paso 6 (verbo en infinitivo, JSDoc de una línea, `pressSequentially`, buffer si aplica, `waitForLoadState('domcontentloaded')` si dispara navegación). El método retorna `Promise<void>` siempre — no retorna otra Page.
 - **EDITÁ** el sidecar `.autoflow/fingerprints/{Nombre}.json`:
   - Sumá los ids de los nodos nuevos al final de `nodos[]` (ya están en orden por el rango). Mantené los ids existentes intactos. Si un id se repite (locator reusado, misma acción), no lo dupliques.
   - Sumá los asserts nuevos a `asserts[]` sin duplicar.
@@ -253,8 +253,8 @@ Cuando el comando es válido **y el nombre NO chocaba con un PO existente**:
      await this.page.waitForTimeout(500);
      ```
      Eso cubre los dos casos que motivan el buffer: input seguido de otro input, e input seguido de un botón de avanzar/continuar/siguiente. **No** repliques el wait si ya hay un `waitForLoadState` consecutivo (sería redundante). Si `session.bufferTiempo` es `false` o falta el campo, no agregues nada.
-   - **Si el método retorna otra page**, terminá con `await this.page.waitForLoadState('domcontentloaded')` **antes** del `return new SiguientePage(this.page)`. **Default `'domcontentloaded'`** (ver pom-rules.md → "Esperas"): `'networkidle'` cuelga 60s en sites con long-polling o analytics persistente, así que solo usalo en SPAs limpias y con comentario justificando.
-   - **Si el primer nodo del rango es `goto`**, **no lo metas en un método del PO**. El `goto` lo dispara el spec antes de instanciar la page (`await page.goto(urlInicial)` + `new LoginPage(page)`). El nodo `goto` queda registrado en `sidecar.nodos[]` igual (es parte de la firma de la page para el matcheo), pero sin código en la clase. Los demás nodos del rango sí tienen métodos.
+   - **Métodos retornan siempre `Promise<void>`**. Sin chains. Los Page Objects no se conocen entre sí — `LoginPage` no importa `OverviewPage`. Si el método dispara una navegación a otra page, terminá con `await this.page.waitForLoadState('domcontentloaded')` **antes de retornar** (no instancies la próxima page; el spec se encarga). **Default `'domcontentloaded'`** (ver pom-rules.md → "Esperas"): `'networkidle'` cuelga 60s en sites con long-polling o analytics persistente, así que solo usalo en SPAs limpias y con comentario justificando.
+   - **Si el primer nodo del rango es `goto`**, **no lo metas en un método del PO**. El `goto` lo dispara el spec en su propio `test.step('Abrir el canal', async () => page.goto(urlInicial))`. El nodo `goto` queda registrado en `sidecar.nodos[]` igual (es parte de la firma de la page para el matcheo), pero sin código en la clase. Los demás nodos del rango sí tienen métodos.
 3. **Materializá los nodos del rango**:
    - Para cada nodo crudo del rango asignado a esta page, calculá su `id = {NombrePage}::{accion}::{selector}`.
    - Para `fill`/`press`/`selectOption`, si el `valor` parece dato variable (input del usuario, no UI fija), reemplazalo por `*` antes de armar el nodo a guardar.
@@ -276,7 +276,7 @@ Cuando el comando es válido **y el nombre NO chocaba con un PO existente**:
    - `fill` + `fill` + `click(verbo)` → método con verbo y parámetros para los fills (ej: `ingresar(usuario, password)`). En el cuerpo del método, los `fill` se emiten como `pressSequentially`.
    - `click` aislado con texto descriptivo → método con verbo (`abrirNuevaInversion()`).
    - Si no hay nombre claro, usá `realizarPaso{N}()` y dejá un comentario `// FIXME: renombrar al integrar.`.
-8. Si la última acción navega a otra pantalla, dejá el método retornando `Promise<void>` por ahora (la siguiente page todavía no existe; cuando se cree, se ajusta).
+8. Si la última acción navega a otra pantalla, el método igual retorna `Promise<void>` — el spec se encarga de instanciar la próxima page. NO importes la próxima page en este PO.
 9. Volvé al paso 4 y mostrá el listado actualizado: la page recién creada va con ✅ y sus pasos también. **Reimprimí el listado entero** — todos los pasos del recording, del primero al último, sin abreviar (regla del paso 4).
 
 > Cada agrupación es una iteración. Nunca generes más de una page por turno: agrupás → generás → mostrás de nuevo → esperás el próximo comando.
@@ -418,21 +418,25 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
      test('Compra de dolar mep con CA [testId:43213]', async ({ page }) => {
        const { urlInicial, usuarioPrincipal, importeOperacion } = dataDolarMep;
 
+       // Instancias de Page Objects — todas arriba, una por línea, prolijas.
+       const loginPage = new LoginPage(page);
+       const overviewPage = new OverviewPage(page);
+       const accesoFimaPage = new AccesoFimaPage(page);
+
        await test.step('Abrir el canal', async () => {
          await page.goto(urlInicial);
        });
 
-       const overview = await test.step('Loguearse y entrar al overview', async () => {
-         const login = new LoginPage(page);
-         return login.ingresar(usuarioPrincipal.user, usuarioPrincipal.pass);
+       await test.step('Loguearse y entrar al overview', async () => {
+         await loginPage.ingresar(usuarioPrincipal.user, usuarioPrincipal.pass);
        });
 
-       const acceso = await test.step('Abrir Inversiones → Fondos Fima', async () => {
-         return overview.abrirInversiones();
+       await test.step('Abrir Inversiones → Fondos Fima', async () => {
+         await overviewPage.abrirInversiones();
        });
 
        await test.step('Suscribir al Fima Premium', async () => {
-         await acceso.suscribir(importeOperacion);
+         await accesoFimaPage.suscribir(importeOperacion);
        });
      });
    });
@@ -443,10 +447,11 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
      - Si el grupo tiene `metodoReusado: '<nombre>'` (vino de paso 5.5.4) → usar ese método del PO existente, **sin** generar nuevos.
      - Si el grupo tiene `metodoNuevo: '<nombre>'` (vino de paso 5.5.5) → llamar al método recién agregado a la Page existente.
      - Si el grupo no tiene ninguno de los dos → es un PO nuevo (paso 6 normal); usar el método inferido por el paso 6.7 de la generación.
-   - **Imports fijos al tope**: `import { test, expect } from '../fixtures';` + `import { data{PascalSlug} } from '../data';` + un `import` por cada PO usado (incluí los Page Objects existentes que se reusaron por colisión — el `import` puede ya existir si ese PO se importó antes en el spec).
+   - **Imports fijos al tope**: `import { test, expect } from '../fixtures';` + `import { data{PascalSlug} } from '../data';` + un `import` por cada PO usado en el Test (incluí los Page Objects existentes que se reusaron por colisión).
    - **Un solo `test.describe` por archivo**, con el formato exacto del nombre.
    - **Destructurá `data{PascalSlug}`** al inicio del `test()`. Pasá los campos primitivos a los métodos del PO (`usuarioPrincipal.user`, `usuarioPrincipal.pass`), no el objeto `User` entero.
-   - **Chaining via `test.step` con return**: cuando un step produce la próxima page, retornala del callback y asignala a una `const` afuera. No anides instancias dentro del callback sin retornarlas.
+   - **Bloque de instancias arriba**: después del destructuring de data, declarar **todas** las instancias de Page Objects que el Test usa, una por línea, sin separación con líneas en blanco — bloque visualmente prolijo. Naming: `LoginPage` → `loginPage`, `AccesoFimaPage` → `accesoFimaPage` (clase en camelCase con primera letra minúscula). Aunque una page se use en un solo step, igual va arriba con las demás.
+   - **Sin chains**: los métodos del PO retornan `Promise<void>`. No retornan otra page. Cada `test.step` llama al método con `await {paginaCamelCase}.{metodo}(args)`, **sin** asignar a una `const`. La transición entre pages vive solo en el sidecar `conecta[]` del fingerprint, no en el código TS.
    - **Asserts opcionales**: si la próxima page tiene un método `estaVisible()`, llamalo en su propio step (`'Verificar que cargó el overview'`). Si no lo tiene, no inventes asserts genéricos.
 
    **Si el Test Set es nuevo** (el archivo spec no existe):
@@ -539,9 +544,12 @@ Voy a añadir al final del **Test** [testId:{numero}] estos pasos:
 
 1. Leé `tests/{slug}-{id}.spec.ts`.
 2. Localizá el bloque `test('{testNombre}', ...)` exacto **dentro del `test.describe`**. El nombre tiene formato `"{nombre} [testId:{numero}]"`. Si no aparece, frená y avisá al QA.
-3. Inferí qué variables de page están vivas al final del bloque (típicamente asignadas vía `await test.step(...)` con return, ej: `const acceso = await test.step('...', async () => overview.abrirInversiones())`). Esa es la **page activa** sobre la que se añaden los métodos.
-4. Para cada page del añadido, ejecutá los métodos que correspondan a sus pasos **envolviendolos en su propio `test.step`** con un comentario corto y concreto (mismo estilo que el resto del **Test**). Si la page ya está instanciada en el flujo, reusá la variable; si no, llamá al método que la crea retornándola desde el step. **Reusá los nombres de método que ya existen en cada PO** — no inventes métodos nuevos. Si los pasos del recording no encajan en ningún método público existente, frená y avisá al QA: el caso requiere editar los POs, lo que cae fuera del scope de este modo.
-5. Insertá los nuevos `test.step(...)` justo **antes del cierre** del bloque `test()`, después del último step.
+3. Identificá el **bloque de instancias** del Test (al inicio del `test()`, después del destructuring de data): `const loginPage = new LoginPage(page); const overviewPage = new OverviewPage(page); ...`. Es la lista visual de las pages que el Test usa.
+4. Para cada page del añadido:
+   - Si la page **ya está** en el bloque de instancias (porque ya se usaba en el Test), reusá esa variable. No agregues una nueva instancia.
+   - Si la page es **nueva** para este Test (primera vez que aparece tras añadir pasos), agregá una línea más al bloque de instancias respetando el orden y la prolijidad (ej: `const transferenciasPage = new TransferenciasPage(page);`).
+5. Para cada paso del añadido, envolvelo en su propio `test.step('comentario corto', async () => { ... })` — mismo estilo que el resto del **Test**. El cuerpo es `await {paginaCamelCase}.{metodo}(args)`. **Reusá los nombres de método que ya existen en cada PO** — no inventes métodos nuevos. Si los pasos del recording no encajan en ningún método público existente, frená y avisá al QA: el caso requiere editar los POs, lo que cae fuera del scope de este modo.
+6. Insertá los nuevos `test.step(...)` justo **antes del cierre** del bloque `test()`, después del último step.
 
 ### A.5. Sidecars y `nodos.json`
 

@@ -95,6 +95,12 @@ import { data{PascalSlugFuente} } from '../../data';
 test('warmup-fork-{nuevoTestId}', async ({ page, context }) => {
   const { urlInicial, usuarioPrincipal /*, ...campos del prefix */ } = data{PascalSlugFuente};
 
+  // Instancias de Page Objects del prefix — copiá las mismas que el Test fuente
+  // (mismo bloque, una por línea, prolijas).
+  const loginPage = new LoginPage(page);
+  const overviewPage = new OverviewPage(page);
+  // ... etc, según el prefix
+
   // Steps 1..idxCorte copiados verbatim del test() fuente.
   // Si la decisión de capturar/verificar fue "omitir", saltá esos test.step.
 
@@ -200,11 +206,12 @@ Cuando vuelve el control y el QA confirmó que terminó, el grabador escribió `
 
 - **Si el archivo no existe** (Test Set nuevo): creá el archivo con los imports y el `test.describe('{setNombreDestino} [testSetId:{setIdDestino}]', () => { ... })` vacío.
 - Insertá el nuevo `test('{nombreNuevo} [testId:{nuevoTestId}]', ...)` **dentro** del `test.describe`, al final.
-- Cuerpo del nuevo `test()`:
-  - Imports unificados: POs del prefix + POs del tail (sumar al tope del archivo, sin duplicar).
-  - `const { urlInicial, usuarioPrincipal, /* campos del prefix + tail */ } = data{PascalSlugDestino};`
-  - **Steps 1..idxCorte**: copiá los `test.step(...)` del Test fuente verbatim (incluidos los `const x = await test.step(...)` con sus retornos para que las variables de page queden vivas).
-  - **Steps del tail**: agrupados como en `generar-pom.md` paso 8.b, en `test.step` con comentarios cortos, retornando pages cuando aplique.
+- Cuerpo del nuevo `test()` siguiendo la convención de `pom-rules.md` (sin chains; instancias arriba):
+  - **Imports unificados**: POs del prefix + POs del tail (sumar al tope del archivo, sin duplicar).
+  - **Destructuring de data**: `const { urlInicial, usuarioPrincipal, /* campos del prefix + tail */ } = data{PascalSlugDestino};`.
+  - **Bloque de instancias** de Page Objects (todas, prefix + tail, una por línea, prolijas) — directamente después del destructuring de data, antes de cualquier `test.step`.
+  - **Steps 1..idxCorte (prefix)**: copiá los `test.step(...)` del Test fuente verbatim. Como el Test fuente sigue la misma convención (instancias arriba, métodos void), no hay que reescribir nada — los `await {paginaCamelCase}.{metodo}()` quedan iguales y referencian las variables del bloque de instancias.
+  - **Steps del tail**: agrupados como en `generar-pom.md` paso 8.b, en `test.step` con comentarios cortos. Las pages nuevas que aparezcan en el tail se suman al bloque de instancias arriba.
 
 Ejemplo del cuerpo resultante:
 
@@ -212,21 +219,26 @@ Ejemplo del cuerpo resultante:
 test('Compra de dolar mep con CC [testId:43214]', async ({ page }) => {
   const { urlInicial, usuarioPrincipal, importeOperacion, cuentaDestino } = dataDolarMep;
 
+  // Instancias de Page Objects — todas arriba, prolijas.
+  const loginPage = new LoginPage(page);
+  const overviewPage = new OverviewPage(page);
+  const accesoFimaPage = new AccesoFimaPage(page);
+  const confirmarCCPage = new ConfirmarCCPage(page);
+
   // ── Prefix (heredado del Test [testId:43213], steps 1..3) ──
   await test.step('Abrir el canal', async () => {
     await page.goto(urlInicial);
   });
-  const overview = await test.step('Loguearse y entrar al overview', async () => {
-    const login = new LoginPage(page);
-    return login.ingresar(usuarioPrincipal.user, usuarioPrincipal.pass);
+  await test.step('Loguearse y entrar al overview', async () => {
+    await loginPage.ingresar(usuarioPrincipal.user, usuarioPrincipal.pass);
   });
-  const acceso = await test.step('Abrir Inversiones → Fondos Fima', async () => {
-    return overview.abrirInversiones();
+  await test.step('Abrir Inversiones → Fondos Fima', async () => {
+    await overviewPage.abrirInversiones();
   });
 
   // ── Tail bifurcado ──
   await test.step('Suscribir desde cuenta corriente', async () => {
-    await acceso.suscribirCC(importeOperacion, cuentaDestino);
+    await accesoFimaPage.suscribirCC(importeOperacion, cuentaDestino);
   });
 });
 ```

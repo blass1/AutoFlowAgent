@@ -277,28 +277,10 @@ function construirModelo() {
     };
   });
 
-  // Expansión por cadena: el spec solo importa el PO de entrada, pero los métodos
-  // van retornando otros POs en cadena (login.ingresar() → OverviewPage,
-  // overview.abrirInversiones() → AccesoFimaPage, etc.). Recorremos los
-  // `retornaPage` de cada PO para descubrir la lista completa de POs que
-  // realmente se usan en el Test Set, no solo los importados directamente.
-  for (const ts of testSets) {
-    const seen = new Set(ts.imports.map((i) => i.nombreClase));
-    const queue = [...seen];
-    while (queue.length > 0) {
-      const clase = queue.shift();
-      const info = paginas[clase];
-      if (!info) continue;
-      for (const m of info.metodos) {
-        if (m.retornaPage && !seen.has(m.retornaPage)) {
-          seen.add(m.retornaPage);
-          queue.push(m.retornaPage);
-          const rutaSinExt = paginas[m.retornaPage]?.archivo?.replace(/\.ts$/, '') ?? null;
-          ts.imports.push({ nombreClase: m.retornaPage, rutaSinExt, origen: 'cadena' });
-        }
-      }
-    }
-  }
+  // Nota: con la convención sin chains, el spec importa directamente todas las
+  // pages que usa (las instancia al inicio del test()). Por eso ya no es necesario
+  // recorrer una "cadena de retornos" entre POs — los imports del spec son la
+  // fuente de verdad completa.
 
   // Resolución absoluta de archivos para vscode://file/.
   const absPath = (rel) => resolve(ROOT, rel).replace(/\\/g, '/');
@@ -871,12 +853,8 @@ function html(modelo) {
               const confChip = conf == null ? '' :
                 \`<div class="po-conf" style="background: \${c.bg}; color: \${c.fg}">\${conf.toFixed(1)}/5</div>\`;
               const tests = info.usadoEnTests.length;
-              const badgeOrigen = i.origen === 'cadena'
-                ? \`<div style="position:absolute;top:6px;right:6px;font-size:10px;opacity:0.7" title="Descubierto por cadena de retornos (no se importa directo en el spec)">🔗</div>\`
-                : '';
               return \`
-                <div class="po-card" style="border-top-color: \${c.border};" title="\${esc(info.archivo)}\${i.origen === 'cadena' ? ' · descubierto por cadena de retornos' : ''}">
-                  \${badgeOrigen}
+                <div class="po-card" style="border-top-color: \${c.border};" title="\${esc(info.archivo)}">
                   <div class="po-name" style="color: \${c.fg}">\${esc(i.nombreClase)}</div>
                   <div class="po-stats">
                     <div><span class="num">\${info.locators}</span>locators</div>

@@ -296,7 +296,9 @@ Esta prioridad la usa **el grabador al grabar**, no el agente al generar el PO. 
   // ❌ NO usar fill, aunque el nodo diga accion: "fill"
   // await this.inputUsuario.fill(usuario);
   ```
-- **Métodos que devuelven otra page** terminan con `await this.page.waitForLoadState('domcontentloaded')` **antes** del `return new SiguientePage(this.page)`. Sin eso, el siguiente PO se instancia mientras el DOM todavía no terminó de pintar y el primer locator del nuevo PO falla en `actionTimeout`. **Default `'domcontentloaded'`**, no `'networkidle'`: en sites con long-polling, analytics o WebSocket activos `networkidle` nunca se cumple (espera 500ms sin requests) y el método queda colgado los 60s del `actionTimeout`. Solo usá `'networkidle'` en SPAs sin telemetría persistente y comentá la razón.
+- **Métodos retornan siempre `Promise<void>`** — sin importar si la acción dispara navegación a otra page o no. **Los POs no se conocen entre sí**: `LoginPage` no importa `OverviewPage`. Esto desacopla los Page Objects (refactor de uno no rompe el otro) y mantiene los POs reusables.
+- **Métodos que disparan navegación** a otra page terminan con `await this.page.waitForLoadState('domcontentloaded')` **antes de retornar** (no instancian la próxima page). Sin esa espera, cuando el spec arranca a usar la próxima page después, el primer locator falla porque el DOM todavía no terminó de pintar. **Default `'domcontentloaded'`**, no `'networkidle'`: en sites con long-polling, analytics o WebSocket activos `networkidle` nunca se cumple (espera 500ms sin requests) y el método queda colgado los 60s del `actionTimeout`. Solo usá `'networkidle'` en SPAs sin telemetría persistente y comentá la razón.
+- **El spec se encarga de instanciar las pages**, no los métodos. Ver más abajo "Estructura del Test".
 
 ### Asserts
 
@@ -333,20 +335,30 @@ Ese único patrón cubre los dos casos típicos: input → input (la espera qued
 - Archivo en `tests/` con nombre `{slug}-{idTestSet}.spec.ts` (un spec por **Test Set**, no por **Test**). El `slug` es camelCase del nombre del **Test Set**; el id va separado por un único guion. Ejemplo: **Test Set** `Dolar MEP` con id `12345` → `tests/dolarMep-12345.spec.ts`.
 - Usar `test.extend` desde `fixtures/index.ts`. **Nada de clases base, nada de `BaseTest`.**
 
-### Estructura: `test.describe` + `test.step`
+### Estructura: `test.describe` + instancias arriba + `test.step`
 
-Cada **Test Set** = un único `test.describe` que envuelve a todos los `test()` del set. Cada **Test** dentro = un `test('...')` con sus pasos lógicos en `test.step`.
+Cada **Test Set** = un único `test.describe` que envuelve a todos los `test()` del set. Cada **Test** dentro = un `test('...')` con esta estructura **fija**:
+
+1. **Destructuring del data file** del Test Set.
+2. **Bloque de instancias** de todas las **Page Objects** que el Test usa, una por línea, prolijas (`const loginPage = new LoginPage(page);`).
+3. **Pasos** del flujo en `test.step('comentario corto', async () => { ... })`.
 
 **Formato de los nombres** (contrato del repo, no improvisar):
 - Describe: `"{nombreTestSet} [testSetId:{id}]"` — ej: `"Dolar MEP [testSetId:12345]"`.
 - Test: `"{nombreCaso} [testId:{numero}]"` — ej: `"Compra de dolar mep con CA [testId:43213]"`.
 - **Sin prefijo `TC-`** ni nada antes del nombre. El id va al final entre corchetes con la key correspondiente (`testSetId` o `testId`).
 
+**Reglas de las instancias**:
+- Todas las instancias **van al principio del `test()`**, después del destructuring de data, **antes** de cualquier `test.step`.
+- Una por línea, sin separación con líneas en blanco entre ellas — quedan como un bloque visualmente prolijo.
+- Naming: el nombre de la variable es la **clase en camelCase** (primera letra minúscula). Ej: `LoginPage` → `loginPage`, `AccesoFimaPage` → `accesoFimaPage`.
+- Aunque una page se use en un solo step, igual va arriba con las demás — el bloque del cabezal del test es la lista visual de "qué pantallas toca este caso".
+
 **Reglas de `test.step`**:
 - Cada acción lógica del **Test** (abrir el canal, loguearse, navegar a una pantalla, ejecutar la operación, verificar) va envuelta en `await test.step('comentario corto', async () => { ... })`.
 - El comentario describe **qué hace el paso** desde la perspectiva del usuario (`'Loguearse y entrar al overview'`, `'Suscribir al fondo Fima Premium'`). No hablar de tipos ni clases.
-- Si el step produce una page nueva, **retornala** del callback y asignala a una `const`: `const overview = await test.step('...', async () => login.ingresar(...));`.
-- El `await page.goto(urlInicial)` también va en su propio step (`'Abrir el canal'`).
+- **El step llama a métodos del PO**: `await loginPage.ingresar(usuarioPrincipal.user, usuarioPrincipal.pass);`. Los métodos retornan `Promise<void>` — no se asigna a una `const`.
+- El `await page.goto(urlInicial)` va en su propio step (`'Abrir el canal'`).
 - Una declaración por step. No mezclar dos navegaciones distintas en el mismo step — partilas.
 
 ### `test.use({ storageState })`
@@ -490,7 +502,6 @@ pages/
 
 ```typescript
 import { expect, Locator, Page } from '@playwright/test';
-import DashboardPage from './DashboardPage';
 
 /** Pantalla de login del Mobile Banking. */
 export default class LoginPage {
@@ -511,20 +522,22 @@ export default class LoginPage {
     await expect(this.heading).toBeVisible();
   }
 
-  /** Loguea con usuario y contraseña; devuelve el dashboard. */
-  async ingresar(usuario: string, password: string): Promise<DashboardPage> {
-    // Codegen capturó click+fill por cada input. Los preservamos: el front
+  /** Loguea con usuario y contraseña; deja al usuario en el dashboard. */
+  async ingresar(usuario: string, password: string): Promise<void> {
+    // El recording capturó click+fill por cada input. Los preservamos: el front
     // del banco escucha el focus event para activar la máscara del password.
     await this.inputUsuario.click();
-    await this.inputUsuario.fill(usuario);
+    await this.inputUsuario.pressSequentially(usuario);
     await this.inputPassword.click();
-    await this.inputPassword.fill(password);
+    await this.inputPassword.pressSequentially(password);
     await this.botonIngresar.click();
     await this.page.waitForLoadState('domcontentloaded');
-    return new DashboardPage(this.page);
+    // No retornamos DashboardPage — el spec se encarga de instanciarla al inicio.
   }
 }
 ```
+
+> Notá: **no hay `import DashboardPage from './DashboardPage'`**. Los Page Objects no se conocen entre sí. El spec instancia las pages que necesita.
 
 ## Page Object: `pages/DashboardPage.ts`
 
@@ -585,21 +598,25 @@ test.describe('Dolar MEP [testSetId:12345]', () => {
   test('Compra de dolar mep con CA [testId:43213]', async ({ page }) => {
     const { urlInicial, usuarioPrincipal, importeOperacion } = dataDolarMep;
 
+    // Instancias de Page Objects — todas arriba, una por línea, prolijas.
+    const loginPage = new LoginPage(page);
+    const overviewPage = new OverviewPage(page);
+    const accesoFimaPage = new AccesoFimaPage(page);
+
     await test.step('Abrir el canal', async () => {
       await page.goto(urlInicial);
     });
 
-    const overview = await test.step('Loguearse y entrar al overview', async () => {
-      const login = new LoginPage(page);
-      return login.ingresar(usuarioPrincipal.user, usuarioPrincipal.pass);
+    await test.step('Loguearse y entrar al overview', async () => {
+      await loginPage.ingresar(usuarioPrincipal.user, usuarioPrincipal.pass);
     });
 
-    const acceso = await test.step('Abrir Inversiones → Fondos Fima', async () => {
-      return overview.abrirInversiones();
+    await test.step('Abrir Inversiones → Fondos Fima', async () => {
+      await overviewPage.abrirInversiones();
     });
 
     await test.step('Suscribir al Fima Premium', async () => {
-      await acceso.suscribir(importeOperacion);
+      await accesoFimaPage.suscribir(importeOperacion);
     });
   });
 });
