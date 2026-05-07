@@ -3,7 +3,7 @@
 // haya generado (pages, tests, fingerprints, testsets, nodos, grafos, data).
 // Conserva scripts, prompts, conventions, fixtures y configuración del proyecto.
 //
-// Uso:
+//  Uso:
 //   node clearSession.js          (pide confirmación interactiva)
 //   node clearSession.js --yes    (sin confirmación, para CI/scripting)
 

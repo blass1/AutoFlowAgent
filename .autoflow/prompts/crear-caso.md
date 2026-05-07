@@ -8,7 +8,11 @@ tools: ['vscode/askQuestions', 'edit', 'read', 'runCommands', 'runTasks']
 
 ## 0. ¿De dónde sacamos los datos del caso?
 
-Antes que nada, preguntale al QA cómo quiere cargar los datos del caso. Usá `#tool:vscode/askQuestions` single-select con la pregunta `"¿Cómo querés cargar los datos del caso?"` y estas opciones:
+**Si el prompt fue invocado con contexto `origen: "alm"`** (típicamente desde el sub-menú `📄 ALM → Importar .xlsx y crear un Test` del menú principal): **salteá la pregunta** y andá directo al **paso 0.a** asumiendo que el QA ya eligió importar desde Export ALM.
+
+**Si el prompt fue invocado con contexto `origen: "manual"`**: salteá la pregunta y andá directo al **paso 0.b**.
+
+**Sin contexto** (invocación normal desde el menú o desde otro sub-prompt como `editar-caso.md` modo "Regrabar"): preguntale al QA cómo quiere cargar los datos del caso. Usá `#tool:vscode/askQuestions` single-select con la pregunta `"¿Cómo querés cargar los datos del caso?"` y estas opciones:
 
 - `📄 Importar desde Export ALM (.xlsx)`
 - `✍️ Cargar manualmente`

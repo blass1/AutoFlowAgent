@@ -246,7 +246,19 @@ El front del banco es lento, así que los defaults van más holgados que los de 
 - `waitForTimeout` está **permitido como último recurso** pero **siempre con un comentario `// Wait: <razón concreta>`**. Sin esa justificación, no se acepta.
 - Fixture opcional `humanize` con env var `AUTOFLOW_DELAY_MS` para correr "modo lento" cuando se debugea sin tocar código (ej: `AUTOFLOW_DELAY_MS=500 npm test`).
 
-## Las 6 acciones del menú
+## Las acciones del menú
+
+El menú es de **2 niveles**. Nivel 1: 5 categorías. Nivel 2: las acciones puntuales de cada una + `Volver`.
+
+| Categoría (nivel 1) | Acciones (nivel 2) |
+| --- | --- |
+| `🖥️ Abrir dashboard` | (acción directa, sin sub-menú) |
+| `🧪 Tests` | Crear · Editar · Correr |
+| `📦 Test Sets` | Crear · Editar · Correr |
+| `📄 ALM` | Importar .xlsx y crear · Exportar a ALM |
+| `🛠️ Mantenimiento` | Auto-Health Node · Cobertura de Nodos · Login reusable · Utilidades |
+
+Detalle de cada acción:
 
 | Acción | Sub-prompt | Qué hace |
 | --- | --- | --- |

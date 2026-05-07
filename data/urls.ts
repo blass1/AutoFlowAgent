@@ -8,5 +8,5 @@ import type { Canal } from './types';
  * Si una URL de homologación cambia, modificala acá una sola vez.
  */
 export const canales: readonly Canal[] = [
-  { nombre: 'Google', url: 'https://www.google.com/' },
+  { nombre: 'Google', url: 'https://www.google.com' },
 ];

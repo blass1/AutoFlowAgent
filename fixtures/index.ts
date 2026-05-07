@@ -2,7 +2,6 @@ import { test as base } from '@playwright/test';
 
 /**
  * Fixtures comunes de AutoFlow.
- *
  * El agente AutoFlow extiende este archivo cuando un caso necesita una fixture
  * nueva (por ejemplo, un Page Object pre-cargado o un usuario logueado).
  *
