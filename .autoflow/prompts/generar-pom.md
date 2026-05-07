@@ -62,22 +62,21 @@ Si el script falla o no existe, leé directamente `.autoflow/recordings/{numero}
 
 ## 4. Mostrar el listado y explicar la sintaxis
 
-> **REGLA INNEGOCIABLE — listado siempre completo.** Cada vez que mostrés este listado (la primera vez y cada vuelta desde el paso 6 después de agrupar una page), tenés que **reimprimir TODOS los pasos del recording, del primero al último, sin omitir ninguno y sin abreviar con `…`, `...`, `[N pasos más]`, `(varios pasos)` ni ningún resumen**. Aunque el recording tenga 50 pasos, los 50 pasos van listados con su número, descripción y confiabilidad. El QA necesita ver todo para elegir bien el rango — si abreviás, el panel de Copilot puede cortar el mensaje y le rompés la decisión. Si te parece largo, igual va completo: no es decisión tuya cortarlo.
+> **REGLA — pages agrupadas colapsadas, "Nuevo" siempre completo.** Cada vez que mostrés este listado (la primera vez y cada vuelta desde el paso 6 después de agrupar una page):
+> - **Pages ya agrupadas** (las que ya tienen ✅, sean reusadas del prefix matching o agrupadas en iteraciones previas) → mostralas **colapsadas en una línea** con `✅ {NombrePage} (pasos {desde}–{hasta}, {N} nodos)`. NO listar los pasos internos. El QA ya tomó esa decisión, no la necesita re-leer.
+> - **Pasos bajo `— Nuevo —`** → SIEMPRE completos, del primero al último de "Nuevo", sin abreviar con `…`, `...`, `[N pasos más]`, `(varios pasos)` ni ningún resumen. Es lo que el QA tiene que decidir ahora; cortar acá le rompe la decisión.
+>
+> Justificación: re-imprimir 50 pasos en cada vuelta hace lentas las respuestas del agente. Colapsar lo decidido y mostrar solo lo pendiente reduce drásticamente el tamaño de cada respuesta sin perder utilidad.
 
-Mostrale al QA un mensaje con esta estructura. Las pages existentes aparecen con `✅` y sus pasos también con `✅`. La frontera con lo no agrupado es `-Nuevo-` (sin tilde). Los pasos nuevos van numerados y sin tilde.
+Mostrale al QA un mensaje con esta estructura. Las pages ya agrupadas (existentes o agrupadas en iteraciones previas) van **colapsadas en una línea**. La frontera con lo no agrupado es `— Nuevo —`. Los pasos pendientes van numerados y sin tilde — listados completos, sin abreviar.
 
 ```
-Estos son los nodos que capturé. Los que ya están en pages existentes
-los marqué con ✅. Los de abajo de "Nuevo" tenés que agruparlos vos.
+Estos son los nodos que capturé. Las pages que ya existían o ya agrupamos
+están colapsadas (✅). Los pasos bajo "Nuevo" son los que tenés que agrupar.
 La columna [n/5] es la confiabilidad del locator (5 = id/testid, 1 = CSS frágil).
 
-✅ LoginPage
-   ✅ Paso 1: Rellena el campo "Usuario"           [3/5]
-   ✅ Paso 2: Rellena el campo "Contraseña"        [3/5]
-   ✅ Paso 3: Click en botón "Ingresar"            [4/5]
-
-✅ OverviewPage
-   ✅ Paso 4: Click en botón "Inversiones"         [4/5]
+✅ LoginPage          (pasos 1–3, 3 nodos)
+✅ OverviewPage       (paso 4, 1 nodo)
 
 — Nuevo —
    Paso 5: Click en botón "Nueva inversión"       [4/5]
@@ -94,7 +93,8 @@ Reglas:
   • Solo rangos **contiguos**. No se aceptan listas tipo 5,7.
   • Tenés que arrancar siempre por el primer paso de "Nuevo".
   • El nombre va sin sufijo "Page" — yo lo agrego.
-  • Si querés cambiar algo de una page ya agrupada, escribime "rehacer".
+  • Si querés cambiar algo de una page ya agrupada, escribime "rehacer"
+    (te muestro los pasos internos colapsados y desagrupás).
 ```
 
 Si **no quedan pasos en "Nuevo"** (todo el flujo matcheó pages existentes), saltá directo al paso 7.
@@ -135,11 +135,75 @@ Antes de generar:
 1. `n` debe ser exactamente el primer paso de "Nuevo". Si no, respondé corto: `"Tenés que arrancar por el paso {primero-de-nuevo}."` y volvé a esperar.
 2. `m >= n` y `m` no puede pasarse del último paso del recording.
 3. El nombre debe ser PascalCase válido (sin espacios, sin acentos en ASCII estricto). Si trae espacios, normalizalos a PascalCase y mostrale al QA cómo quedó antes de generar.
-4. No puede chocar con un nombre de page existente. Si choca, decilo y pedí otro nombre.
+4. **Si el nombre choca con un Page Object existente** (`pages/{Nombre}Page.ts` ya existe), **NO lo rechaces** — caés al paso 5.5 (colisión) para decidir si reusar un método existente, agregar un método nuevo a esa Page o cambiar el nombre.
+
+## 5.5. Colisión con Page Object existente
+
+Solo se entra acá si el nombre del paso 5 coincide con un PO ya existente. Es una **oportunidad** (consolidar conocimiento de pantalla en un único PO), no un error.
+
+### 5.5.1. Cargar el PO existente
+
+1. Leé `pages/{Nombre}Page.ts` y extraé los **métodos públicos** (`async <nombre>(...)` que no sean `private`/`#`). Para cada método, anotá:
+   - `nombreMetodo`
+   - `firma` (parámetros)
+   - `cuerpo` (líneas dentro del método, hasta el `}` de cierre)
+   - `selectoresUsados` — lista ordenada de `(accion, selectorRaw)` extraídos del cuerpo. Heurística: cada línea `await this.<locator>.<accion>(...)` mapea a `(accion, selectorRaw del locator privado)`. Resolvé `selectorRaw` cruzando con la asignación del constructor (`this.<locator> = page.<selectorRaw>`).
+2. Leé `.autoflow/fingerprints/{Nombre}.json` (sidecar). Tenés `nodos[]` planos.
+
+### 5.5.2. Comparar con el rango actual
+
+El rango que el QA quiere agrupar es una secuencia de nodos (acciones del usuario, sin asserts) con su `selectorRaw` y `accion` en `nodos.json` (vía `parsed.json`).
+
+Para cada método existente, calculá la **similitud** = porcentaje de pasos del rango que matchean en orden contra los `selectoresUsados` del método.
+
+- Match exacto: `(accion, selectorRaw)` idénticos.
+- Match parcial: `accion` igual + `selector` normalizado igual (descontando modificadores).
+- Si la secuencia del rango es **subsecuencia exacta** de los selectores del método o viceversa → **similitud alta** (≥80%).
+- Si comparten al menos el **primer y último paso** + parte del medio → similitud media (50–80%).
+- Si no → similitud baja (<50%, no se ofrece como opción).
+
+### 5.5.3. Preguntar al QA qué hacer
+
+Single-select `vscode/askQuestions`: `"⚠️ {Nombre}Page ya existe. ¿Qué hacés con este rango?"`. Opciones (en este orden):
+
+- Por cada método con similitud ≥50%, una opción:
+  - `🔁 Reusar método "{nombreMetodo}({firma})" — cubre {N}/{M} pasos del rango ({similitud}%)` 
+- Después de las opciones de reuso (si las hay):
+  - `🆕 Agregar método nuevo dentro de {Nombre}Page (recomendado si ningún match es exacto)`
+- Siempre al final:
+  - `✏️ Cambiar el nombre (no es la misma pantalla, fue casualidad)` → vuelve al paso 5 esperando otro comando.
+
+### 5.5.4. Si elige reusar
+
+- **NO** se crea ni se modifica `pages/{Nombre}Page.ts`. **NO** se modifica el sidecar (`nodos[]` ya tiene esos ids; no duplicar).
+- Persistí el grupo en `{numero}-grupos.json` igual que en el paso 6.5 con `{ page, desde, hasta, metodoReusado: '<nombreMetodo>' }`. El campo `metodoReusado` lo usa el spec en el paso 8.b para elegir qué método llamar.
+- Si entre los pasos del rango hay **asserts** que NO están en `sidecar.asserts[]`, sumalos al sidecar y a `nodos.json` (los asserts no son parte del método público; son enriquecimiento de la firma de la page).
+- Si hay nodos `capturar`/`verificar` en el rango, son siempre nuevos: agregalos a `nodos.json`. El spec los va a emitir inline después de la llamada al método reusado.
+- Volvé al paso 4 (mostrá el listado actualizado: la page agrupada va con ✅ colapsada).
+
+### 5.5.5. Si elige agregar método nuevo
+
+- **NO** se crea archivo nuevo. **EDITÁ** `pages/{Nombre}Page.ts`:
+  1. Si los nodos del rango usan locators que ya están en el constructor (mismo `selectorRaw`), reusalos. NO sumes locators duplicados.
+  2. Para cada locator nuevo, sumá `private readonly {nombreLocator}: Locator;` al bloque de declaraciones y la inicialización en el constructor (`selectorRaw` verbatim, ver paso 6).
+  3. Sumá el método público nuevo siguiendo todas las reglas del paso 6 (verbo en infinitivo, JSDoc de una línea, `pressSequentially`, buffer si aplica, `waitForLoadState('domcontentloaded')` si retorna otra page).
+- **EDITÁ** el sidecar `.autoflow/fingerprints/{Nombre}.json`:
+  - Sumá los ids de los nodos nuevos al final de `nodos[]` (ya están en orden por el rango). Mantené los ids existentes intactos. Si un id se repite (locator reusado, misma acción), no lo dupliques.
+  - Sumá los asserts nuevos a `asserts[]` sin duplicar.
+- **Actualizá** `nodos.json` igual que en el paso 6.3 (nuevos ids, sin sobreescribir existentes).
+- Persistí el grupo en `{numero}-grupos.json` con `{ page, desde, hasta, metodoNuevo: '<nombreMetodoCreado>' }`.
+- Volvé al paso 4 con la page actualizada.
+
+### 5.5.6. Notas
+
+- La detección de similitud es heurística — el QA siempre tiene la última palabra. Si propones "reusar" mal, el QA elige "agregar método nuevo" y ya.
+- Si el método reusado **retorna otra page**, el spec va a usar el retorno tal cual (`const overview = await login.ingresar(...)`). Si el método nuevo creado retorna otra page (porque la última acción navega), seguí la misma regla del paso 6.
 
 ## 6. Generar el PO de la nueva page
 
-Cuando el comando es válido:
+> **Si el comando entró por colisión (paso 5.5)**: NO entres acá. El paso 5.5.4/5.5.5 ya manejaron la generación (reuso o método agregado a PO existente). Volvé al paso 4.
+
+Cuando el comando es válido **y el nombre NO chocaba con un PO existente**:
 
 1. **Leé `.autoflow/conventions/pom-rules.md`** primero (sí, todas las veces).
 2. Generá `pages/{NombrePage}.ts` (PascalCase, mismo nombre que la clase, con sufijo `Page`) siguiendo las reglas. Ej: clase `AccesoFimaPage` → archivo `pages/AccesoFimaPage.ts`. **El JSDoc de la clase queda en una línea** (descripción corta de la pantalla en español, sin listar acciones). Reglas críticas para que el test pase en primera corrida:
@@ -152,7 +216,7 @@ Cuando el comando es válido:
      await this.page.waitForTimeout(500);
      ```
      Eso cubre los dos casos que motivan el buffer: input seguido de otro input, e input seguido de un botón de avanzar/continuar/siguiente. **No** repliques el wait si ya hay un `waitForLoadState` consecutivo (sería redundante). Si `session.bufferTiempo` es `false` o falta el campo, no agregues nada.
-   - **Si el método retorna otra page**, terminá con `await this.page.waitForLoadState('networkidle')` (o `'domcontentloaded'` si `networkidle` cuelga) **antes** del `return new SiguientePage(this.page)`. Sin eso, el siguiente PO se instancia con DOM a medio pintar y rompe el primer locator.
+   - **Si el método retorna otra page**, terminá con `await this.page.waitForLoadState('domcontentloaded')` **antes** del `return new SiguientePage(this.page)`. **Default `'domcontentloaded'`** (ver pom-rules.md → "Esperas"): `'networkidle'` cuelga 60s en sites con long-polling o analytics persistente, así que solo usalo en SPAs limpias y con comentario justificando.
    - **Si el primer nodo del rango es `goto`**, **no lo metas en un método del PO**. El `goto` lo dispara el spec antes de instanciar la page (`await page.goto(urlInicial)` + `new LoginPage(page)`). El nodo `goto` queda registrado en `sidecar.nodos[]` igual (es parte de la firma de la page para el matcheo), pero sin código en la clase. Los demás nodos del rango sí tienen métodos.
 3. **Materializá los nodos del rango**:
    - Para cada nodo crudo del rango asignado a esta page, calculá su `id = {NombrePage}::{accion}::{selector}`.
@@ -192,14 +256,7 @@ Para cada par contiguo `A → B` en esa secuencia:
 
 Esto va construyendo un grafo dirigido de pages que después se usa para visualizaciones y para arrancar grabaciones desde estados intermedios. Hacelo **callado**: no le anuncies al QA que actualizaste el grafo a menos que se lo agregues a una page que ya tenía conexiones (en ese caso, una línea: `Sumé {B} a las conexiones de {A}.`).
 
-Después de actualizar los `conecta`, **regenerá los dos diagramas Mermaid** ejecutando con `runCommands`:
-
-```
-node .autoflow/scripts/grafo.js
-node .autoflow/scripts/grafo-nodos.js
-```
-
-Eso reescribe `.autoflow/grafos/grafo.md` (grafo de pages) y `.autoflow/grafos/grafo-nodos.md` (grafo de nodos coloreado por confiabilidad). Si alguno de los scripts falla (por ejemplo, todavía no hay fingerprints), seguí adelante igual — no es bloqueante. También callado salvo error. **Nunca te saltes el de nodos** — es la herramienta principal de análisis del flujo del usuario.
+> **Nota sobre regeneración de los grafos Mermaid**: NO los regeneres acá — la regeneración (`grafo.js` + `grafo-nodos.js`) es **costosa** (lee todos los sidecars, render Mermaid, escribe HTML autocontenido) y se difiere a un único pase al final de la sesión (paso 9.5). Acá solo enriquecés `conecta` en los sidecars; los HTML se reescriben una sola vez después del último flujo de agrupación.
 
 ## 7. Elegir / crear Test Set
 
@@ -345,7 +402,11 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
    ```
 
    Reglas concretas:
-   - **Imports fijos al tope**: `import { test, expect } from '../fixtures';` + `import { data{PascalSlug} } from '../data';` + un `import` por cada PO usado.
+   - **Resolución del método a llamar por cada grupo de `grupos.json`**:
+     - Si el grupo tiene `metodoReusado: '<nombre>'` (vino de paso 5.5.4) → usar ese método del PO existente, **sin** generar nuevos.
+     - Si el grupo tiene `metodoNuevo: '<nombre>'` (vino de paso 5.5.5) → llamar al método recién agregado a la Page existente.
+     - Si el grupo no tiene ninguno de los dos → es un PO nuevo (paso 6 normal); usar el método inferido por el paso 6.7 de la generación.
+   - **Imports fijos al tope**: `import { test, expect } from '../fixtures';` + `import { data{PascalSlug} } from '../data';` + un `import` por cada PO usado (incluí los Page Objects existentes que se reusaron por colisión — el `import` puede ya existir si ese PO se importó antes en el spec).
    - **Un solo `test.describe` por archivo**, con el formato exacto del nombre.
    - **Destructurá `data{PascalSlug}`** al inicio del `test()`. Pasá los campos primitivos a los métodos del PO (`usuarioPrincipal.user`, `usuarioPrincipal.pass`), no el objeto `User` entero.
    - **Chaining via `test.step` con return**: cuando un step produce la próxima page, retornala del callback y asignala a una `const` afuera. No anides instancias dentro del callback sin retornarlas.
@@ -373,6 +434,19 @@ node .autoflow/scripts/generar-traza.js {numero}
 El script lee `.autoflow/recordings/{numero}-parsed.json` + `.autoflow/recordings/{numero}-grupos.json` + `.autoflow/nodos.json` y emite `.autoflow/recordings/{numero}-path.json` con la secuencia de ids de nodo visitados (incluyendo asserts) en el orden del recording.
 
 **Si el script falla** (típicamente porque falta `grupos.json` o porque hay un nodo sin page asignada), **frená el flujo** y avisá al QA: probablemente algún paso del recording no se agrupó. No avances al resumen ni a la limpieza hasta resolver. Esto es intencional: la traza es el output de mayor valor analítico del flujo, perderla por un olvido del agente sería costoso.
+
+## 9.5. Regenerar los grafos (una sola vez por sesión)
+
+Acá, después de que se generaron y enriquecieron todos los sidecars (`conecta`), regenerá los dos diagramas Mermaid ejecutando con `runCommands`:
+
+```
+node .autoflow/scripts/grafo.js
+node .autoflow/scripts/grafo-nodos.js
+```
+
+Eso reescribe `.autoflow/grafos/grafo.{md,html}` (grafo de pages) y `.autoflow/grafos/grafo-nodos.{md,html}` (grafo de nodos coloreado por confiabilidad). Una sola corrida por sesión, no después de cada agrupación. Si alguno de los scripts falla (por ejemplo, todavía no hay fingerprints), seguí adelante igual — no es bloqueante. Callado salvo error.
+
+> Esto reemplaza la regeneración per-iteration que había antes en el paso 6.5. La motivación: cada `grafo.js` lee todos los sidecars + render Mermaid + escribe HTML autocontenido; multiplicado por N agrupaciones eran 5–20 segundos de overhead por sesión.
 
 ## 10. Limpieza
 

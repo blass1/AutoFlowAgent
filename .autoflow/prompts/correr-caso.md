@@ -54,7 +54,7 @@ Mostrá:
 Después abrí `vscode/askQuestions` single-select: `"¿Qué hacemos?"`:
 - `🔄 Volver a correr`
 - `🧩 Actualizar **Nodos** sospechosos` → cargá `.autoflow/prompts/actualizar-nodos.md` con el contexto `{ specPath, numeroTC: numero }`. Al volver, releé este menú.
-- `📊 Abrir el reporte HTML de Playwright` → ejecutá con `runCommands`: `npx playwright show-report`. Abre el HTML con trace, screenshots y stack del fallo. Al volver, releé este menú.
+- `📊 Re-correr con trace y abrir reporte HTML` → la corrida default usa `--reporter=line` (rápido, sin overhead). Para investigar un fallo necesitás trace + reporte HTML, así que volvé a correr con `--debug`: `node .autoflow/scripts/run-test.js {specPath} --headed --debug --grep "\\[testId:{numero}\\]"`. Cuando termine, abrí el reporte: `npx playwright show-report`. Al volver, releé este menú.
 - `🔍 Ver el error completo` → releé el output con `terminalLastCommand` y mostrá las líneas relevantes (excepción, stack trace).
 - `📝 Abrir el **Test** para editar`
 - `🏠 Volver al menú`

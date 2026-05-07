@@ -10,7 +10,12 @@ export default defineConfig({
   expect: { timeout: 15000 },
   use: {
     headless: true,
-    actionTimeout: 60000,
+    // actionTimeout antes era 60s — un selector roto colgaba el test 60s antes de
+    // fallar. 30s es suficiente para acciones intra-pantalla del front lento del banco
+    // y deja feedback rápido cuando algo se rompe.
+    actionTimeout: 30000,
+    // navigationTimeout queda en 60s: el banco tiene cargas iniciales pesadas y
+    // bajarlo causa falsos positivos.
     navigationTimeout: 60000,
     ...devices['Desktop Chrome'],
   },

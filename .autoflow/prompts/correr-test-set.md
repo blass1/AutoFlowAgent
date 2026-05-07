@@ -18,8 +18,11 @@ Usá `#tool:vscode/askQuestions` single-select: `"¿Cuál corremos?"`:
 ## 2. Confirmar
 
 Usá `vscode/askQuestions` single-select: `"¿Corro \"{nombre}\" con {N} casos?"`:
-- `▶️ Sí, dale`
+- `🎬 Headed (ver el browser, secuencial — recomendado para validar visualmente)`
+- `⚡ Headless (rápido, paralelo — recomendado para regresiones de muchos Tests)`
 - `❌ Cancelar`
+
+Anotá el modo elegido. En el paso 3, si elige `Headless`, dispará el script **sin** `--headed` (Playwright usa los workers default del config); si elige `Headed`, sumá `--headed` (que internamente fuerza `--workers=1`).
 
 ## 2.5. Validar coherencia antes de correr
 
@@ -38,7 +41,9 @@ Leé la última línea con `terminalLastCommand`. Tiene el prefijo `AUTOFLOW_VAL
 
 ## 3. Ejecutar
 
-Dispará la VSCode task **`autoflow:run-testset-headed`** con el `slug`. La task corre `node .autoflow/scripts/run-testset.js <slug> --headed` que arma `npx playwright test <specPath> --reporter=line --headed --workers=1` con navegador visible (el QA quiere ver la corrida).
+Según el modo elegido en el paso 2:
+- **Headed** → dispará la VSCode task **`autoflow:run-testset-headed`** con el `slug`. La task corre `node .autoflow/scripts/run-testset.js <slug> --headed` (`--reporter=line`, `--headed`, `--workers=1`).
+- **Headless** → ejecutá con `runCommands`: `node .autoflow/scripts/run-testset.js <slug>` (sin `--headed`; Playwright paraleliza con los workers del config).
 
 Al final, el script imprime:
 ```
@@ -76,7 +81,7 @@ Parseá las líneas previas del reporter `line` para identificar qué `test()` d
 Después abrí `vscode/askQuestions` single-select: `"¿Qué hacemos?"`:
 - `▶️ Correr solo los que fallaron` → corré con `runCommands` el comando `npx playwright test {specPath} --reporter=line,html --trace=retain-on-failure --headed --workers=1 --grep "\\[testId:{n1}\\]|\\[testId:{n2}\\]|..."` armando el grep con los testId que fallaron.
 - `🧩 Actualizar **Nodos** sospechosos de un **Test**` → si hay más de un **Test** fallado, abrí `vscode/askQuestions` single-select primero para elegir cuál reparar. Después cargá `.autoflow/prompts/actualizar-nodos.md` con el contexto `{ specPath, numeroTC: <elegido> }`. Al volver, releé este menú.
-- `📊 Abrir el reporte HTML de Playwright` → ejecutá con `runCommands`: `npx playwright show-report`. El reporte tiene traces, screenshots y stack de cada **Test** fallido. Al volver, releé este menú.
+- `📊 Re-correr con trace y abrir reporte HTML` → la corrida default usa `--reporter=line` (rápido, sin overhead). Para investigar un fallo necesitás trace + reporte HTML, así que volvé a correr con `--debug`: `node .autoflow/scripts/run-testset.js {slug} --headed --debug`. Cuando termine, abrí el reporte: `npx playwright show-report`. Al volver, releé este menú.
 - `🔍 Ver el primer error en detalle`
 - `🚀 Correr otro **Test Set**`
 - `🏠 Volver al menú`

@@ -296,7 +296,7 @@ Esta prioridad la usa **codegen al grabar**, no el agente al generar el PO. El a
   // ❌ NO usar fill, aunque el nodo diga accion: "fill"
   // await this.inputUsuario.fill(usuario);
   ```
-- **Métodos que devuelven otra page** terminan con `await this.page.waitForLoadState('networkidle')` (o `'domcontentloaded'` si `networkidle` se cuelga por long-polling) **antes** del `return new SiguientePage(this.page)`. Sin eso, el siguiente PO se instancia mientras el DOM todavía no terminó de pintar y el primer locator del nuevo PO falla en `actionTimeout`.
+- **Métodos que devuelven otra page** terminan con `await this.page.waitForLoadState('domcontentloaded')` **antes** del `return new SiguientePage(this.page)`. Sin eso, el siguiente PO se instancia mientras el DOM todavía no terminó de pintar y el primer locator del nuevo PO falla en `actionTimeout`. **Default `'domcontentloaded'`**, no `'networkidle'`: en sites con long-polling, analytics o WebSocket activos `networkidle` nunca se cumple (espera 500ms sin requests) y el método queda colgado los 60s del `actionTimeout`. Solo usá `'networkidle'` en SPAs sin telemetría persistente y comentá la razón.
 
 ### Asserts
 
@@ -319,7 +319,7 @@ Ese único patrón cubre los dos casos típicos: input → input (la espera qued
 
 ### Esperas
 
-- **Preferí siempre el auto-wait** de los locators y `expect(...).toBeVisible()` / `toHaveText()`. Para navegaciones, `await this.page.waitForLoadState('networkidle')` o `'domcontentloaded'` dentro del método del PO que dispara la navegación.
+- **Preferí siempre el auto-wait** de los locators y `expect(...).toBeVisible()` / `toHaveText()`. Para navegaciones, `await this.page.waitForLoadState('domcontentloaded')` dentro del método del PO que dispara la navegación. `'networkidle'` solo en SPAs sin long-polling/analytics, con comentario justificando.
 - **`waitForTimeout` está permitido como último recurso**, pero **siempre con un comentario `// Wait: <razón concreta>`** en la línea anterior. La razón tiene que decir qué se está esperando (animación CSS, JS de terceros, redirect lento del banco), no algo genérico tipo "esperar". Ejemplos válidos:
   ```typescript
   // Wait: animación de cierre del modal de OTP (no expone evento).
@@ -520,7 +520,7 @@ export default class LoginPage {
     await this.inputPassword.click();
     await this.inputPassword.fill(password);
     await this.botonIngresar.click();
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('domcontentloaded');
     return new DashboardPage(this.page);
   }
 }

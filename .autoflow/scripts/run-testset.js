@@ -1,6 +1,9 @@
 // Corre todos los casos de un test set y reporta un resumen estructurado.
 //
-// Uso: node .autoflow/scripts/run-testset.js <slug> [--headed]
+// Por defecto usa --reporter=line (rápido, sin overhead de HTML/trace en cada
+// corrida). Pasale --debug para sumar reporter html + trace=on.
+//
+// Uso: node .autoflow/scripts/run-testset.js <slug> [--headed] [--headless] [--debug]
 
 const { spawnSync } = require('node:child_process');
 const { readFileSync, existsSync, mkdirSync, writeFileSync } = require('node:fs');
@@ -8,6 +11,7 @@ const { join } = require('node:path');
 
 const slug = process.argv[2];
 const headed = process.argv.includes('--headed');
+const debug = process.argv.includes('--debug');
 if (!slug) {
   console.error('Uso: node .autoflow/scripts/run-testset.js <slug> [--headed]');
   process.exit(1);
@@ -34,13 +38,13 @@ console.log(`🚀 Corriendo "${set.nombre}" (${totalCasos} casos en ${set.specPa
 console.log('');
 
 const inicio = Date.now();
-const args = [
-  'playwright',
-  'test',
-  set.specPath,
-  '--reporter=line,html',
-  '--trace=retain-on-failure',
-];
+// Reporter `line` por default (rápido). `--debug` suma html + trace=on cuando el
+// agente quiere investigar después de un fallo.
+const args = ['playwright', 'test', set.specPath, '--reporter=line'];
+if (debug) {
+  args[args.length - 1] = '--reporter=line,html';
+  args.push('--trace=on');
+}
 if (headed) args.push('--headed', '--workers=1');
 const res = spawnSync('npx', args, { stdio: 'inherit', shell: true });
 const duration = Date.now() - inicio;

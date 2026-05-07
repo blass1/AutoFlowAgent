@@ -144,9 +144,12 @@ for (const ts of testsetsAValidar) {
     const numero = caso.numero ?? caso.id;
     if (!sp || !numero || !existsSync(sp)) continue;
     const contenido = readFileSync(sp, 'utf8');
-    const re = new RegExp(`test\\(['"\`]TC-${escapeRegex(String(numero))}\\b`);
-    if (!re.test(contenido)) {
-      warn(`Test set "${ts.slug}": caso TC-${numero} declarado pero no encontre test('TC-${numero} ...') en ${sp}.`);
+    // Formato actual: test('{nombre} [testId:{numero}]', ...). Lo viejo (TC-{numero})
+    // queda como fallback para Tests previos al refactor de nombres.
+    const reNuevo = new RegExp(`test\\(['"\`][^'"\`]*\\[testId:${escapeRegex(String(numero))}\\]`);
+    const reViejo = new RegExp(`test\\(['"\`]TC-${escapeRegex(String(numero))}\\b`);
+    if (!reNuevo.test(contenido) && !reViejo.test(contenido)) {
+      warn(`Test set "${ts.slug}": Test [testId:${numero}] declarado pero no encontre test('... [testId:${numero}]', ...) en ${sp}.`);
     }
   }
 }

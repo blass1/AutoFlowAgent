@@ -82,7 +82,7 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 | `crear-test-set.md` | Agrupa casos en un test set. |
 | `editar-test-set.md` | Modifica un test set existente. |
 | `correr-test-set.md` | Corre todos los casos de un set. |
-| `generar-pom.md` | Post-grabación — matchea pages existentes, agrupa pasos, genera POMs, sidecars, nodos, traza y spec. |
+| `generar-pom.md` | Post-grabación — matchea pages existentes, agrupa pasos, genera POMs, sidecars, nodos, traza y spec. **Listado colapsado**: las pages ya agrupadas se muestran en una línea (`✅ X (pasos N–M)`), solo el bloque "Nuevo" va completo. **Regrafos** una sola vez al final (paso 9.5), no per agrupación. **Colisión de nombres** (paso 5.5): si el QA elige un nombre de PO que ya existe, ofrece reusar un método existente, agregar un método nuevo a esa Page, o cambiar el nombre. |
 | `actualizar-nodos.md` | Sub-flow invocado desde `correr-caso.md` / `correr-test-set.md` cuando un test falla. Repara locators que cambiaron en el front, marca el nodo viejo como `deprecated` y actualiza PO + sidecar + `nodos.json`. |
 
 ## Scripts disponibles
@@ -100,5 +100,5 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 | `grafo-nodos.js` | Regenera `grafos/grafo-nodos.md` y `grafos/grafo-nodos.html` (nodos coloreados por confiabilidad y tipo). |
 | `lib/render-html.js` | Helper compartido: envuelve un diagrama Mermaid en un HTML autocontenido con pan/zoom (mermaid + svg-pan-zoom desde CDN). |
 | `dashboard.js` | Genera `.autoflow/dashboard.html` — vista única navegable del proyecto (Test Sets, Tests, pasos del flujo, historial de ejecuciones, grafo Mermaid del paso a paso del Test con click-to-edit). Acepta `--open` para abrir en el browser. |
-| `run-test.js <path>` | Corre un spec puntual. Acepta `--headed`. Persiste el run en `runs/`. |
-| `run-testset.js <slug>` | Corre todos los casos de un test set. Acepta `--headed`. Persiste el run en `runs/`. |
+| `run-test.js <path>` | Corre un spec puntual. Default `--reporter=line` (rápido, sin trace). Acepta `--headed`, `--grep <texto>`, `--debug` (suma reporter html + trace=on para investigar fallos). Persiste el run en `runs/`. |
+| `run-testset.js <slug>` | Corre todos los casos de un test set. Default headless paralelo + `--reporter=line`. Acepta `--headed` (fuerza `--workers=1`), `--debug` (reporter html + trace=on). Persiste el run en `runs/`. |

@@ -1,7 +1,11 @@
 // Corre un test puntual con Playwright e imprime una línea estructurada al final
 // para que el agente AutoFlow pueda parsearla.
 //
-// Uso: node .autoflow/scripts/run-test.js <archivo> [--headed] [--grep <texto>]
+// Por defecto usa --reporter=line (rápido, sin overhead de HTML/trace en cada
+// corrida). Pasale --debug para sumar reporter html + trace=on (modo investigación,
+// útil cuando un test falla y querés abrir el reporte HTML después).
+//
+// Uso: node .autoflow/scripts/run-test.js <archivo> [--headed] [--debug] [--grep <texto>]
 
 const { spawnSync } = require('node:child_process');
 const { existsSync, mkdirSync, writeFileSync } = require('node:fs');
@@ -9,6 +13,7 @@ const { join, basename } = require('node:path');
 
 const archivo = process.argv[2];
 const headed = process.argv.includes('--headed');
+const debug = process.argv.includes('--debug');
 const grepIdx = process.argv.indexOf('--grep');
 const grep = grepIdx !== -1 ? process.argv[grepIdx + 1] : null;
 if (!archivo) {
@@ -21,10 +26,14 @@ if (!existsSync(archivo)) {
   process.exit(1);
 }
 
-// `line` para output legible en el terminal + `html` para que el QA pueda abrir
-// el reporte con `npx playwright show-report` cuando algo falla.
-// `--trace=retain-on-failure` guarda el trace.zip de los tests fallidos.
-const args = ['playwright', 'test', archivo, '--reporter=line,html', '--trace=retain-on-failure'];
+// `line` por default — rápido, sin overhead de HTML/trace en cada corrida.
+// Con --debug sumamos reporter html + trace=on para investigar (típicamente
+// el menú post-fallo del agente lo dispara con --debug para abrir el reporte).
+const args = ['playwright', 'test', archivo, '--reporter=line'];
+if (debug) {
+  args[args.length - 1] = '--reporter=line,html';
+  args.push('--trace=on');
+}
 if (headed) args.push('--headed', '--workers=1');
 if (grep) args.push('--grep', JSON.stringify(grep));
 

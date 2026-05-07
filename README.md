@@ -2,7 +2,6 @@
 
 Compañero de automatización para QAs. Combina un **chat mode de GitHub Copilot Chat** con scripts de Node que orquestan `playwright codegen` para grabar sesiones manuales y generar **Page Objects + tests en TypeScript** sin que el QA escriba código.
 
-> Solo homologación. No usar contra producción.
 
 ## El problema que resuelve
 
@@ -242,8 +241,8 @@ Ventaja: cada Test Set es independiente. Un cambio en un set no afecta a los otr
 ## Esperas y timeouts
 
 El front del banco es lento, así que los defaults van más holgados que los de Playwright:
-- `actionTimeout` y `navigationTimeout` arrancan en 60s ([playwright.config.ts](playwright.config.ts)).
-- Los POMs usan `await this.page.waitForLoadState('networkidle')` después de navegar, no sleeps.
+- `actionTimeout` arranca en 30s y `navigationTimeout` en 60s ([playwright.config.ts](playwright.config.ts)). Antes ambos eran 60s — bajamos `actionTimeout` para que un selector roto falle en 30s en lugar de colgar el test el doble.
+- Los POMs usan `await this.page.waitForLoadState('domcontentloaded')` después de navegar, no sleeps. **Default `'domcontentloaded'`** (no `'networkidle'`): en sites con long-polling, analytics o WebSocket persistentes, `'networkidle'` espera 500ms sin requests y nunca se cumple, dejando el método colgado los 30s del `actionTimeout`. `'networkidle'` solo en SPAs sin telemetría persistente, con comentario justificando.
 - `waitForTimeout` está **permitido como último recurso** pero **siempre con un comentario `// Wait: <razón concreta>`**. Sin esa justificación, no se acepta.
 - Fixture opcional `humanize` con env var `AUTOFLOW_DELAY_MS` para correr "modo lento" cuando se debugea sin tocar código (ej: `AUTOFLOW_DELAY_MS=500 npm test`).
 
@@ -382,7 +381,7 @@ La **primera vez** detecta que faltan `node_modules` y los browsers de Playwrigh
 | `data/data-{slug}.ts` | Datos autocontenidos del Test Set (interface + usuarios + valores). Lo crea el agente. |
 | `data/urls.ts` | Catálogo de canales (nombre + URL inicial) reusables al crear casos. Lo lee/edita el agente. |
 | `data/parsers.ts` | Parsers reusables (`parseText`, `parseNumber`, `parseCurrencyAR`, `parseDate`) para nodos `capturar`/`verificar`. |
-| `playwright.config.ts` | Timeouts amplios (`actionTimeout`/`navigationTimeout` = 60s) para fronts lentos. |
+| `playwright.config.ts` | Timeouts amplios para fronts lentos (`actionTimeout` 30s, `navigationTimeout` 60s). Excluye `tests/_temp/` del runner. |
 | `clearSession.js` | Resetea el proyecto borrando todo lo generado por el agente. |
 
 Más detalle del estado runtime y los archivos de cada grabación: [.autoflow/README.md](.autoflow/README.md).
@@ -428,11 +427,15 @@ node .autoflow/scripts/grafo-nodos.js
 npx playwright test                          # o: npm test
 npx playwright test --headed                 # o: npm run test:headed
 
-# Correr un test puntual
-node .autoflow/scripts/run-test.js tests/regresionDeCompras-44534.spec.ts
+# Correr un test puntual (default: --reporter=line, sin trace, rápido)
+node .autoflow/scripts/run-test.js tests/dolarMep-12345.spec.ts
+node .autoflow/scripts/run-test.js tests/dolarMep-12345.spec.ts --headed
+node .autoflow/scripts/run-test.js tests/dolarMep-12345.spec.ts --debug    # +reporter=html, +trace=on (modo investigación)
 
-# Correr un test set
-node .autoflow/scripts/run-testset.js regresionDeCompras
+# Correr un test set (idem: default rápido, --debug para investigar)
+node .autoflow/scripts/run-testset.js dolarMep                # headless, paralelo
+node .autoflow/scripts/run-testset.js dolarMep --headed       # headed, --workers=1
+node .autoflow/scripts/run-testset.js dolarMep --debug        # +reporter=html, +trace=on
 ```
 
 ## Resetear el proyecto
