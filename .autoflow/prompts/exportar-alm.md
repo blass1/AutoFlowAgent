@@ -1,12 +1,12 @@
 ---
 mode: agent
-description: Exporta un Test a un archivo importable por ALM (xlsx por defecto). Cada paso del Test (test.step) queda como un row con Test ID, Test Name, Step Number, Step Name, Description y Expected Result.
+description: Exporta un Test a un archivo importable por ALM (xlsx por defecto). Un row por cada Nodo de la traza, con Step (label corto), Description (humanizada en castellano) y Expected Result (humanizado).
 tools: ['vscode/askQuestions', 'edit', 'read', 'runCommands']
 ---
 
 # Exportar a ALM
 
-Sub-flow para tomar un **Test** y emitir un archivo (xlsx / csv / json) con la descripción paso a paso lista para importar en ALM o pushear a su API. **Granularidad: un archivo por Test** (un Test por corrida del flujo).
+Sub-flow para tomar un **Test** y emitir un archivo (xlsx / csv / json) con la descripción paso a paso lista para importar en ALM o pushear a su API. **Granularidad: un archivo por Test, un row por cada Nodo de la traza** (cada acción atómica del flujo). Las descripciones y expected results se generan en castellano humanizado para que un QA pueda leer el archivo en ALM y recrear el caso a mano sin tener que mirar código.
 
 ## 1. Elegir Test Set
 
@@ -48,10 +48,10 @@ Mostrale al QA un resumen:
 ✅ Exporté el **Test** [testId:{testId}] al archivo:
   📁 {path}
 
-Total de pasos: {rows}
+Total de Nodos exportados: {rows}
 Formato: {format}
 
-Tip: el archivo tiene las columnas Test ID, Test Name, Step Number, Step Name, Description y Expected Result. Description es técnica (llamadas a métodos del PO + page.goto). Expected Result se llena solo si el step tiene asserts.
+Tip: el archivo tiene las columnas Test ID, Test Name, Step Number, Step, Description y Expected Result. Cada row es una acción atómica del flujo (click, llenar campo, validar, capturar, etc.) descrita en castellano humanizado, lista para que cualquier QA pueda recrear el caso leyendo solo este archivo.
 ```
 
 Después abrí `vscode/askQuestions` single-select: `"¿Algo más?"`:
@@ -61,7 +61,17 @@ Después abrí `vscode/askQuestions` single-select: `"¿Algo más?"`:
 
 ## Notas
 
-- **Granularidad un Test por archivo**: si querés exportar varios Tests del mismo Test Set, hacelo uno por uno. Más adelante puede convenir batch (todos los Tests del set de una), pero por ahora simple.
-- **Description técnica**: las líneas describen las llamadas a métodos del PO (ej: `Llamar a LoginPage.ingresar(usuarioPrincipal.user, usuarioPrincipal.pass)`). El QA puede afinarlas en ALM una vez importadas.
-- **Expected Result**: extraído de los `await expect(...)` dentro del cuerpo del step. Si el step no tiene assert, queda **vacío** intencionalmente (el QA en ALM lo completa o lo deja vacío).
+- **Granularidad un Test por archivo**: si querés exportar varios Tests del mismo Test Set, hacelo uno por uno. Más adelante puede convenir batch, pero por ahora simple.
+- **Fuente de verdad: la traza** (`.autoflow/recordings/{testId}-path.json`) cruzada con `.autoflow/nodos.json`. Cada Nodo de la traza se convierte en un row. Si el path.json no existe, el script frena y le indica al QA cómo regenerarlo.
+- **Step**: label corto del tipo de acción — `Click`, `Llenar campo`, `Navegar`, `Validar visibilidad`, `Validar texto exacto`, `Capturar valor`, `Verificar igualdad`, etc. Mapeado desde la `accion` y el `matcher` del Nodo.
+- **Description humanizada**: prosa en castellano describiendo qué hace el paso desde la perspectiva del usuario. Ejemplos:
+  - `"Se hace click en el botón 'Aceptar'"`
+  - `"Se ingresa el valor correspondiente en el campo 'Usuario'"`
+  - `"Se valida que el texto 'Bienvenido' sea visible en pantalla"`
+  - `"Se extrae el valor de el campo 'Saldo' y se almacena en la variable 'saldoInicial'"`
+  - `"Se compara el valor actual de el campo 'Saldo' y se verifica que haya disminuido respecto del valor 'saldoInicial' capturado anteriormente"`
+- **Expected Result humanizado**: descripción del comportamiento, respuesta o estado final esperado. Ejemplos:
+  - `"Se dispara la acción asociada al elemento (navegación, apertura de menú, envío de formulario, etc.)."`
+  - `"El campo acepta el valor ingresado y queda listo para continuar el flujo."`
+  - `"El elemento aparece visible en la pantalla, en una ubicación accesible para el usuario."`
 - **Output**: `.autoflow/alm-exports/{slug}-testId-{testId}-{timestamp}.{ext}`. La carpeta ya existe (también la usa `parse-alm-export.js` para imports). Los `.xlsx`/`.csv`/`.json` quedan **gitignored** — son artefactos efímeros de exportación.

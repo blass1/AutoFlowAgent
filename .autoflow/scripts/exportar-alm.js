@@ -1,11 +1,15 @@
 // Exporta un Test a un archivo importable por ALM (xlsx por defecto, csv o json).
-// Parsea el spec del Test Set, extrae los `test.step` del Test elegido, y emite
-// un row por paso con: Test ID, Test Name, Step Number, Step Name, Description,
-// Expected Result.
+// Cada Nodo de la traza del Test se traduce a UN row humanizado con las columnas:
 //
-// Description se deriva técnicamente del cuerpo del step (llamadas a métodos del
-// PO + page.goto). Expected Result se deriva de los `await expect(...)` del step
-// (vacío si no hay asserts).
+//   Test ID | Test Name | Step Number | Step | Description | Expected Result
+//
+// La fuente de verdad es:
+//   - .autoflow/recordings/{testId}-path.json  (la secuencia de ids visitados)
+//   - .autoflow/nodos.json                     (la metadata de cada Nodo)
+//
+// La descripción y expected result se generan en castellano humanizado a partir
+// de la `accion`, `etiqueta`, `valor`, `matcher`, `varName` y `condicion` del Nodo —
+// pensado para que un QA lo lea en ALM y pueda recrear el caso a mano.
 //
 // Uso:
 //   node .autoflow/scripts/exportar-alm.js <slug> --test=<testId> [--format=xlsx|csv|json]
@@ -40,183 +44,342 @@ if (!existsSync(setPath)) {
   process.exit(1);
 }
 const set = JSON.parse(readFileSync(setPath, 'utf8'));
-if (!set.specPath || !existsSync(set.specPath)) {
-  console.error(`❌ Spec no encontrado: ${set.specPath}`);
+const specPathFinal = set.specPath ?? set.casos?.[0]?.specPath;
+if (!specPathFinal || !existsSync(specPathFinal)) {
+  console.error(`❌ Spec no encontrado: ${specPathFinal}`);
   process.exit(1);
 }
 
-const spec = readFileSync(set.specPath, 'utf8');
+const spec = readFileSync(specPathFinal, 'utf8');
 
 // ------------------------------------------------------------------------------------
-// Parser del spec — saca el Test elegido y sus steps
+// Identificar el Test (nombre + testId) parseando el spec
 // ------------------------------------------------------------------------------------
 
-// Encuentra el índice de la `}` que cierra el `{` en `src[openIdx]`. Maneja strings
-// y comentarios para no confundirse con `{` / `}` dentro de literales.
-function brazoCerrante(src, openIdx) {
-  let depth = 1;
-  let i = openIdx + 1;
-  let inSingle = false, inDouble = false, inBacktick = false, inLine = false, inBlock = false;
-  while (i < src.length && depth > 0) {
-    const c = src[i];
-    const next = src[i + 1];
-    if (inLine) { if (c === '\n') inLine = false; }
-    else if (inBlock) { if (c === '*' && next === '/') { inBlock = false; i++; } }
-    else if (inSingle) { if (c === '\\') i++; else if (c === "'") inSingle = false; }
-    else if (inDouble) { if (c === '\\') i++; else if (c === '"') inDouble = false; }
-    else if (inBacktick) { if (c === '\\') i++; else if (c === '`') inBacktick = false; }
-    else {
-      if (c === '/' && next === '/') { inLine = true; i++; }
-      else if (c === '/' && next === '*') { inBlock = true; i++; }
-      else if (c === "'") inSingle = true;
-      else if (c === '"') inDouble = true;
-      else if (c === '`') inBacktick = true;
-      else if (c === '{') depth++;
-      else if (c === '}') { depth--; if (depth === 0) return i; }
-    }
-    i++;
-  }
-  return -1;
-}
-
-// Encuentra el `)` que cierra el `(` en `src[openIdx]`. Versión simple sin
-// tracking de strings — alcanza para nuestros casos generados.
-function parenCerrante(src, openIdx) {
-  let depth = 1;
-  let i = openIdx + 1;
-  while (i < src.length && depth > 0) {
-    if (src[i] === '(') depth++;
-    else if (src[i] === ')') { depth--; if (depth === 0) return i; }
-    i++;
-  }
-  return src.length;
-}
-
-function parsearTest(spec, testIdBuscado) {
-  // Buscar `test('... [testId:N]', async (...) => {`
-  const re = /test\(\s*['"`](.+?)\s*\[testId:(\d+)\]\s*['"`]\s*,\s*async\s*\([^)]*\)\s*=>\s*\{/g;
+function buscarTestNombre(spec, testIdBuscado) {
+  // test('NOMBRE [testId:NNN]', ...)
+  const re = /test\(\s*(['"`])(.+?)\s*\[testId:(\d+)\]\s*\1/g;
   let m;
   while ((m = re.exec(spec)) !== null) {
-    if (m[2] === testIdBuscado) {
-      const inicioCuerpo = m.index + m[0].length;
-      const finCuerpo = brazoCerrante(spec, inicioCuerpo - 1);
-      if (finCuerpo === -1) return null;
-      return {
-        nombre: m[1].trim(),
-        testId: m[2],
-        cuerpo: spec.slice(inicioCuerpo, finCuerpo),
-      };
-    }
+    if (m[3] === testIdBuscado) return m[2].trim();
   }
   return null;
 }
 
-function parsearSteps(cuerpoTest) {
-  // Cada `test.step('NAME', async () => { ... })` o `const X = await test.step(...)`.
-  const steps = [];
-  const re = /test\.step\(\s*['"`](.+?)['"`]\s*,\s*async\s*\(\s*\)\s*=>\s*\{/g;
-  let m;
-  while ((m = re.exec(cuerpoTest)) !== null) {
-    const inicioCuerpo = m.index + m[0].length;
-    const finCuerpo = brazoCerrante(cuerpoTest, inicioCuerpo - 1);
-    if (finCuerpo === -1) continue;
-    steps.push({
-      nombre: m[1].trim(),
-      cuerpo: cuerpoTest.slice(inicioCuerpo, finCuerpo),
-    });
-    re.lastIndex = finCuerpo + 1;
-  }
-  return steps;
-}
-
-// ------------------------------------------------------------------------------------
-// Description y Expected Result derivados del cuerpo de cada step
-// ------------------------------------------------------------------------------------
-
-function derivarDescripcion(cuerpo) {
-  const lineas = [];
-  // 1. await page.goto('url') o await page.goto(variable)
-  for (const m of cuerpo.matchAll(/await\s+page\.goto\(\s*([^)]+)\)/g)) {
-    lineas.push(`Navegar a ${m[1].trim()}`);
-  }
-  // 2. await xPage.method(args) — donde xPage NO es page/expect/test
-  for (const m of cuerpo.matchAll(/await\s+([a-zA-Z_$][\w$]*)\.(\w+)\(([^)]*)\)/g)) {
-    const [, variable, metodo, args] = m;
-    if (['page', 'expect', 'test'].includes(variable)) continue;
-    if (variable.startsWith('_raw_') || variable.startsWith('_clean_')) continue;
-    lineas.push(`Llamar a ${variable}.${metodo}(${args.trim()})`);
-  }
-  // 3. const X = new XxxPage(page) — instanciación directa
-  for (const m of cuerpo.matchAll(/(?:const|let)\s+\w+\s*=\s*new\s+(\w+Page)\(/g)) {
-    lineas.push(`Instanciar ${m[1]}`);
-  }
-  // 4. return xPage.method(args) — el step retorna la próxima Page
-  for (const m of cuerpo.matchAll(/\breturn\s+([a-zA-Z_$][\w$]*)\.(\w+)\(([^)]*)\)/g)) {
-    const [, variable, metodo, args] = m;
-    if (['page', 'expect'].includes(variable)) continue;
-    lineas.push(`Llamar a ${variable}.${metodo}(${args.trim()}) y devolver la siguiente Page`);
-  }
-  return lineas.join('. ');
-}
-
-function derivarExpected(cuerpo) {
-  // Buscar cada `await expect(TARGET).MATCHER(ARGS)` con balance de paréntesis.
-  const lineas = [];
-  let i = 0;
-  while (i < cuerpo.length) {
-    const idx = cuerpo.indexOf('await expect(', i);
-    if (idx === -1) break;
-    const inicioTarget = idx + 'await expect('.length;
-    const finTarget = parenCerrante(cuerpo, inicioTarget - 1);
-    const target = cuerpo.slice(inicioTarget, finTarget).trim();
-    // Después del `)` esperamos `.matcher(`
-    let j = finTarget + 1;
-    while (j < cuerpo.length && /\s/.test(cuerpo[j])) j++;
-    if (cuerpo[j] !== '.') { i = finTarget + 1; continue; }
-    const finNombre = cuerpo.indexOf('(', j);
-    if (finNombre === -1) { i = finTarget + 1; continue; }
-    const matcher = cuerpo.slice(j + 1, finNombre).trim();
-    const inicioArgs = finNombre + 1;
-    const finArgs = parenCerrante(cuerpo, inicioArgs - 1);
-    const args = cuerpo.slice(inicioArgs, finArgs).trim();
-    lineas.push(args ? `expect(${target}).${matcher}(${args})` : `expect(${target}).${matcher}()`);
-    i = finArgs + 1;
-  }
-  return lineas.join('; ');
-}
-
-// ------------------------------------------------------------------------------------
-// Construir las filas y emitir el archivo
-// ------------------------------------------------------------------------------------
-
-const test = parsearTest(spec, testIdArg);
-if (!test) {
-  console.error(`❌ No encontré el Test [testId:${testIdArg}] en ${set.specPath}.`);
+const testNombre = buscarTestNombre(spec, testIdArg);
+if (!testNombre) {
+  console.error(`❌ No encontré test('... [testId:${testIdArg}]', ...) en ${specPathFinal}.`);
   process.exit(1);
 }
 
-const stepsParseados = parsearSteps(test.cuerpo);
-if (stepsParseados.length === 0) {
-  console.error(`⚠ El Test [testId:${testIdArg}] no tiene bloques test.step. Generando un único row con el Test entero.`);
-  stepsParseados.push({ nombre: test.nombre, cuerpo: test.cuerpo });
+// ------------------------------------------------------------------------------------
+// Cargar la traza del Test + nodos.json
+// ------------------------------------------------------------------------------------
+
+const tracePath = `.autoflow/recordings/${testIdArg}-path.json`;
+if (!existsSync(tracePath)) {
+  console.error(`❌ No encuentro la traza ${tracePath}.`);
+  console.error(`   El Test [testId:${testIdArg}] todavía no fue grabado y procesado por generar-pom.md,`);
+  console.error(`   o el path.json se borró. Volvé a grabar el caso o regenerá la traza con:`);
+  console.error(`     node .autoflow/scripts/generar-traza.js ${testIdArg}`);
+  process.exit(1);
+}
+const nodosPath = '.autoflow/nodos.json';
+if (!existsSync(nodosPath)) {
+  console.error(`❌ No encuentro ${nodosPath}.`);
+  process.exit(1);
 }
 
+const trace = JSON.parse(readFileSync(tracePath, 'utf8'));
+const nodos = JSON.parse(readFileSync(nodosPath, 'utf8'));
+
+if (!Array.isArray(trace.path) || trace.path.length === 0) {
+  console.error(`❌ La traza ${tracePath} tiene path vacío.`);
+  process.exit(1);
+}
+
+// ------------------------------------------------------------------------------------
+// Humanización: cada Nodo → { step, descripcion, expected }
+// ------------------------------------------------------------------------------------
+
+function tipoElemento(selector) {
+  // Hoja del chain (lo último, ignorando segmentos `iframe:X`).
+  const tokens = (selector || '').split('>>').map((s) => s.trim()).filter(Boolean);
+  let hoja = tokens[tokens.length - 1] || '';
+  // Si la hoja es un iframe-container, mirar el segmento anterior (raro).
+  if (hoja.startsWith('iframe:') && tokens.length > 1) hoja = tokens[tokens.length - 2];
+
+  const m = hoja.match(/^getByRole:(\w+)/);
+  if (m) {
+    const role = m[1].toLowerCase();
+    const map = {
+      button: 'el botón',
+      link: 'el enlace',
+      tab: 'la pestaña',
+      menuitem: 'la opción del menú',
+      checkbox: 'el checkbox',
+      radio: 'la opción',
+      textbox: 'el campo',
+      heading: 'el título',
+      listitem: 'el ítem',
+      dialog: 'el diálogo',
+      alert: 'la alerta',
+      img: 'la imagen',
+      banner: 'el banner',
+      navigation: 'la barra de navegación',
+      region: 'la sección',
+      combobox: 'el desplegable',
+      switch: 'el switch',
+      cell: 'la celda',
+      row: 'la fila',
+      columnheader: 'el encabezado de columna',
+      article: 'el artículo',
+    };
+    return map[role] || `el elemento (${role})`;
+  }
+  if (hoja.startsWith('getByLabel:')) return 'el campo';
+  if (hoja.startsWith('getByPlaceholder:')) return 'el campo';
+  if (hoja.startsWith('getByText:')) return 'el texto';
+  if (hoja.startsWith('getByTestId:')) return 'el elemento';
+  if (hoja === 'page' || !hoja) return 'la página';
+  return 'el elemento';
+}
+
+function valorPretty(valor) {
+  if (valor == null) return '';
+  if (valor === '*') return 'el valor correspondiente';
+  return `"${valor}"`;
+}
+
+function capitalizar(s) {
+  if (!s) return s;
+  return s[0].toUpperCase() + s.slice(1);
+}
+
+function sujetoFrase(nodo) {
+  const tipo = tipoElemento(nodo.selector);
+  const etiq = nodo.etiqueta || '';
+  return etiq ? `${tipo} "${etiq}"` : tipo;
+}
+
+function humanizar(nodo, idCrudo) {
+  if (!nodo) {
+    return {
+      step: 'Acción no resuelta',
+      descripcion: `(no se pudo resolver el Nodo ${idCrudo})`,
+      expected: '',
+    };
+  }
+
+  const sujeto = sujetoFrase(nodo);
+
+  switch (nodo.accion) {
+    case 'goto': {
+      // selector="goto:/login" o valor=URL completa
+      const url = nodo.valor || (nodo.selector || '').replace(/^goto:/, '');
+      return {
+        step: 'Navegar',
+        descripcion: `Se navega a ${url}`,
+        expected: 'La página solicitada se carga correctamente y queda lista para interactuar.',
+      };
+    }
+    case 'click':
+      return {
+        step: 'Click',
+        descripcion: `Se hace click en ${sujeto}`,
+        expected: 'Se dispara la acción asociada al elemento (navegación, apertura de menú, envío de formulario, etc.).',
+      };
+    case 'fill':
+      // En el modelo, 'fill' es nuestro pressSequentially (acción lógica).
+      return {
+        step: 'Llenar campo',
+        descripcion: `Se ingresa ${valorPretty(nodo.valor)} en ${sujeto}`,
+        expected: 'El campo acepta el valor ingresado y queda listo para continuar el flujo.',
+      };
+    case 'press':
+      return {
+        step: 'Presionar tecla',
+        descripcion: `Se presiona la tecla "${nodo.valor}" en ${sujeto}`,
+        expected: 'La tecla dispara su acción asociada (envío de formulario, navegación, salto de campo, etc.).',
+      };
+    case 'check':
+      return {
+        step: 'Tildar checkbox',
+        descripcion: `Se tilda ${sujeto}`,
+        expected: 'El checkbox queda tildado.',
+      };
+    case 'uncheck':
+      return {
+        step: 'Destildar checkbox',
+        descripcion: `Se destilda ${sujeto}`,
+        expected: 'El checkbox queda destildado.',
+      };
+    case 'selectOption':
+      return {
+        step: 'Elegir opción',
+        descripcion: `Se selecciona ${valorPretty(nodo.valor)} en ${sujeto}`,
+        expected: 'La opción queda seleccionada y se aplica al formulario o filtro correspondiente.',
+      };
+    case 'hover':
+      return {
+        step: 'Pasar el mouse',
+        descripcion: `Se pasa el mouse sobre ${sujeto}`,
+        expected: 'El elemento muestra su estado de hover (tooltip, menú desplegable, resaltado, etc.).',
+      };
+    case 'assert':
+      return humanizarAssert(nodo, sujeto);
+    case 'capturar':
+      return {
+        step: 'Capturar valor',
+        descripcion: `Se extrae el valor de ${sujeto} y se almacena en la variable "${nodo.varName}"`,
+        expected: 'El valor queda guardado en memoria del test para comparar contra él en un paso posterior.',
+      };
+    case 'verificar':
+      return humanizarVerificar(nodo, sujeto);
+    default:
+      return {
+        step: capitalizar(nodo.accion),
+        descripcion: `Se ejecuta la acción "${nodo.accion}" sobre ${sujeto}`,
+        expected: '',
+      };
+  }
+}
+
+function humanizarAssert(nodo, sujeto) {
+  const matcher = nodo.matcher;
+  const valor = nodo.valor;
+
+  if (sujeto === 'la página') {
+    // Asserts a nivel page (selector="page"): toHaveURL, toHaveTitle.
+    if (matcher === 'toHaveURL') {
+      return {
+        step: 'Validar URL',
+        descripcion: `Se valida que la URL del navegador sea ${valorPretty(valor)}`,
+        expected: 'La barra de direcciones del navegador muestra la URL esperada.',
+      };
+    }
+    if (matcher === 'toHaveTitle') {
+      return {
+        step: 'Validar título',
+        descripcion: `Se valida que el título de la pestaña sea ${valorPretty(valor)}`,
+        expected: 'El título de la pestaña del navegador coincide con el esperado.',
+      };
+    }
+  }
+
+  switch (matcher) {
+    case 'toBeVisible':
+      return {
+        step: 'Validar visibilidad',
+        descripcion: `Se valida que ${sujeto} sea visible en pantalla`,
+        expected: `${capitalizar(sujeto)} aparece visible en la pantalla, en una ubicación accesible para el usuario.`,
+      };
+    case 'toBeHidden':
+      return {
+        step: 'Validar elemento oculto',
+        descripcion: `Se valida que ${sujeto} no esté visible`,
+        expected: 'El elemento no aparece en la pantalla (o desapareció tras una acción previa).',
+      };
+    case 'toHaveText':
+      return {
+        step: 'Validar texto exacto',
+        descripcion: `Se valida que ${sujeto} contenga exactamente el texto ${valorPretty(valor)}`,
+        expected: 'El elemento muestra exactamente el texto esperado, sin variaciones.',
+      };
+    case 'toContainText':
+      return {
+        step: 'Validar texto contenido',
+        descripcion: `Se valida que ${sujeto} contenga el texto ${valorPretty(valor)}`,
+        expected: 'El texto esperado aparece dentro del contenido del elemento.',
+      };
+    case 'toHaveValue':
+      return {
+        step: 'Validar valor del campo',
+        descripcion: `Se valida que ${sujeto} tenga el valor ${valorPretty(valor)}`,
+        expected: 'El campo contiene el valor esperado.',
+      };
+    case 'toHaveCount':
+      return {
+        step: 'Validar cantidad',
+        descripcion: `Se valida que aparezcan ${valor} elementos del tipo ${sujeto}`,
+        expected: 'La cantidad de elementos visibles coincide con la esperada.',
+      };
+    case 'toBeEnabled':
+      return {
+        step: 'Validar habilitado',
+        descripcion: `Se valida que ${sujeto} esté habilitado para interactuar`,
+        expected: 'El elemento responde a la interacción del usuario (no está deshabilitado/grisado).',
+      };
+    case 'toBeDisabled':
+      return {
+        step: 'Validar deshabilitado',
+        descripcion: `Se valida que ${sujeto} esté deshabilitado`,
+        expected: 'El elemento aparece deshabilitado y no responde a la interacción.',
+      };
+    case 'toBeChecked':
+      return {
+        step: 'Validar checkbox tildado',
+        descripcion: `Se valida que ${sujeto} esté tildado`,
+        expected: 'El checkbox aparece tildado.',
+      };
+    default:
+      return {
+        step: `Validar ${matcher}`,
+        descripcion: `Se valida (${matcher}) sobre ${sujeto}${valor != null ? ` con valor ${valorPretty(valor)}` : ''}`,
+        expected: 'El elemento cumple la condición de validación.',
+      };
+  }
+}
+
+function humanizarVerificar(nodo, sujeto) {
+  const cond = nodo.condicion || {};
+  const ref = nodo.modo === 'literal'
+    ? `el valor literal "${nodo.literal}"`
+    : `el valor "${nodo.ref}" capturado anteriormente`;
+
+  const stepLabels = {
+    igual: 'Verificar igualdad',
+    distinto: 'Verificar diferencia',
+    aumento: 'Verificar aumento',
+    disminuyo: 'Verificar disminución',
+    aumentoAlMenos: 'Verificar aumento mínimo',
+    disminuyoAlMenos: 'Verificar disminución mínima',
+  };
+  const sufijoUnidad = cond.unidad === 'pct' ? '%' : '';
+  const condDesc = {
+    igual: `sea igual a ${ref}`,
+    distinto: `sea distinto de ${ref}`,
+    aumento: `haya aumentado respecto de ${ref}`,
+    disminuyo: `haya disminuido respecto de ${ref}`,
+    aumentoAlMenos: `haya aumentado al menos ${cond.param}${sufijoUnidad} respecto de ${ref}`,
+    disminuyoAlMenos: `haya disminuido al menos ${cond.param}${sufijoUnidad} respecto de ${ref}`,
+  };
+  return {
+    step: stepLabels[cond.tipo] || 'Verificar valor',
+    descripcion: `Se compara el valor actual de ${sujeto} y se verifica que ${condDesc[cond.tipo] || 'cumpla la condición esperada'}`,
+    expected: nodo.mensaje || 'La condición de verificación se cumple según lo esperado por el flujo del negocio.',
+  };
+}
+
+// ------------------------------------------------------------------------------------
+// Construir las filas
+// ------------------------------------------------------------------------------------
+
 const filas = [
-  ['Test ID', 'Test Name', 'Step Number', 'Step Name', 'Description', 'Expected Result'],
+  ['Test ID', 'Test Name', 'Step Number', 'Step', 'Description', 'Expected Result'],
 ];
-stepsParseados.forEach((step, idx) => {
-  filas.push([
-    test.testId,
-    test.nombre,
-    idx + 1,
-    step.nombre,
-    derivarDescripcion(step.cuerpo),
-    derivarExpected(step.cuerpo),
-  ]);
+trace.path.forEach((id, idx) => {
+  const nodo = nodos[id] || null;
+  const h = humanizar(nodo, id);
+  filas.push([testIdArg, testNombre, idx + 1, h.step, h.descripcion, h.expected]);
 });
 
+// ------------------------------------------------------------------------------------
+// Emitir el archivo
+// ------------------------------------------------------------------------------------
+
 const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-const baseName = `${slug}-testId-${test.testId}-${ts}`;
+const baseName = `${slug}-testId-${testIdArg}-${ts}`;
 const outDir = '.autoflow/alm-exports';
 mkdirSync(outDir, { recursive: true });
 
@@ -226,7 +389,7 @@ if (formatArg === 'xlsx') {
   const ws = XLSX.utils.aoa_to_sheet(filas);
   // Anchos sugeridos.
   ws['!cols'] = [
-    { wch: 10 }, { wch: 40 }, { wch: 8 }, { wch: 36 }, { wch: 60 }, { wch: 50 },
+    { wch: 10 }, { wch: 40 }, { wch: 8 }, { wch: 28 }, { wch: 70 }, { wch: 60 },
   ];
   XLSX.utils.book_append_sheet(wb, ws, 'Test');
   outPath = join(outDir, `${baseName}.xlsx`);
@@ -247,8 +410,8 @@ if (formatArg === 'xlsx') {
     testSetSlug: slug,
     testSetId: set.id,
     testSetNombre: set.nombre,
-    testId: test.testId,
-    testNombre: test.nombre,
+    testId: testIdArg,
+    testNombre,
     rows,
   };
   outPath = join(outDir, `${baseName}.json`);
@@ -256,4 +419,4 @@ if (formatArg === 'xlsx') {
 }
 
 console.log('');
-console.log(`AUTOFLOW_EXPORT: ${JSON.stringify({ ok: true, path: outPath, rows: stepsParseados.length, format: formatArg })}`);
+console.log(`AUTOFLOW_EXPORT: ${JSON.stringify({ ok: true, path: outPath, rows: trace.path.length, format: formatArg })}`);
