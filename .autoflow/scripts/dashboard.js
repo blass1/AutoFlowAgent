@@ -367,8 +367,8 @@ function html(modelo) {
     display: flex; flex-direction: column; gap: 4px; }
   .t-row:hover { background: var(--panel2); }
   .t-row.active { background: var(--panel2); color: var(--accent); }
-  .t-row .t-titulo { display: flex; align-items: center; gap: 6px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .t-row .t-titulo { display: flex; align-items: flex-start; gap: 6px;
+    flex-wrap: wrap; word-break: break-word; line-height: 1.35; }
   /* Barra horizontal — cada page es un segmento conectado, sin gap, mostrando el orden de visita */
   .t-pagebar { display: flex; height: 3px; border-radius: 2px; overflow: hidden;
     margin-left: 0; opacity: 0.85; }
