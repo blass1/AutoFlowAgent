@@ -259,6 +259,7 @@ El front del banco es lento, así que los defaults van más holgados que los de 
 | 🔐 Configurar login reusable | `setup-auth.md` | Graba un storageState por (canal, usuario) para que los siguientes casos arranquen logueados sin re-grabar el login. |
 | 📊 Ver cobertura de nodos | (corre `cobertura.js`) | Agrega todas las trazas y emite un reporte HTML con qué nodos están cubiertos, por qué tests, y qué pages tienen 0 cobertura. |
 | 🪄 Auto-Health Node | `auto-health-node.md` | Lista los Nodos con confiabilidad ≤3 ordenados por fragilidad + cantidad de Tests que los usan. Para el elegido, navega el flujo hasta el paso anterior, captura el DOM (elemento + 7 ancestros) y propone un locator más confiable razonando sobre el HTML. Solo aplica si la confiabilidad mejora. |
+| 📤 Exportar a ALM | `exportar-alm.md` | Exporta un Test a un archivo importable por ALM (xlsx por defecto, csv o json). Un row por cada `test.step` con Test ID, Test Name, Step Number, Step Name, Description (técnica) y Expected Result (de los asserts del step). Granularidad un Test por archivo. |
 | 🖥️ Abrir dashboard del proyecto | (corre `dashboard.js`) | HTML único navegable con Test Sets, Tests, pasos del flujo, historial de ejecuciones y grafo del paso a paso. Cada nodo se puede abrir en VSCode con un click o copiar como prompt para que el agente lo repare. |
 
 Sub-prompts adicionales que el agente carga sin que el QA los pida:
@@ -402,6 +403,10 @@ node .autoflow/scripts/parse-codegen-output.js <numero>
 
 # Parsear un xlsx exportado de ALM (usado por crear-caso al importar)
 node .autoflow/scripts/parse-alm-export.js <archivo-en-alm-exports-o-ruta-completa>
+
+# Exportar un Test a un archivo importable por ALM (xlsx | csv | json)
+node .autoflow/scripts/exportar-alm.js <slug-test-set> --test=<testId>
+node .autoflow/scripts/exportar-alm.js <slug-test-set> --test=<testId> --format=csv
 
 # Grabar un login reusable (storageState)
 node .autoflow/scripts/record-auth.js <canal-slug> <userKey> <urlInicial>

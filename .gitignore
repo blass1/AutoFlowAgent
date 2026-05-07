@@ -21,6 +21,8 @@ tests/_temp/
 .autoflow/auth/*.json
 !.autoflow/auth/.gitkeep
 .autoflow/alm-exports/*.xlsx
+.autoflow/alm-exports/*.csv
+.autoflow/alm-exports/*.json
 !.autoflow/alm-exports/.gitkeep
 .autoflow/runs/*.json
 !.autoflow/runs/.gitkeep
