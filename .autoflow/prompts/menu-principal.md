@@ -36,6 +36,7 @@ Usá `#tool:vscode/askQuestions` con una pregunta single-select: `"¿Qué queré
 - `📊 Ver cobertura de **Nodos**`
 - `🪄 Auto-Health Node — sanear locators débiles`
 - `📤 Exportar a ALM`
+- `🔧 Utilidades`
 - `🖥️ Abrir dashboard del proyecto`
 
 ## Routing
@@ -54,4 +55,5 @@ Según la opción que elija el QA, cargá el sub-prompt correspondiente:
 | `📊 Ver cobertura de nodos` | corré `node .autoflow/scripts/cobertura.js` y abrí `.autoflow/grafos/cobertura.html` con `runCommands` (`start ` en Windows, `open ` en macOS, `xdg-open ` en Linux). Mostrale al QA un resumen de 3 líneas con totales (cubiertos/no cubiertos/% cobertura). |
 | `🪄 Auto-Health Node — sanear locators débiles` | `.autoflow/prompts/auto-health-node.md` |
 | `📤 Exportar a ALM` | `.autoflow/prompts/exportar-alm.md` |
+| `🔧 Utilidades` | `.autoflow/prompts/utilidades.md` |
 | `🖥️ Abrir dashboard del proyecto` | corré `node .autoflow/scripts/dashboard.js --open`. Genera `.autoflow/dashboard.html` con la vista navegable del proyecto (**Test Sets**, **Tests**, pasos, ejecuciones y grafo del flujo del **Test** con click-to-edit) y lo abre en el navegador. Después releé el menú. |
