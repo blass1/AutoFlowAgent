@@ -25,12 +25,14 @@ function renderHtml({ titulo, mermaidSrc, meta }) {
 <title>${escapar(titulo)}</title>
 <style>
   :root {
-    --bg: #0f1115;
-    --panel: #161a22;
-    --text: #e7eaf0;
-    --muted: #97a0b3;
-    --accent: #4f8cff;
-    --border: #262b36;
+    /* Paleta Galicia — coherente con el dashboard */
+    --bg: #0d0d1a;
+    --panel: #161628;
+    --text: #f3f0e7;
+    --muted: #9d99af;
+    --accent: #ff6f1d;
+    --indigo: #2a2168;
+    --border: #2a2640;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text);

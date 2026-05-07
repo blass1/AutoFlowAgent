@@ -373,17 +373,21 @@ function html(modelo) {
 <title>AutoFlow — Dashboard</title>
 <style>
   :root {
-    --bg: #0f1115;
-    --panel: #161a22;
-    --panel2: #1c2230;
-    --text: #e7eaf0;
-    --muted: #97a0b3;
-    --accent: #4f8cff;
+    /* Paleta Galicia — naranja vivo + indigo profundo del logo y la tarjeta */
+    --bg: #0d0d1a;          /* near-black con tinte violeta */
+    --panel: #161628;       /* panel ligeramente más claro */
+    --panel2: #1f1f36;      /* aún más claro para hover/active */
+    --text: #f3f0e7;        /* off-white cálido (tono manteca) */
+    --muted: #9d99af;       /* gris con tinte violeta */
+    --accent: #ff6f1d;      /* 🟠 Naranja Galicia — primario para highlights */
+    --accent2: #4d3a8a;     /* violeta intermedio (avatares de Manual, etc.) */
+    --indigo: #2a2168;      /* 🟣 Indigo Galicia — base sobria */
+    --galicia-grad: linear-gradient(180deg, #2a2168 0%, #ff6f1d 100%);
     --ok: #3ddc97;
     --bad: #ff5c7a;
     --warn: #ffb454;
-    --border: #262b36;
-    --chip: #232938;
+    --border: #2a2640;      /* borde con tinte indigo */
+    --chip: #1f1d36;        /* chip con tinte indigo */
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text);
@@ -412,7 +416,8 @@ function html(modelo) {
 
   header {
     display: flex; align-items: center; gap: 16px; padding: 10px 16px;
-    border-bottom: 1px solid var(--border); background: var(--panel);
+    border-bottom: 2px solid var(--accent);
+    background: linear-gradient(135deg, var(--indigo) 0%, #1c1430 100%);
     position: sticky; top: 0; z-index: 10;
   }
   header h1 { margin: 0; font-size: 15px; font-weight: 600; }
