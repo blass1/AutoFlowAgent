@@ -235,8 +235,8 @@ Comentarios `── Prefix ──` / `── Tail bifurcado ──` opcionales p
 
 ### 9.c. Test Set JSON destino
 
-- Si es nuevo: creá `.autoflow/testsets/{slugDestino}.json` siguiendo `crear-test-set.md` paso 3, con el nuevo caso en `casos`.
-- Si es existente: enriquecé `casos[]` agregando `{ numero: '<nuevoTestId>', nombre: '<nombreNuevo>', specPath: '{specPathDestino}' }`.
+- Si es nuevo: creá `.autoflow/testsets/{slugDestino}.json` siguiendo `crear-test-set.md` paso 3 — `specPath` a nivel raíz (no dentro de cada caso), con el nuevo caso en `casos[]` como `{ numero, nombre }`.
+- Si es existente: enriquecé `casos[]` agregando `{ numero: '<nuevoTestId>', nombre: '<nombreNuevo>' }`. **No** repitas `specPath` por caso — ya está a nivel raíz del set.
 
 ## 10. Traza del Test bifurcado
 

@@ -125,22 +125,17 @@ for (const ts of testsetsAValidar) {
   if (casos.length === 0) {
     warn(`Test set "${ts.slug}" no tiene casos.`);
   }
-  // Recolectar specPaths unicos
-  const specPaths = new Set();
-  for (const caso of casos) {
-    const sp = caso.specPath ?? caso.path ?? null;
-    if (!sp) {
-      err(`Test set "${ts.slug}" tiene caso sin specPath: ${JSON.stringify(caso)}`);
-      continue;
-    }
-    specPaths.add(sp);
-    if (!existsSync(sp)) {
-      err(`Test set "${ts.slug}" referencia spec inexistente: ${sp}`);
-    }
+  // specPath está a nivel raíz del Test Set (todos los casos comparten el mismo spec).
+  // Fallback: si está dentro de los casos (formato viejo), tomar el del primer caso.
+  const specPathSet = data.specPath ?? casos[0]?.specPath ?? casos[0]?.path ?? null;
+  if (!specPathSet) {
+    err(`Test set "${ts.slug}" no tiene specPath ni a nivel raíz ni en casos[].`);
+  } else if (!existsSync(specPathSet)) {
+    err(`Test set "${ts.slug}" referencia spec inexistente: ${specPathSet}`);
   }
-  // Verificar que cada caso del set aparezca dentro de su spec
+  // Verificar que cada caso del set aparezca dentro del spec
   for (const caso of casos) {
-    const sp = caso.specPath ?? caso.path;
+    const sp = data.specPath ?? caso.specPath ?? caso.path;
     const numero = caso.numero ?? caso.id;
     if (!sp || !numero || !existsSync(sp)) continue;
     const contenido = readFileSync(sp, 'utf8');

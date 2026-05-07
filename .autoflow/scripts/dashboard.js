@@ -116,25 +116,54 @@ function cargarRuns() {
 // Parser muy simple del spec: extrae nombre del test.describe y los test() adentro.
 // Espera el formato del repo: `test.describe('{nombre} [testSetId:{id}]', () => { test('{nombre} [testId:{numero}]', ...) })`.
 function parsearSpec(specPath) {
-  if (!existsSync(specPath)) return null;
+  if (!specPath || !existsSync(specPath)) {
+    return { specExiste: false, specSize: 0, describe: null, tests: [], imports: [] };
+  }
   const src = readFileSync(specPath, 'utf8');
-  const describe = src.match(/test\.describe\(\s*['"`](.+?)\s*\[testSetId:(\d+)\]\s*['"`]/);
+  // Backreferences (\1) para que el delimitador de cierre sea el mismo que el de apertura.
+  // Aguanta nombres con comillas escapadas (ej: `"Test 'smoke' suite"`).
+  const describe = src.match(/test\.describe\(\s*(['"`])(.+?)\s*\[testSetId:(\d+)\]\s*\1/);
   const tests = [];
-  const re = /test\(\s*['"`](.+?)\s*\[testId:(\d+)\]\s*['"`]/g;
+  const re = /test\(\s*(['"`])(.+?)\s*\[testId:(\d+)\]\s*\1/g;
   let m;
   while ((m = re.exec(src)) !== null) {
-    tests.push({ nombre: m[1].trim(), testId: m[2] });
+    tests.push({ nombre: m[2].trim(), testId: m[3] });
   }
-  // Imports de pages para mapear a archivos:
+  // Imports de Page Objects. Aceptamos varias variantes:
+  //  • Default:        import LoginPage from '../pages/LoginPage'
+  //  • Default + .ts:  import LoginPage from '../pages/LoginPage.ts'
+  //  • Subdir:         import LoginPage from '../../pages/auth/LoginPage'
+  //  • Named single:   import { LoginPage } from '../pages/LoginPage'
+  //  • Named múltiple: import { LoginPage, RegisterPage } from '../pages/auth'
+  //  • Paths con `-` o `_`: import LoginPage from '../pages/auth-mobile/LoginPage'
+  // Ignoramos `import type` (no genera código a runtime, no es un PO usado).
+  // El path destino tiene que contener `pages/` en algún lugar — eso filtra imports
+  // de fixtures/data/types que no son POs.
   const imports = [];
-  const reImp = /import\s+(\w+)\s+from\s+['"`]\.\.\/(pages\/[\w/]+)['"`]/g;
-  while ((m = reImp.exec(src)) !== null) {
-    imports.push({ nombreClase: m[1], rutaSinExt: m[2] });
+  const seen = new Set();
+  // Default imports: import X from '<path>/pages/...'
+  // [\w/-] acepta letras, números, _, /, -. .ts opcional.
+  const reDef = /import\s+(?!type\b)(\w+)\s+from\s+['"`]([^'"`]*pages\/[\w/-]+?)(?:\.ts)?['"`]/g;
+  while ((m = reDef.exec(src)) !== null) {
+    if (!seen.has(m[1])) { seen.add(m[1]); imports.push({ nombreClase: m[1], rutaSinExt: m[2], origen: 'import' }); }
+  }
+  // Named imports: import { X, Y } from '<path>/pages/...'
+  const reNamed = /import\s+(?!type\b)\{([^}]+)\}\s+from\s+['"`]([^'"`]*pages\/[\w/-]+?)(?:\.ts)?['"`]/g;
+  while ((m = reNamed.exec(src)) !== null) {
+    const nombres = m[1].split(',').map((s) => s.trim().replace(/\s+as\s+\w+/, '')).filter(Boolean);
+    for (const nombre of nombres) {
+      if (/^\w+$/.test(nombre) && !seen.has(nombre)) {
+        seen.add(nombre);
+        imports.push({ nombreClase: nombre, rutaSinExt: m[2], origen: 'import' });
+      }
+    }
   }
   return {
     describe: describe ? { nombre: describe[1].trim(), testSetId: describe[2] } : null,
     tests,
     imports,
+    specExiste: true,
+    specSize: src.length,
   };
 }
 
@@ -199,7 +228,10 @@ function construirModelo() {
 
   // Por cada Test Set, parseamos el spec y armamos los Tests con sus pasos (traza).
   const testSets = sets.map((set) => {
-    const parsed = set.specPath ? parsearSpec(set.specPath) : null;
+    // specPath está a nivel raíz del Test Set. Backwards compat: si el JSON viejo
+    // lo tiene dentro de los casos, tomá el del primero.
+    const specPathFinal = set.specPath ?? set.casos?.[0]?.specPath ?? null;
+    const parsed = specPathFinal ? parsearSpec(specPathFinal) : null;
     const tests = (parsed?.tests || []).map((t) => {
       const pathTraza = paths[t.testId];
       const session = sessions[t.testId];
@@ -237,12 +269,36 @@ function construirModelo() {
       id: set.id,
       nombre: set.nombre,
       descripcion: set.descripcion ?? '',
-      specPath: set.specPath,
+      specPath: specPathFinal,
+      specExiste: parsed?.specExiste ?? false,
       describe: parsed?.describe ?? null,
       imports: parsed?.imports ?? [],
       tests,
     };
   });
+
+  // Expansión por cadena: el spec solo importa el PO de entrada, pero los métodos
+  // van retornando otros POs en cadena (login.ingresar() → OverviewPage,
+  // overview.abrirInversiones() → AccesoFimaPage, etc.). Recorremos los
+  // `retornaPage` de cada PO para descubrir la lista completa de POs que
+  // realmente se usan en el Test Set, no solo los importados directamente.
+  for (const ts of testSets) {
+    const seen = new Set(ts.imports.map((i) => i.nombreClase));
+    const queue = [...seen];
+    while (queue.length > 0) {
+      const clase = queue.shift();
+      const info = paginas[clase];
+      if (!info) continue;
+      for (const m of info.metodos) {
+        if (m.retornaPage && !seen.has(m.retornaPage)) {
+          seen.add(m.retornaPage);
+          queue.push(m.retornaPage);
+          const rutaSinExt = paginas[m.retornaPage]?.archivo?.replace(/\.ts$/, '') ?? null;
+          ts.imports.push({ nombreClase: m.retornaPage, rutaSinExt, origen: 'cadena' });
+        }
+      }
+    }
+  }
 
   // Resolución absoluta de archivos para vscode://file/.
   const absPath = (rel) => resolve(ROOT, rel).replace(/\\/g, '/');
@@ -254,7 +310,11 @@ function construirModelo() {
     const sidecar = sidecars[nombrePage];
     const idsDelSidecar = [...(sidecar?.nodos ?? []), ...(sidecar?.asserts ?? [])];
     const nodosResueltos = idsDelSidecar.map((id) => nodos[id]).filter(Boolean);
-    const confs = nodosResueltos.map((n) => n.confiabilidad).filter((c) => typeof c === 'number');
+    // Filtramos deprecated: bajan artificialmente el promedio si los incluimos.
+    const confs = nodosResueltos
+      .filter((n) => !n.deprecated)
+      .map((n) => n.confiabilidad)
+      .filter((c) => typeof c === 'number');
     const confPromedio = confs.length ? confs.reduce((a, b) => a + b, 0) / confs.length : null;
     const usadoEnTests = [];
     for (const ts of testSets) {
@@ -788,9 +848,10 @@ function html(modelo) {
       let cuerpo = '';
       if (estado.tab === 'detalles') {
         // Page Objects usados como grid de 7 cards por fila con data útil.
-        const cardsHtml = ts.imports.length === 0
-          ? '<p class="empty">Todavía no se generó ningún Page Object para este Test Set.</p>'
-          : '<div class="po-grid">' + ts.imports.map((i) => {
+        // Si no hay imports detectados, mostramos un mensaje DIAGNÓSTICO en lugar de uno genérico.
+        let cardsHtml;
+        if (ts.imports.length > 0) {
+          cardsHtml = '<div class="po-grid">' + ts.imports.map((i) => {
               const info = datos.paginas[i.nombreClase];
               const c = colorPage(i.nombreClase);
               if (!info) {
@@ -805,8 +866,12 @@ function html(modelo) {
               const confChip = conf == null ? '' :
                 \`<div class="po-conf" style="background: \${c.bg}; color: \${c.fg}">\${conf.toFixed(1)}/5</div>\`;
               const tests = info.usadoEnTests.length;
+              const badgeOrigen = i.origen === 'cadena'
+                ? \`<div style="position:absolute;top:6px;right:6px;font-size:10px;opacity:0.7" title="Descubierto por cadena de retornos (no se importa directo en el spec)">🔗</div>\`
+                : '';
               return \`
-                <div class="po-card" style="border-top-color: \${c.border};" title="\${esc(info.archivo)}">
+                <div class="po-card" style="border-top-color: \${c.border};" title="\${esc(info.archivo)}\${i.origen === 'cadena' ? ' · descubierto por cadena de retornos' : ''}">
+                  \${badgeOrigen}
                   <div class="po-name" style="color: \${c.fg}">\${esc(i.nombreClase)}</div>
                   <div class="po-stats">
                     <div><span class="num">\${info.locators}</span>locators</div>
@@ -817,6 +882,22 @@ function html(modelo) {
                   \${confChip}
                 </div>\`;
             }).join('') + '</div>';
+        } else if (!ts.specExiste) {
+          cardsHtml = \`<p class="empty">El spec <code>\${esc(ts.specPath)}</code> todavía no existe. Cuando crees el primer Test del set, se va a generar.</p>\`;
+        } else if (ts.tests.length === 0) {
+          cardsHtml = \`<p class="empty">El spec existe pero todavía no tiene Tests adentro. Cuando agregues el primero, sus Page Objects van a aparecer acá.</p>\`;
+        } else {
+          cardsHtml = \`
+            <div class="empty" style="text-align:left; max-width: 720px; margin: 0 auto;">
+              <p>⚠️ El spec tiene <strong>\${ts.tests.length} Tests</strong> pero no detecté imports de Page Objects.</p>
+              <p>El parser busca patrones tipo:</p>
+              <pre style="font-size:12px; padding:10px;">import LoginPage from '../pages/LoginPage'
+import { LoginPage } from '../pages/LoginPage'
+import LoginPage from '../../pages/auth/LoginPage'</pre>
+              <p>Si el spec usa un patrón distinto, abrilo y revisá los imports.</p>
+              <p style="margin-top: 16px;"><button onclick="abrirVSCode('\${esc(ts.specPath)}', 1)">📂 Abrir spec en VSCode</button></p>
+            </div>\`;
+        }
 
         cuerpo = \`
           <div class="panel">
@@ -897,6 +978,22 @@ function html(modelo) {
       }
       $('main').innerHTML = tabsHtml(tabs) + cuerpo;
 
+      // Cablear los .paso-row del tab Pasos al modal del Nodo. Usamos data-paso-idx
+      // (en lugar de un onclick inline con JSON.stringify anidado) para evitar problemas
+      // de escapado cuando el id/selector tiene caracteres especiales.
+      if (estado.tab === 'pasos') {
+        window.__pasosActuales = t.pasos;
+        for (const row of $('main').querySelectorAll('.paso-row[data-paso-idx]')) {
+          row.style.cursor = 'pointer';
+          row.addEventListener('click', () => {
+            const i = parseInt(row.getAttribute('data-paso-idx'), 10);
+            if (!Number.isNaN(i) && window.__pasosActuales[i]) {
+              abrirNodo(JSON.stringify(window.__pasosActuales[i]));
+            }
+          });
+        }
+      }
+
       if (estado.tab === 'grafo') montarGrafo(t);
     }
 
@@ -909,8 +1006,11 @@ function html(modelo) {
         ? \`<span class="conf conf-\${n.confiabilidad}">[\${n.confiabilidad}/5]</span>\`
         : '<span class="conf" style="color:var(--muted)">[—]</span>';
       const dep = n.deprecated ? 'deprecated' : '';
+      // El paso se serializa como JSON y se pasa al modal por índice usando
+      // window.__pasosActuales (igual que en el grafo). Evita los problemas de
+      // escapado del onclick inline cuando el id/selector tiene caracteres especiales.
       return \`
-        <div class="paso-row \${dep}" style="border-left-color: \${c.border};" onclick='abrirNodo(\${JSON.stringify(JSON.stringify(paso))})'>
+        <div class="paso-row \${dep}" style="border-left-color: \${c.border};" data-paso-idx="\${idx - 1}">
           <div class="idx">\${idx}</div>
           <div class="descripcion">\${desc}</div>
           \${dep ? '<span class="chip warn">deprecated</span>' : ''}

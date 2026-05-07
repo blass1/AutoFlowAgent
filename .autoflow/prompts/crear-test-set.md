@@ -61,14 +61,15 @@ Si confirma:
      "slug": "<slug>",
      "id": "<id>",
      "descripcion": "<descripcion>",
+     "specPath": "tests/{slug}-{id}.spec.ts",
      "creadoPor": { "nombre": "<qa.nombre>", "legajo": "<qa.legajo>" },
      "creadoEn": "<iso-ahora>",
      "casos": [
-       { "numero": "<testId>", "nombre": "<nombre del Test>", "specPath": "tests/{slug}-{id}.spec.ts" }
+       { "numero": "<testId>", "nombre": "<nombre del Test>" }
      ]
    }
    ```
-   Si el set se creó vacío, `casos: []`.
+   **`specPath` va a nivel raíz** (todos los casos del set comparten el mismo archivo spec, así que es redundante repetirlo en cada caso). Si el set se creó vacío, `casos: []`.
 
 2. **Creá siempre el archivo spec en `tests/{slug}-{id}.spec.ts`** — cada **Test Set** tiene sí o sí un archivo de spec asociado, aunque arranque vacío. Si el archivo ya existe, no lo pises: avisá y abortá el guardado del JSON.
    - **Si el set es vacío**, escribí solo el header con el `test.describe` listo para recibir **Tests**:
