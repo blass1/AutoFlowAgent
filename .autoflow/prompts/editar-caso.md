@@ -60,13 +60,13 @@ Usá `vscode/askQuestions` single-select: `"¿Qué hacés con el **Test** [testI
 ### Opción `➕ Añadir pasos al final del Test`
 
 `vscode/askQuestions` single-select: `"¿Cómo añadís los pasos al **Test**?"`:
-- `🎬 Regrabar todo desde cero` → flujo clásico con codegen.
+- `🎬 Regrabar todo desde cero` → flujo clásico con el grabador.
 - `🧱 Construir paso a paso (HTML + acción)` → flujo manual sin volver a navegar.
 
 #### Modo `🎬 Regrabar todo desde cero`
 
 1. Marcá en `.autoflow/recordings/{numero}-session.json` el campo `"modo": "append"` (es el flag interno del flujo de añadir pasos; mantenerlo en código).
-2. Inferí URL final del **Test** (último `page.goto` o estado tras la última acción) y lanzá codegen apuntando ahí.
+2. Inferí URL final del **Test** (último `page.goto` o estado tras la última acción) y lanzá el grabador apuntando ahí.
 3. **Confirmá explícitamente que terminó de grabar antes de procesar**. Cuando `runTasks` / `runCommands` retorna, NO cargues `generar-pom.md` directo: el control puede volver antes de que el QA cierre el browser. Abrí `vscode/askQuestions` single-select: `"¿Ya terminaste de grabar y cerraste el browser?"` con opciones `✅ Sí, procesá los pasos` / `🔁 No, todavía estoy grabando — esperame`. Si elige `No`, mostrale un mensaje corto pidiendo que termine + cerrar el browser, y reabrí el mismo single-select. Bucle hasta que confirme `Sí`.
 4. Recién con la confirmación `Sí`, cargá `.autoflow/prompts/generar-pom.md`. Detecta el `modo: "append"` y entra al **Bloque AÑADIR PASOS** (matchea **Page Objects** existentes, mergea al spec sin regenerar POMs).
 
@@ -80,7 +80,7 @@ Cargá [insertar-nodo-especial.md](insertar-nodo-especial.md) pasándole `numero
 
 ### Opción `🍴 Bifurcar Test desde un Nodo`
 
-Cargá [bifurcar-caso.md](bifurcar-caso.md) pasándole `numeroFuente: numero`. Ese sub-prompt arma el warm-up con storageState, lanza codegen para grabar la cola, y materializa el **Test** nuevo reusando el prefix de Page Objects + datos del **Test** fuente.
+Cargá [bifurcar-caso.md](bifurcar-caso.md) pasándole `numeroFuente: numero`. Ese sub-prompt arma el warm-up con storageState, lanza el grabador para grabar la cola, y materializa el **Test** nuevo reusando el prefix de Page Objects + datos del **Test** fuente.
 
 ## 4. Volver al menú
 

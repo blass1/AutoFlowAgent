@@ -1,6 +1,6 @@
 ---
 mode: agent
-description: Lanza una sesión de grabación con codegen y, al cerrarse el browser, dispara el flujo de agrupación de pasos en Page Objects.
+description: Lanza una sesión de grabación interactiva en el navegador y, al cerrarse, dispara el flujo de agrupación de pasos en Page Objects.
 tools: ['vscode/askQuestions', 'edit', 'read', 'runCommands', 'runTasks']
 ---
 
@@ -167,7 +167,7 @@ Leé `.autoflow/user.json` y escribí:
 }
 ```
 
-Si `authState` está seteado, `start-recording.js` lo va a pasar a codegen con `--load-storage` y la grabación arranca con la sesión ya cargada — el QA no graba el login. En `generar-pom.md` el spec generado va a emitir `test.use({ storageState: '<authState>' })` arriba del bloque `test()`.
+Si `authState` está seteado, `start-recording.js` lo va a pasar al grabador con `--load-storage` y la grabación arranca con la sesión ya cargada — el QA no graba el login. En `generar-pom.md` el spec generado va a emitir `test.use({ storageState: '<authState>' })` arriba del bloque `test()`.
 
 `almContext` solo se incluye si vino del paso 0.a:
 ```json
@@ -183,11 +183,11 @@ Si fue carga manual, omití el campo `almContext` directamente (no lo pongas en 
 
 ## 4. Mensaje al QA (ANTES de lanzar la task)
 
-**Importante**: mandá este mensaje **antes** de disparar la task. `runTasks` bloquea al agente hasta que `playwright codegen` termina, y eso es justamente lo que queremos: cuando vuelva el control, el browser ya está cerrado y arrancamos la agrupación.
+**Importante**: mandá este mensaje **antes** de disparar la task. `runTasks` bloquea al agente hasta que el grabador termina, y eso es justamente lo que queremos: cuando vuelva el control, el navegador ya está cerrado y arrancamos la agrupación.
 
 ```
-🎬 Voy a lanzar codegen. En unos segundos vas a ver una ventana de Chromium
-y el Inspector de Playwright.
+🎬 Voy a abrir el navegador para que grabes el flujo. En unos segundos vas a ver
+una ventana de Chromium con el Inspector de Playwright.
 
 Navegá tu flujo end-to-end y, cuando termines, **cerrá el browser**. Ahí
 vuelvo yo y te muestro los pasos capturados para que los agrupemos en pages.
@@ -195,9 +195,9 @@ vuelvo yo y te muestro los pasos capturados para que los agrupemos en pages.
 Mientras grabás no hace falta que me escribas — esperá a cerrar el browser.
 ```
 
-## 5. Lanzar codegen
+## 5. Lanzar el grabador
 
-Recién ahora dispará la VSCode task **`autoflow:start-recording`** con `runTasks`. Esa task corre `node .autoflow/scripts/start-recording.js` que lee la sesión activa y lanza `playwright codegen`.
+Recién ahora dispará la VSCode task **`autoflow:start-recording`** con `runTasks`. Esa task corre `node .autoflow/scripts/start-recording.js` que lee la sesión activa y lanza el grabador interactivo.
 
 ## 6. Cuando vuelve el control — CONFIRMAR antes de procesar
 
@@ -250,8 +250,8 @@ Volvé a abrir el mismo `vscode/askQuestions`. Repetí en bucle hasta que confir
      ```
 
      Después abrí `vscode/askQuestions` single-select:
-     - `✅ Confirmo que el archivo está, seguí` → asumí que existe (probablemente un edge case del filesystem) y seguí al punto 2. Si después en el paso 2 (parsear codegen) falla, ahí sí frená.
-     - `🔁 Relanzar codegen` → volvé al paso 5.
+     - `✅ Confirmo que el archivo está, seguí` → asumí que existe (probablemente un edge case del filesystem) y seguí al punto 2. Si después en el paso 2 (parsear la grabación) falla, ahí sí frená.
+     - `🔁 Relanzar la grabación` → volvé al paso 5.
      - `❌ Cancelar` → marcá `activa: false` con `cancelado: true` y volvé al menú.
 
 2. Marcá la sesión como cerrada en `{numero}-session.json`: `"activa": false` + `"fechaFin": "<iso-ahora>"`.

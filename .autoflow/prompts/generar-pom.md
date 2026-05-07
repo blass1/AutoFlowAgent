@@ -1,12 +1,12 @@
 ---
 mode: agent
-description: Después de cerrar el browser de codegen, muestra los pasos capturados y los agrupa interactivamente con el QA en Page Objects, reconociendo pages que ya existen.
+description: Después de cerrar el navegador de grabación, muestra los pasos capturados y los agrupa interactivamente con el QA en Page Objects, reconociendo pages que ya existen.
 tools: ['vscode/askQuestions', 'edit', 'read', 'runCommands', 'runTasks']
 ---
 
 # Generar Page Objects (agrupación interactiva)
 
-Se carga cuando vuelve el control después de `playwright codegen` (la task `autoflow:start-recording` retornó porque el QA cerró el browser).
+Se carga cuando vuelve el control después de la grabación (la task `autoflow:start-recording` retornó porque el QA cerró el navegador).
 
 ## 0. ¿Modo añadir pasos?
 
@@ -21,7 +21,7 @@ Si todavía no se hizo:
 1. Leé `.autoflow/recordings/{numero}-session.json`.
 2. Marcá `"activa": false` y agregá `"fechaFin": "<iso-ahora>"`. Guardá.
 
-## 2. Parsear el codegen
+## 2. Parsear la grabación
 
 Ejecutá con `runCommands`:
 ```
@@ -51,7 +51,7 @@ Si el script falla o no existe, leé directamente `.autoflow/recordings/{numero}
 
 ## 2.5. Revisión y limpieza — borrar pasos no deseados
 
-Antes de matchear contra Page Objects existentes, dale al QA la chance de borrar pasos que codegen capturó pero no quiere (clicks accidentales, hovers de paso, asserts ruidosos que codegen agregó solo, navegación intermedia que se metió por error, etc.).
+Antes de matchear contra Page Objects existentes, dale al QA la chance de borrar pasos que el grabador capturó pero no quiere (clicks accidentales, hovers de paso, asserts ruidosos que el grabador agregó solo, navegación intermedia que se metió por error, etc.).
 
 1. Cargá `.autoflow/recordings/{numero}-parsed.json`. Para cada nodo armá una descripción legible:
    - `goto` → `"Paso N: 🌐 ir a {url relativizada}"`
@@ -555,7 +555,7 @@ Generá la traza igual que en el paso 9 (`generar-traza.js {numero}`) — la nue
 
 ### A.7. Limpieza
 
-Borrá `parsed.json`, `grupos.json` (si se creó) y el `.spec.ts` temporal de codegen (no el spec del **Test Set**, que vive en `tests/`). Mantené `session.json` (con `modo: "append"` para historial) y `path.json`.
+Borrá `parsed.json`, `grupos.json` (si se creó) y el `.spec.ts` temporal de la grabación (no el spec del **Test Set**, que vive en `tests/`). Mantené `session.json` (con `modo: "append"` para historial) y `path.json`.
 
 ### A.8. Resumen
 

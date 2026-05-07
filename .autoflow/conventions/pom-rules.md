@@ -65,7 +65,7 @@ Los asserts a nivel `page` (ej: `expect(page).toHaveURL(...)`) no tienen locator
 
 #### Nodos especiales: `capturar` y `verificar`
 
-Estos nodos no se generan en codegen — los inserta el QA después de grabar a través del sub-prompt [insertar-nodo-especial.md](../prompts/insertar-nodo-especial.md). Sirven para extraer un valor del DOM y compararlo más tarde contra otra lectura (o contra un literal).
+Estos nodos no se generan durante la grabación — los inserta el QA después, a través del sub-prompt [insertar-nodo-especial.md](../prompts/insertar-nodo-especial.md). Sirven para extraer un valor del DOM y compararlo más tarde contra otra lectura (o contra un literal).
 
 - **`capturar`**: lee un valor en un punto del flujo y lo guarda en el fixture `vars` bajo un nombre.
 - **`verificar`**: vuelve a leer (mismo selector u otro) y compara contra una variable previamente capturada **o** contra un valor literal, según una condición que define el QA.
@@ -259,7 +259,7 @@ Shape del sidecar:
 
 Reglas:
 
-- Mantené el orden tal como lo grabó codegen — el matcheo es secuencial.
+- Mantené el orden tal como lo grabó el grabador — el matcheo es secuencial.
 - **No incluyas asserts en `nodos[]`** — van en `asserts[]` aparte.
 - Si actualizás un PO existente y le cambiás el flujo, actualizá el sidecar y `nodos.json` en el mismo cambio.
 - El JSDoc de la clase queda en **una sola línea** describiendo la pantalla en español. Nada de listar acciones ni párrafos.
@@ -270,11 +270,11 @@ Reglas:
 - Recibe `page: Page` como único parámetro.
 - Todos los locators son **propiedades `private readonly`** inicializadas en el constructor.
 - `page` se guarda como `private readonly page: Page` para usarlo dentro de los métodos cuando haga falta (ej: `expect(this.page).toHaveURL(...)`).
-- **`selectorRaw` del nodo es ground truth — copialo verbatim**. El campo `selectorRaw` en `nodos.json` tiene el chain exacto que codegen capturó (`getByRole(...)`, `locator(...).contentFrame().getByRole(...)`, `getByRole(...).first()`, `locator(...).filter(...).getByText(...)`, etc.). Pegalo igual al constructor; **no simplifiques ni reconstruyas desde el `selector` normalizado**, porque podés perder modificadores como `.first()`, `.nth(N)`, `.filter(...)`, `.locator()` encadenados o el contenedor `iframe` — y terminás apuntando a otro elemento (o a varios, error de strict mode).
+- **`selectorRaw` del nodo es ground truth — copialo verbatim**. El campo `selectorRaw` en `nodos.json` tiene el chain exacto que el grabador capturó (`getByRole(...)`, `locator(...).contentFrame().getByRole(...)`, `getByRole(...).first()`, `locator(...).filter(...).getByText(...)`, etc.). Pegalo igual al constructor; **no simplifiques ni reconstruyas desde el `selector` normalizado**, porque podés perder modificadores como `.first()`, `.nth(N)`, `.filter(...)`, `.locator()` encadenados o el contenedor `iframe` — y terminás apuntando a otro elemento (o a varios, error de strict mode).
 
 ### Selectores — orden de prioridad estricto
 
-Esta prioridad la usa **codegen al grabar**, no el agente al generar el PO. El agente **no elige** el locator: usa el `selectorRaw` del nodo verbatim. La escala existe para evaluar fragilidad después (campo `confiabilidad`, 1-5):
+Esta prioridad la usa **el grabador al grabar**, no el agente al generar el PO. El agente **no elige** el locator: usa el `selectorRaw` del nodo verbatim. La escala existe para evaluar fragilidad después (campo `confiabilidad`, 1-5):
 
 1. `page.getByTestId('...')` → 5
 2. `page.getByRole('...', { name: '...' })` → 4

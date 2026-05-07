@@ -79,7 +79,7 @@ Parseá las líneas previas del reporter `line` para identificar qué `test()` d
 ```
 
 Después abrí `vscode/askQuestions` single-select: `"¿Qué hacemos?"`:
-- `▶️ Correr solo los que fallaron` → corré con `runCommands` el comando `npx playwright test {specPath} --reporter=line,html --trace=retain-on-failure --headed --workers=1 --grep "\\[testId:{n1}\\]|\\[testId:{n2}\\]|..."` armando el grep con los testId que fallaron.
+- `▶️ Correr solo los que fallaron` → corré con `runCommands` el comando `npx playwright test {specPath} --reporter=line,html --trace=retain-on-failure --headed --workers=1 --grep=\[testId:{n1}\]|\[testId:{n2}\]|...` armando el grep con los testId que fallaron. **Forma `--grep=value`** sin quotes y sin doble backslash — evita el bug de PowerShell escapando mal los corchetes.
 - `🧩 Actualizar **Nodos** sospechosos de un **Test**` → si hay más de un **Test** fallado, abrí `vscode/askQuestions` single-select primero para elegir cuál reparar. Después cargá `.autoflow/prompts/actualizar-nodos.md` con el contexto `{ specPath, numeroTC: <elegido> }`. Al volver, releé este menú.
 - `📊 Re-correr con trace y abrir reporte HTML` → la corrida default usa `--reporter=line` (rápido, sin overhead). Para investigar un fallo necesitás trace + reporte HTML, así que volvé a correr con `--debug`: `node .autoflow/scripts/run-testset.js {slug} --headed --debug`. Cuando termine, abrí el reporte: `npx playwright show-report`. Al volver, releé este menú.
 - `🔍 Ver el primer error en detalle`

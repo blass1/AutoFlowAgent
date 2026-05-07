@@ -39,7 +39,7 @@ Leé el output con `terminalLastCommand`. Solo seguí el branch de "falta instal
 
 ## 2. Sesiones zombi (grabaciones colgadas)
 
-Antes de pasar al menú, chequeá si hay alguna grabación huérfana. Esto pasa cuando el QA cerró VSCode mientras `playwright codegen` corría: la sesión queda con `"activa": true` y el siguiente arranque la levanta y se confunde.
+Antes de pasar al menú, chequeá si hay alguna grabación huérfana. Esto pasa cuando el QA cerró VSCode mientras la grabación corría: la sesión queda con `"activa": true` y el siguiente arranque la levanta y se confunde.
 
 1. Listá `.autoflow/recordings/*-session.json` y filtrá las que tengan `activa === true`.
 2. Para cada una, calculá la antigüedad: `ahora - fechaInicio`. Si la diferencia es **mayor a 30 minutos**, considerala zombi (las activas reales acaban de empezar).

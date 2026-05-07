@@ -14,8 +14,15 @@ const { join, basename } = require('node:path');
 const archivo = process.argv[2];
 const headed = process.argv.includes('--headed');
 const debug = process.argv.includes('--debug');
-const grepIdx = process.argv.indexOf('--grep');
-const grep = grepIdx !== -1 ? process.argv[grepIdx + 1] : null;
+// Aceptar --grep value y --grep=value. El segundo es preferible porque mantiene
+// el grep como un único token y evita problemas de quoting en PowerShell con
+// caracteres como `\[`.
+let grep = null;
+for (let i = 2; i < process.argv.length; i++) {
+  const a = process.argv[i];
+  if (a === '--grep') { grep = process.argv[i + 1]; break; }
+  if (a.startsWith('--grep=')) { grep = a.slice('--grep='.length); break; }
+}
 if (!archivo) {
   console.error('Uso: node .autoflow/scripts/run-test.js <archivo> [--headed] [--grep <texto>]');
   process.exit(1);
@@ -35,7 +42,9 @@ if (debug) {
   args.push('--trace=on');
 }
 if (headed) args.push('--headed', '--workers=1');
-if (grep) args.push('--grep', JSON.stringify(grep));
+// Usar la forma --grep=value para evitar problemas de quoting con `\[` en PowerShell.
+// JSON.stringify acá agregaba comillas dobles + escapes que cmd/PowerShell rompía.
+if (grep) args.push(`--grep=${grep}`);
 
 const inicio = Date.now();
 const res = spawnSync('npx', args, {

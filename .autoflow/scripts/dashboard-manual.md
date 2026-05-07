@@ -205,7 +205,7 @@ Cuando dominás lo básico, estas funcionalidades te ahorran más tiempo.
 1. Menú → `🧪 Tests → ✏️ Editar` → elegís el Test fuente → `🍴 Bifurcar Test desde un Nodo`.
 2. El agente lista los `test.step` del Test fuente — elegís el step de corte.
 3. Genera un **warm-up** que ejecuta el prefix usando los métodos del PO existentes y guarda `storageState` en el punto exacto.
-4. Lanza codegen con `--load-storage` apuntando a la URL del nodo de corte. Vos solo grabás la cola.
+4. Lanza el grabador con el storage cargado apuntando a la URL del nodo de corte. Vos solo grabás la cola.
 5. El agente arma el Test nuevo: prefix copiado del fuente + tail recién agrupado.
 
 **Limitación honesta**: `storageState` captura cookies + localStorage + sessionStorage, **no** estado in-memory (forms a medio llenar, modales abiertos). Si el nodo de corte está mid-form, el agente te avisa y te ofrece elegir otro punto.
@@ -226,7 +226,7 @@ Se insertan **después** de grabar, desde `Editar → Insertar Nodo de captura/v
 
 ### Importar / Exportar ALM
 
-- **📥 Importar**: dejás el `.xlsx` exportado de tu ALM en `.autoflow/alm-exports/`, elegís `📄 ALM → Importar .xlsx y crear Test`, el agente lee testId, nombre y enfoque del archivo y arranca codegen sin que tipees nada a mano.
+- **📥 Importar**: dejás el `.xlsx` exportado de tu ALM en `.autoflow/alm-exports/`, elegís `📄 ALM → Importar .xlsx y crear Test`, el agente lee testId, nombre y enfoque del archivo y arranca el grabador sin que tipees nada a mano.
 - **📤 Exportar**: el agente toma un Test ya grabado y emite un archivo (xlsx default, csv o json) con un row por cada `test.step`. Granularidad: un Test por archivo. Útil para subir a ALM via API o import manual.
 
 ### Utilidades (plugin loader)
