@@ -195,6 +195,34 @@ Mientras grabás no hace falta que me escribas — esperá a cerrar el browser.
 
 Recién ahora dispará la VSCode task **`autoflow:start-recording`** con `runTasks`. Esa task corre `node .autoflow/scripts/start-recording.js` que lee la sesión activa y lanza `playwright codegen`.
 
-## 6. Cuando vuelve el control
+## 6. Cuando vuelve el control — CONFIRMAR antes de procesar
 
-Cuando `runTasks` retorna, el QA cerró el browser y codegen escribió el spec en `{specPath}`. Marcá la sesión como cerrada (`"activa": false`, agregar `"fechaFin": "<iso-ahora>"`) y cargá `.autoflow/prompts/generar-pom.md` para arrancar el flujo de agrupación.
+Cuando `runTasks` retorna, **NO procedas directamente**. `runTasks` puede retornar antes de que el QA termine de grabar (depende del IDE, del setup de Copilot, o de que el QA haya cerrado el inspector pero no la ventana del browser). Si arrancás a procesar mientras el QA todavía está grabando, los pasos quedan partidos a la mitad y se rompe la generación.
+
+Siempre **confirmá explícitamente** con el QA antes de seguir.
+
+Abrí `vscode/askQuestions` single-select: `"¿Ya terminaste de grabar el flujo completo y cerraste el browser?"`:
+- `✅ Sí, procesá los pasos`
+- `🔁 No, todavía estoy grabando — esperame`
+
+### Si responde `🔁 No`
+
+Mostrale un mensaje corto:
+```
+OK, te espero. Cuando termines:
+  1. Volvé al browser de Chromium / al Inspector de Playwright.
+  2. Navegá lo que falte del flujo.
+  3. Cerrá la ventana del browser.
+  4. Volvé al chat y avisame que terminaste.
+```
+
+Volvé a abrir el mismo `vscode/askQuestions`. Repetí en bucle hasta que confirme `✅ Sí`. **No avancés bajo ninguna circunstancia mientras la respuesta sea "No"** — un Test corrupto cuesta más tiempo que la espera.
+
+### Si responde `✅ Sí`
+
+1. Verificá que `{specPath}` existe y no está vacío.
+   - Si no existe o está vacío → el browser se cerró antes de que codegen escribiera. Avisá al QA y ofrecele:
+     - `🔁 Relanzar codegen` → volvé al paso 5.
+     - `❌ Cancelar` → marcá `activa: false` con `cancelado: true` y volvé al menú.
+2. Marcá la sesión como cerrada en `{numero}-session.json`: `"activa": false` + `"fechaFin": "<iso-ahora>"`.
+3. Cargá `.autoflow/prompts/generar-pom.md` para arrancar el flujo de agrupación.

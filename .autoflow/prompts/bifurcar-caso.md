@@ -139,9 +139,21 @@ Avisá al QA antes de lanzar:
 
 `runCommands` bloquea hasta que cierre Chromium.
 
+## 7.5. Confirmar que terminó de grabar — antes de procesar
+
+Cuando `runCommands` retorna, **NO procedas directamente**. Puede retornar antes de que el QA termine la grabación de la cola. Confirmá explícitamente:
+
+`vscode/askQuestions` single-select: `"¿Ya terminaste de grabar la cola y cerraste el browser?"`:
+- `✅ Sí, procesá la cola`
+- `🔁 No, todavía estoy grabando — esperame`
+
+Si responde `🔁 No`: mostrá un mensaje corto pidiendo que termine y cierre el browser, y volvé a abrir el mismo single-select. Repetí hasta que confirme `✅ Sí`. **No avancés mientras la respuesta sea "No"**.
+
+Cuando confirme `✅ Sí`, verificá que `tests/_temp/{nuevoTestId}-tail-{ts}.spec.ts` existe y no está vacío. Si no, ofrecele relanzar codegen (volver al paso 7) o cancelar (limpiar warm-up + storageState y volver al menú).
+
 ## 8. Procesar el tail
 
-Cuando vuelve el control, codegen escribió `tests/_temp/{nuevoTestId}-tail-{ts}.spec.ts` con el código crudo de la cola.
+Cuando vuelve el control y el QA confirmó que terminó, codegen escribió `tests/_temp/{nuevoTestId}-tail-{ts}.spec.ts` con el código crudo de la cola.
 
 1. **Crear sesión** `.autoflow/recordings/{nuevoTestId}-session.json`:
    ```json

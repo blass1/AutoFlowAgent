@@ -63,7 +63,19 @@ Disparalo con `runCommands`:
 node .autoflow/scripts/record-auth.js "{canalSlug}" "{userKey}" "{urlInicial}"
 ```
 
-Donde `{canalSlug}` es el slug del canal en kebab-case (`ICBC PROD` → `icbc-prod`). El script imprime al final una línea con prefijo `AUTOFLOW_AUTH:` + JSON. Leela con `terminalLastCommand`.
+Donde `{canalSlug}` es el slug del canal en kebab-case (`ICBC PROD` → `icbc-prod`). El script imprime al final una línea con prefijo `AUTOFLOW_AUTH:` + JSON.
+
+#### 2.c.1. Confirmar que terminó de loguearse — antes de leer el resultado
+
+Cuando `runCommands` retorna, **NO leas el resultado directo**. Puede retornar antes de que el QA termine el login completo (depende del IDE / setup). Confirmá explícitamente:
+
+`vscode/askQuestions` single-select: `"¿Ya hiciste login completo (incluyendo OTP si aplica) y cerraste el browser?"`:
+- `✅ Sí, guardá el storageState`
+- `🔁 No, todavía estoy logueándome — esperame`
+
+Si responde `🔁 No`: mostrá un mensaje corto pidiendo que termine de loguearse y cierre el browser, y volvé a abrir el mismo single-select. Repetí hasta que confirme `✅ Sí`. **No avancés mientras la respuesta sea "No"**.
+
+Cuando confirme `✅ Sí`, leé la línea `AUTOFLOW_AUTH:` con `terminalLastCommand`.
 
 - `ok: true` → mostrale al QA: `✅ Listo. Guardé el login en {path}.`
 - `ok: false` → mostrá el `error` y abrí `vscode/askQuestions`:

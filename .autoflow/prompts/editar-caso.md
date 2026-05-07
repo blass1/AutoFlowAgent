@@ -67,7 +67,8 @@ Usá `vscode/askQuestions` single-select: `"¿Qué hacés con el **Test** [testI
 
 1. Marcá en `.autoflow/recordings/{numero}-session.json` el campo `"modo": "append"` (es el flag interno del flujo de añadir pasos; mantenerlo en código).
 2. Inferí URL final del **Test** (último `page.goto` o estado tras la última acción) y lanzá codegen apuntando ahí.
-3. Cuando el QA diga `terminé`, `generar-pom.md` detecta el `modo: "append"` y entra al **Bloque AÑADIR PASOS** (matchea **Page Objects** existentes, mergea al spec sin regenerar POMs).
+3. **Confirmá explícitamente que terminó de grabar antes de procesar**. Cuando `runTasks` / `runCommands` retorna, NO cargues `generar-pom.md` directo: el control puede volver antes de que el QA cierre el browser. Abrí `vscode/askQuestions` single-select: `"¿Ya terminaste de grabar y cerraste el browser?"` con opciones `✅ Sí, procesá los pasos` / `🔁 No, todavía estoy grabando — esperame`. Si elige `No`, mostrale un mensaje corto pidiendo que termine + cerrar el browser, y reabrí el mismo single-select. Bucle hasta que confirme `Sí`.
+4. Recién con la confirmación `Sí`, cargá `.autoflow/prompts/generar-pom.md`. Detecta el `modo: "append"` y entra al **Bloque AÑADIR PASOS** (matchea **Page Objects** existentes, mergea al spec sin regenerar POMs).
 
 #### Modo `🧱 Construir paso a paso (HTML + acción)`
 
