@@ -363,12 +363,17 @@ function html(modelo) {
   .ts-row.active { background: var(--panel2); border-left-color: var(--accent); }
   .ts-row .nombre { font-weight: 600; }
   .ts-row .meta-line { color: var(--muted); font-size: 11px; margin-top: 2px; }
-  .t-row { padding: 5px 12px 5px 28px; cursor: pointer; font-size: 13px;
-    display: flex; align-items: center; gap: 8px; }
+  .t-row { padding: 6px 12px 4px 28px; cursor: pointer; font-size: 13px;
+    display: flex; flex-direction: column; gap: 4px; }
   .t-row:hover { background: var(--panel2); }
   .t-row.active { background: var(--panel2); color: var(--accent); }
-  .t-row .dots { display: inline-flex; gap: 2px; flex: 0 0 auto; }
-  .t-row .dots .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .t-row .t-titulo { display: flex; align-items: center; gap: 6px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Barra horizontal — cada page es un segmento conectado, sin gap, mostrando el orden de visita */
+  .t-pagebar { display: flex; height: 3px; border-radius: 2px; overflow: hidden;
+    margin-left: 0; opacity: 0.85; }
+  .t-pagebar .seg { flex: 1; min-width: 4px; }
+  .t-pagebar:empty { display: none; }
 
   main { overflow: auto; padding: 0; }
   .tabs { display: flex; gap: 4px; padding: 12px 20px 0; border-bottom: 1px solid var(--border);
@@ -401,10 +406,9 @@ function html(modelo) {
   @media (max-width: 1024px) { .po-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   .po-card {
     background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-    padding: 10px 12px; cursor: pointer; transition: transform 0.1s, border-color 0.1s;
+    padding: 10px 12px; cursor: default;
     border-top: 3px solid var(--border); position: relative; overflow: hidden;
   }
-  .po-card:hover { transform: translateY(-2px); }
   .po-card .po-name { font-weight: 600; font-size: 12px; line-height: 1.2; margin-bottom: 6px;
     overflow-wrap: break-word; word-break: break-word; }
   .po-card .po-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; font-size: 10px; color: var(--muted); }
@@ -545,17 +549,15 @@ function html(modelo) {
           if (estado.tsSlug === ts.slug && estado.vista !== 'usuario') {
             for (const t of ts.tests) {
               const a2 = estado.testId === t.testId ? 'active' : '';
-              // Dots con el color de cada Page que toca el Test
-              const dots = (t.pagesDelTest || []).slice(0, 8).map((p) => {
+              // Barra horizontal — cada page es un segmento conectado en el orden de visita.
+              const segmentos = (t.pagesDelTest || []).map((p) => {
                 const c = colorPage(p);
-                return \`<span class="dot" style="background:\${c.border}" title="\${esc(p)}"></span>\`;
+                return \`<span class="seg" style="background:\${c.border}" title="\${esc(p)}"></span>\`;
               }).join('');
               html.push(\`
                 <div class="t-row \${a2}" onclick="seleccionarTest('\${ts.slug}','\${t.testId}')">
-                  <div style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">
-                    ▸ \${esc(t.nombre)} <span style="color:var(--muted)">[\${t.testId}]</span>
-                  </div>
-                  <div class="dots">\${dots}</div>
+                  <div class="t-titulo">▸ \${esc(t.nombre)} <span style="color:var(--muted)">[\${t.testId}]</span></div>
+                  <div class="t-pagebar">\${segmentos}</div>
                 </div>
               \`);
             }
@@ -681,8 +683,7 @@ function html(modelo) {
               if (!info) {
                 // PO importado pero sin sidecar (huérfano o muy nuevo).
                 return \`
-                  <div class="po-card huerfano" style="border-top-color: \${c.border};"
-                       onclick="abrirVSCode('\${esc(i.rutaSinExt)}.ts', 1)" title="Sin sidecar — abrí el .ts">
+                  <div class="po-card huerfano" style="border-top-color: \${c.border};">
                     <div class="po-name" style="color: \${c.fg}">\${esc(i.nombreClase)}</div>
                     <div class="po-stats"><div><span class="num">—</span>sin sidecar</div></div>
                   </div>\`;
@@ -692,8 +693,7 @@ function html(modelo) {
                 \`<div class="po-conf" style="background: \${c.bg}; color: \${c.fg}">\${conf.toFixed(1)}/5</div>\`;
               const tests = info.usadoEnTests.length;
               return \`
-                <div class="po-card" style="border-top-color: \${c.border};"
-                     onclick="abrirVSCode('\${esc(info.archivo)}', 1)" title="\${esc(info.archivo)}">
+                <div class="po-card" style="border-top-color: \${c.border};" title="\${esc(info.archivo)}">
                   <div class="po-name" style="color: \${c.fg}">\${esc(i.nombreClase)}</div>
                   <div class="po-stats">
                     <div><span class="num">\${info.locators}</span>locators</div>
