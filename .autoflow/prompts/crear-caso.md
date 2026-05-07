@@ -224,9 +224,35 @@ Volvé a abrir el mismo `vscode/askQuestions`. Repetí en bucle hasta que confir
 
 ### Si responde `✅ Sí`
 
-1. Verificá que `{specPath}` existe y no está vacío.
-   - Si no existe o está vacío → el browser se cerró antes de que codegen escribiera. Avisá al QA y ofrecele:
+1. **Verificá que el spec existe con el script estructurado** (no con tu tool genérica de lectura — tiene falsos negativos por race conditions de filesystem en Windows). Ejecutá con `runCommands`:
+
+   ```
+   node .autoflow/scripts/verificar-recording.js {numero}
+   ```
+
+   El script imprime una línea `AUTOFLOW_RECORDING: { ok, path, tamaño, listado, razon? }`. Leela con `terminalLastCommand`.
+
+   - **Si `ok: true`** → seguí al punto 2.
+   - **Si `ok: false`** → **retry**: esperá ~1.5s (con `runCommands`: `node -e "setTimeout(() => {}, 1500)"`) y volvé a correr el script. Hasta **3 reintentos**. Codegen en Windows a veces cierra el proceso antes de que el filesystem flushee el archivo, y el chequeo inmediato da falso negativo.
+   - **Si después de 3 reintentos sigue `ok: false`** → mostrale al QA el listado completo que devolvió el script + el path que estaba chequeando:
+
+     ```
+     ⚠️ No encuentro el archivo de la grabación.
+
+     Esperaba: {path}
+     Lo que veo en .autoflow/recordings/:
+       • {listado[0]}
+       • {listado[1]}
+       • ...
+
+     Si vos ves el archivo en tu explorador y yo no, puede ser un desync —
+     mirá si el nombre coincide con "{numero}.spec.ts" o si tiene otro número.
+     ```
+
+     Después abrí `vscode/askQuestions` single-select:
+     - `✅ Confirmo que el archivo está, seguí` → asumí que existe (probablemente un edge case del filesystem) y seguí al punto 2. Si después en el paso 2 (parsear codegen) falla, ahí sí frená.
      - `🔁 Relanzar codegen` → volvé al paso 5.
      - `❌ Cancelar` → marcá `activa: false` con `cancelado: true` y volvé al menú.
+
 2. Marcá la sesión como cerrada en `{numero}-session.json`: `"activa": false` + `"fechaFin": "<iso-ahora>"`.
 3. Cargá `.autoflow/prompts/generar-pom.md` para arrancar el flujo de agrupación.

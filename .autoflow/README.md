@@ -94,6 +94,7 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 | Script | Para qué |
 | --- | --- |
 | `start-recording.js` | Lanza `playwright codegen` con la URL de la sesión activa. Si la sesión tiene `authState`, agrega `--load-storage` para arrancar logueado. |
+| `verificar-recording.js <numero>` | Chequeo robusto del .spec.ts del recording (existe + no está vacío). Lo usa `crear-caso.md` paso 6 con retry para evitar falsos negativos por race conditions de filesystem en Windows tras cerrar codegen. Output: `AUTOFLOW_RECORDING: { ok, path, tamaño, listado, razon? }`. Si falla, devuelve también el listado de `.autoflow/recordings/` para que el agente pueda mostrarlo al QA y comparar contra lo que ve en su file explorer. |
 | `record-auth.js <canal-slug> <userKey> <urlInicial>` | Lanza codegen con `--save-storage` para grabar un login reusable. Output en `auth/{canal-slug}-{userKey}.json`. |
 | `parse-codegen-output.js <numero>` | Parsea el `.spec.ts` crudo y emite nodos crudos con selector normalizado y confiabilidad 1-5. **Descarta** los `press` de Ctrl+C / Ctrl+V / Cmd+C / Cmd+V (shortcuts de portapapeles que el QA suele meter sin querer durante la grabación). |
 | `parse-alm-export.js <archivo>` | Lee un xlsx exportado de ALM (A2 = testId, C2 = nombre, G2 = enfoque). Resuelve la ruta tal cual o dentro de `alm-exports/`. Emite JSON por stdout. |
