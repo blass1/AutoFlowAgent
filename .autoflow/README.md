@@ -82,7 +82,7 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 | `crear-test-set.md` | Agrupa casos en un test set. |
 | `editar-test-set.md` | Modifica un test set existente. |
 | `correr-test-set.md` | Corre todos los casos de un set. |
-| `generar-pom.md` | Post-grabación — matchea pages existentes, agrupa pasos, genera POMs, sidecars, nodos, traza y spec. **Listado colapsado**: las pages ya agrupadas se muestran en una línea (`✅ X (pasos N–M)`), solo el bloque "Nuevo" va completo. **Regrafos** una sola vez al final (paso 9.5), no per agrupación. **Colisión de nombres** (paso 5.5): si el QA elige un nombre de PO que ya existe, ofrece reusar un método existente, agregar un método nuevo a esa Page, o cambiar el nombre. |
+| `generar-pom.md` | Post-grabación — matchea pages existentes, agrupa pasos, genera POMs, sidecars, nodos, traza y spec. **Limpieza pre-agrupado** (paso 2.5): muestra todos los pasos parseados con multi-select para que el QA borre los no deseados (clicks accidentales, asserts ruidosos, navegación errónea); los nodos restantes se renumeran. **Listado colapsado**: las pages ya agrupadas se muestran en una línea (`✅ X (pasos N–M)`), solo el bloque "Nuevo" va completo. **Regrafos** una sola vez al final (paso 9.5), no per agrupación. **Colisión de nombres** (paso 5.5): si el QA elige un nombre de PO que ya existe, ofrece reusar un método existente, agregar un método nuevo a esa Page, o cambiar el nombre. |
 | `actualizar-nodos.md` | Sub-flow invocado desde `correr-caso.md` / `correr-test-set.md` cuando un test falla. Repara locators que cambiaron en el front, marca el nodo viejo como `deprecated` y actualiza PO + sidecar + `nodos.json`. |
 
 ## Scripts disponibles

@@ -49,6 +49,43 @@ La **page** y el **id final** (`{page}::{accion}::{selector}`) se asignan en los
 
 Si el script falla o no existe, leé directamente `.autoflow/recordings/{numero}.spec.ts` y derivá la lista a mano siguiendo el mismo shape.
 
+## 2.5. Revisión y limpieza — borrar pasos no deseados
+
+Antes de matchear contra Page Objects existentes, dale al QA la chance de borrar pasos que codegen capturó pero no quiere (clicks accidentales, hovers de paso, asserts ruidosos que codegen agregó solo, navegación intermedia que se metió por error, etc.).
+
+1. Cargá `.autoflow/recordings/{numero}-parsed.json`. Para cada nodo armá una descripción legible:
+   - `goto` → `"Paso N: 🌐 ir a {url relativizada}"`
+   - `click` → `"Paso N: 👆 click en {etiqueta o selector simplificado}"`
+   - `fill` → `"Paso N: ⌨️ rellenar {etiqueta} con \"{valor}\""`
+   - `press` → `"Paso N: ⏎ tecla {valor}"` (los Ctrl+C/V ya fueron filtrados por el parser)
+   - `check` / `uncheck` → `"Paso N: ☑️ tildar {etiqueta}"` / `"Paso N: ☐ destildar {etiqueta}"`
+   - `selectOption` → `"Paso N: 📋 elegir \"{valor}\" en {etiqueta}"`
+   - `hover` → `"Paso N: 🖱️ hover en {etiqueta}"`
+   - `assert` → `"Paso N: ✓ verificar {matcher}{(valor opcional)} en {selector|page}"`
+   
+   Sumá la confiabilidad al final entre corchetes cuando aplique: `[3/5]`.
+
+2. Abrí `vscode/askQuestions` **multi-select**: `"¿Hay pasos que quieras borrar? Tildá los que SÍ querés eliminar (dejá vacío si están todos OK)"`. Las opciones son **todos los nodos** uno por uno con la descripción del punto 1, en orden.
+
+   > Sin opciones extra al final. Un multi-select vacío = "no borrar nada".
+
+3. **Si no tildó nada**: continuá al paso 3 sin tocar `parsed.json`. Mensaje breve al QA: `OK, no toco nada. Sigo con el agrupamiento.` (opcional, podés omitirlo si no agrega valor).
+
+4. **Si tildó uno o más pasos**:
+   - Mostrale el resumen y pedí confirmación con `vscode/askQuestions` single-select: `"Voy a borrar {N} pasos: {lista corta}. ¿Confirmás?"`:
+     - `✅ Sí, borralos`
+     - `↩️ Volver atrás`
+   - Si confirma:
+     1. Filtrá `parsed.json.nodos` removiendo los que el QA tildó (matcheá por `indice`).
+     2. **Re-numerá `indice` consecutivo** (1..M) en los nodos que quedaron. Esto es importante para que el resto del flujo (paso 4, 5, 6) tenga índices contiguos sin huecos.
+     3. Reescribí `.autoflow/recordings/{numero}-parsed.json` con `nodos` limpios. **No** toques `urlsVisitadas` ni `metadata`.
+     4. Mostrá al QA: `🗑️ Borré {N} pasos. Quedaron {M}. Sigo.`
+   - Si elige volver atrás → reabrí el multi-select del punto 2.
+
+5. Edge case — todos los pasos tildados: si `M === 0` después de filtrar, frená y avisá al QA: `Borraste todos los pasos. No queda nada para procesar. ¿Cancelás la grabación o volvés atrás?`. Single-select: `❌ Cancelar` / `↩️ Volver atrás`.
+
+Después de este paso, seguí al paso 3 con el `parsed.json` ya limpio (las trazas, sidecars y todo lo que sigue trabajan sobre la lista filtrada y renumerada).
+
 ## 3. Reconocer pages existentes (prefix matching)
 
 1. Listá los archivos `.autoflow/fingerprints/*.json`. Cada uno es el sidecar de una page existente con el shape `{ page, nodos: [id, id, ...], conecta: [...] }` (ver `.autoflow/conventions/pom-rules.md`). Cargá también `.autoflow/nodos.json` para resolver cada id a su definición.
