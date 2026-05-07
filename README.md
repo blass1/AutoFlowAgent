@@ -48,32 +48,45 @@ flowchart LR
 
 ## Flujos del QA hoy
 
-Esto es lo que el QA puede hacer hoy desde el chat. Cada hoja del árbol es una opción real del menú o de un sub-prompt.
+El menú es de **2 niveles**: 5 categorías arriba, las acciones puntuales adentro de cada una. Esto es lo que el QA puede hacer hoy desde el chat:
 
 ```mermaid
 flowchart LR
     QA([QA])
-    Menu{Menú principal}
+    Menu{Menú principal · nivel 1}
 
     QA --> Menu
 
-    Menu --> Crear[✨ Crear caso]
-    Menu --> Editar[✏️ Editar caso]
-    Menu --> Correr[▶️ Correr caso]
-    Menu --> CrearTS[📦 Crear test set]
-    Menu --> EditarTS[🔧 Editar test set]
-    Menu --> CorrerTS[🚀 Correr test set]
-    Menu --> Auth[🔐 Login reusable<br/><i>experimental</i>]
-    Menu --> Cob[📊 Ver cobertura]
-    Menu --> Dash[🖥️ Dashboard del proyecto]
+    Menu --> Dash[🖥️ Dashboard]
+    Menu --> Tests[🧪 Tests]
+    Menu --> TS[📦 Test Sets]
+    Menu --> ALM[📄 ALM]
+    Menu --> Mant[🛠️ Mantenimiento]
+
+    Tests --> Crear[✨ Crear]
+    Tests --> Editar[✏️ Editar]
+    Tests --> Correr[▶️ Correr]
+
+    TS --> CrearTS[📦 Crear]
+    TS --> EditarTS[🔧 Editar]
+    TS --> CorrerTS[🚀 Correr]
+
+    ALM --> ALMImp[📥 Importar .xlsx<br/>y crear Test]
+    ALM --> ALMExp[📤 Exportar Test<br/>a ALM]
+
+    Mant --> AHN[🪄 Auto-Health Node]
+    Mant --> Cob[📊 Cobertura]
+    Mant --> Auth[🔐 Login reusable<br/><i>experimental</i>]
+    Mant --> Utils[🔧 Utilidades]
 
     Crear --> CrearOrigen{Origen de datos}
-    CrearOrigen --> CrearManual[Cargar nombre/TC a mano]
-    CrearOrigen --> CrearALM[📄 Importar Export ALM .xlsx]
-    CrearManual --> CrearLogin{¿Arranca logueado?}
-    CrearALM --> CrearLogin
+    CrearOrigen --> CrearManual[✍️ Cargar a mano]
+    CrearOrigen --> CrearALMImp[📄 Importar ALM .xlsx]
+    CrearManual --> CrearLogin{¿Arranca logueado?<br/>· buffer anti-solape?}
+    CrearALMImp --> CrearLogin
     CrearLogin --> CrearGrabar[Grabar flujo en codegen]
-    CrearGrabar --> CrearPOM[Agrupar pasos en pages<br/>+ generar POM, sidecar,<br/>nodos, traza, spec]
+    CrearGrabar --> CrearConfirm[Confirmar terminó<br/>+ limpieza pre-agrupado]
+    CrearConfirm --> CrearPOM[Agrupar pasos en pages<br/>· prefix matching<br/>· colisión = reusar/extender<br/>· generar POM + sidecar + spec]
 
     Editar --> EditarQue{¿Qué editar?}
     EditarQue --> EditRegrabar[Regrabar de cero]
@@ -92,16 +105,22 @@ flowchart LR
 
     Correr --> CorrerUI[Ejecuta spec puntual<br/>en UI mode]
 
-    CrearTS --> TSAgrupar[Agrupar casos<br/>en testsets/.json]
-    EditarTS --> TSEditar[Modificar test set<br/>existente]
+    CrearTS --> TSAgrupar[Agrupar Tests<br/>en testsets/.json]
+    EditarTS --> TSEditar[Modificar set existente]
     CorrerTS --> TSValidar[Valida coherencia<br/>specs / sidecars / nodos]
-    TSValidar --> TSCorrer[Corre todos los casos<br/>del set]
+    TSValidar --> TSCorrer[Headed o headless<br/>--debug para investigar]
+
+    AHN --> AHNFlow[Lista nodos débiles<br/>· navega hasta paso anterior<br/>· captura DOM<br/>· propone locator más fuerte]
 
     Auth --> AuthGrabar[Grabar storageState<br/>por canal+usuario]
-    Auth --> AuthReuso[Reusable al crear caso<br/>en ese canal]
+    Auth --> AuthReuso[Reusable al crear Test<br/>en ese canal]
+
+    ALMExp --> ALMExpFlow[xlsx / csv / json<br/>1 row por test.step<br/>Step Name · Description · Expected]
+
+    Utils --> UtilsFlow[Lee utils/<br/>· parsea @autoflow-util<br/>· preview de cambios<br/>· aplica con confirmación]
 
     Cob --> CobReporte[Reporte HTML:<br/>nodos cubiertos / huérfanos<br/>% por page]
-    Dash --> DashHtml[HTML estático:<br/>Test Sets · Tests · pasos<br/>· ejecuciones · grafo<br/>+ click-to-edit en VSCode]
+    Dash --> DashHtml[Vista navegable:<br/>Test Sets · Tests · pasos<br/>· ejecuciones · grafo<br/>· perfil de Usuario<br/>+ Manual de uso]
 ```
 
 ## Cómo funciona por dentro
@@ -262,25 +281,30 @@ Detalle de cada acción:
 
 | Acción | Sub-prompt | Qué hace |
 | --- | --- | --- |
-| ✨ Crear un caso | `crear-caso.md` | Pregunta si los datos vienen de un Export ALM (.xlsx) o se cargan a mano, después si arranca logueado (storageState reusable). Pide canal, lanza codegen, captura el flujo, genera POMs y spec. |
-| ✏️ Editar un caso | `editar-caso.md` | Regrabar, editar código a mano, **añadir pasos al final** del caso, **insertar nodo de captura/verificación** o **bifurcar el Test desde un Nodo** para crear uno nuevo que reuse el prefix. |
-| ▶️ Correr un caso | `correr-caso.md` | Ejecuta un spec puntual con UI mode. |
-| 📦 Crear test set | `crear-test-set.md` | Agrupa varios casos en un JSON dentro de `testsets/`. |
-| 🔧 Editar test set | `editar-test-set.md` | Modifica un set existente. |
-| 🚀 Correr test set | `correr-test-set.md` | Valida coherencia del proyecto (`validar-coherencia.js`) y después corre toda la regresión del set. |
-| 🔐 Configurar login reusable | `setup-auth.md` | Graba un storageState por (canal, usuario) para que los siguientes casos arranquen logueados sin re-grabar el login. |
-| 📊 Ver cobertura de nodos | (corre `cobertura.js`) | Agrega todas las trazas y emite un reporte HTML con qué nodos están cubiertos, por qué tests, y qué pages tienen 0 cobertura. |
-| 🪄 Auto-Health Node | `auto-health-node.md` | Lista los Nodos con confiabilidad ≤3 ordenados por fragilidad + cantidad de Tests que los usan. Para el elegido, navega el flujo hasta el paso anterior, captura el DOM (elemento + 7 ancestros) y propone un locator más confiable razonando sobre el HTML. Solo aplica si la confiabilidad mejora. |
-| 📤 Exportar a ALM | `exportar-alm.md` | Exporta un Test a un archivo importable por ALM (xlsx por defecto, csv o json). Un row por cada `test.step` con Test ID, Test Name, Step Number, Step Name, Description (técnica) y Expected Result (de los asserts del step). Granularidad un Test por archivo. |
+| ✨ Crear un Test | `crear-caso.md` | Pregunta si los datos vienen de un Export ALM (.xlsx) o se cargan a mano, después si arranca logueado (storageState reusable) y si aplicar **buffer anti-solape** de 500ms entre inputs. Pide canal, lanza codegen, **confirma que terminó de grabar** antes de procesar, ofrece **limpieza pre-agrupado** (borrar pasos no deseados), agrupa con prefix matching contra Pages existentes (resolviendo colisiones de nombre), genera POMs + sidecar + nodos.json + traza + spec. |
+| ✏️ Editar un Test | `editar-caso.md` | Regrabar, editar código a mano, **añadir pasos al final** del Test, **insertar nodo de captura/verificación** o **bifurcar el Test desde un Nodo** para crear uno nuevo que reuse el prefix. |
+| ▶️ Correr un Test | `correr-caso.md` | Ejecuta un spec puntual con `--grep "[testId:N]"`. Default `--reporter=line` (rápido). Tras un fallo ofrece re-correr con `--debug` para reporte HTML + trace. |
+| 📦 Crear Test Set | `crear-test-set.md` | Agrupa varios Tests en un JSON dentro de `testsets/`. Crea siempre el archivo spec con el `test.describe` listo. |
+| 🔧 Editar Test Set | `editar-test-set.md` | Modifica un set existente: agregar/quitar Tests (mueve los `test()` entre specs), renombrar, cambiar descripción, eliminar. |
+| 🚀 Correr Test Set | `correr-test-set.md` | Valida coherencia (`validar-coherencia.js`) y pregunta **headed (visual, secuencial) o headless (paralelo, rápido)**. Si falla, ofrece re-correr con `--debug` o reparar nodos sospechosos. |
+| 🔐 Login reusable (experimental) | `setup-auth.md` | Graba un storageState por (canal, usuario) para que los siguientes Tests arranquen logueados sin re-grabar el login. |
+| 📊 Cobertura de Nodos | (corre `cobertura.js`) | Agrega todas las trazas y emite un reporte HTML con qué nodos están cubiertos, por qué Tests, y qué pages tienen 0 cobertura. |
+| 🪄 Auto-Health Node | `auto-health-node.md` | Lista los Nodos con confiabilidad ≤3 ordenados por fragilidad + cantidad de Tests que los usan. Para el elegido, navega el flujo hasta el paso anterior, captura el DOM (elemento + 7 ancestros, fallback a body completo) y propone un locator más confiable razonando sobre el HTML. Solo aplica si la confiabilidad mejora. |
+| 📥 Importar .xlsx y crear Test | `crear-caso.md` con `origen: "alm"` | Atajo a la rama de Export ALM de `crear-caso.md` saltando la pregunta inicial. Lee A2 (testId), C2 (nombre), G2 (enfoque) del xlsx que dejaste en `.autoflow/alm-exports/`. |
+| 📤 Exportar Test a ALM | `exportar-alm.md` | Exporta un Test a un archivo importable por ALM (xlsx por defecto, csv o json). Un row por cada `test.step` con Test ID, Test Name, Step Number, Step Name, Description (técnica) y Expected Result (de los asserts del step). Granularidad un Test por archivo. |
 | 🔧 Utilidades | `utilidades.md` | Aplica/desaplica librerías complementarias que el QA deja en `utils/` (ej: `pdfReporter.ts` para reportes custom). Cada archivo se autodescribe con un header (`@autoflow-util`, `@descripcion`, `@aplicarEn`, `@como-aplicar`). El agente parsea, muestra preview de los cambios y aplica con confirmación por utilidad. Idempotente. Frena si las instrucciones son ambiguas. |
-| 🖥️ Abrir dashboard del proyecto | (corre `dashboard.js`) | HTML único navegable con Test Sets, Tests, pasos del flujo, historial de ejecuciones y grafo del paso a paso. Cada nodo se puede abrir en VSCode con un click o copiar como prompt para que el agente lo repare. |
+| 🖥️ Abrir dashboard del proyecto | (corre `dashboard.js`) | Vista única navegable con Test Sets, Tests, pasos del flujo, historial de ejecuciones, grafo del paso a paso (subgraph por Page con colores), perfil de Usuario editable, y **Manual de uso** embebido. Cada nodo se puede abrir en VSCode con un click o copiar como prompt para que el agente lo repare / bifurque / aplique Auto-Health. |
 
 Sub-prompts adicionales que el agente carga sin que el QA los pida:
-- `setup-entorno.md` — al activar el modo, verifica `node_modules` y browsers de Playwright.
+- `setup-entorno.md` — al activar el modo, verifica `node_modules` y browsers de Playwright + detecta sesiones zombi.
 - `onboarding.md` — primer uso, pide identidad del QA y la guarda en `.autoflow/user.json`.
-- `menu-principal.md` — menú de las 6 acciones.
-- `generar-pom.md` — post-grabación, agrupa nodos en pages y genera código.
-- `insertar-nodo-especial.md` — invocado desde "Editar caso" → "Insertar nodo de captura/verificación".
+- `menu-principal.md` — menú de 2 niveles (5 categorías × N acciones cada una).
+- `generar-pom.md` — post-grabación, limpieza pre-agrupado, prefix matching, agrupación interactiva (con manejo de colisión de nombres), generación de POMs/sidecar/spec, regrafos al final.
+- `insertar-nodo-especial.md` — invocado desde "Editar Test" → "Insertar nodo de captura/verificación".
+- `actualizar-nodos.md` — invocado tras un Test fallido para reparar locators que cambiaron en el front. Ofrece "🪄 Capturar DOM y proponer" o "✍️ Pegar a mano".
+- `bifurcar-caso.md` — invocado desde "Editar Test" o desde el modal de Nodo del dashboard. Crea un Test nuevo reusando el prefix de un Test existente.
+- `append-manual.md` — invocado desde "Añadir pasos al final" cuando el QA quiere armar pasos sin re-grabar (HTML + intent).
+- `auto-health-node.md` — sanea locators débiles capturando el DOM real.
 
 ## Login reusable (storageState)
 
@@ -350,6 +374,16 @@ AutoFlow usa la herramienta nativa **`vscode/askQuestions`** de Copilot Chat. En
 - Plan **Copilot Business** o **Enterprise**.
 - **Node 18+**.
 
+## Primeros pasos
+
+Si sos QA y vas a usar AutoFlow por primera vez, el camino más rápido es:
+
+1. Cloná el repo (o abrilo si ya lo tenés) y abrí Copilot Chat con el chat mode **AutoFlow**.
+2. Decile *"hola"*. La primera vez te pide tu identidad (`nombre`, `legajo`, `equipo`, `tribu`) y la guarda en `.autoflow/user.json`.
+3. Generá el dashboard con `npm run dashboard` (o desde el menú: `🖥️ Abrir dashboard`). Adentro vas a encontrar **📖 Manual de uso** con tutorial paso a paso, conceptos clave, troubleshooting y casos avanzados.
+
+El manual del dashboard está pensado para tener cerca mientras grabás casos. Lo de abajo en este README es referencia técnica (arquitectura, convenciones, comandos manuales) — más para devs/QAs leads que para uso diario.
+
 ## Arranque rápido
 
 ```bash
@@ -382,8 +416,7 @@ La **primera vez** detecta que faltan `node_modules` y los browsers de Playwrigh
 | `.autoflow/alm-exports/` | xlsx exportados desde ALM. El QA suelta el archivo acá para arrancar un caso con datos prellenados. |
 | `.autoflow/auth/` | StorageState (cookies + localStorage) por (canal, usuario) para que los casos arranquen logueados. **Gitignored** — contiene tokens de sesión. |
 | `.autoflow/captures/` | Por cada nodo `capturar`/`verificar`: HTML pegado, intent del QA, locator propuesto/final y razonamiento. Histórico para reparar locators cuando el front cambia. |
-| `data/urls.ts` | Catálogo de canales (nombre + URL inicial) reusables al crear casos. Lo lee/edita el agente. |
-| `.autoflow/scripts/` | Scripts Node: parser de codegen, parser de ALM, generador de traza, grafos (md + html), runners. |
+| `.autoflow/scripts/` | Scripts Node: parser de codegen, parser/exporter de ALM, generador de traza, grafos (md + html), runners, dashboard, verificación de recordings, Auto-Health Node. |
 | `.autoflow/nodos.json` | Diccionario global de nodos — fuente de verdad de cada acción. |
 | `.autoflow/grafos/` | Diagramas Mermaid (`grafo.md`, `grafo-nodos.md`) y vistas interactivas con pan/zoom (`grafo.html`, `grafo-nodos.html`) para abrir en navegador. |
 | `.autoflow/user.json` | Identidad del QA (no se commitea). |
@@ -468,7 +501,7 @@ node clearSession.js          # pide confirmación (escribir SI)
 node clearSession.js --yes    # sin prompt, para CI o scripts
 ```
 
-Borra: `user.json`, todas las grabaciones, fingerprints, testsets, `nodos.json`, los dos grafos, `pages/*`, `tests/*`, `data/*` (deja `data/index.ts` reseteado a `export {};`). **No toca** scripts, prompts, conventions, fixtures, configs ni `.gitkeep`.
+Borra: `user.json`, todas las grabaciones, fingerprints, testsets, `nodos.json`, los dos grafos, `pages/*`, `tests/*`, `data/data-*.ts`. Resetea los seeds `data/index.ts` y `data/urls.ts` a su contenido inicial (re-exports + array de canales vacío). **No toca** `data/types.ts`, `data/parsers.ts`, scripts, prompts, conventions, fixtures, configs, `utils/`, `.claude/` ni `.gitkeep`.
 
 ## Stack
 

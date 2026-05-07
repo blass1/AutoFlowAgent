@@ -61,6 +61,16 @@ function cargarUsuario() {
   return leerJson('.autoflow/user.json', null);
 }
 
+function cargarManual() {
+  const path = '.autoflow/scripts/dashboard-manual.md';
+  if (!existsSync(path)) return null;
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
 // Color determinístico por nombre — misma string siempre da el mismo hue.
 // Saturación y lightness fijos para que todos se vean balanceados en dark theme.
 function colorParaNombre(nombre) {
@@ -185,6 +195,7 @@ function construirModelo() {
   const runs = cargarRuns();
   const paginas = indexarPaginas();
   const usuario = cargarUsuario();
+  const manual = cargarManual();
 
   // Por cada Test Set, parseamos el spec y armamos los Tests con sus pasos (traza).
   const testSets = sets.map((set) => {
@@ -272,6 +283,7 @@ function construirModelo() {
     proyecto: relative(resolve(ROOT, '..'), ROOT) || ROOT.split(sep).pop(),
     rootAbs: absPath('.'),
     usuario,
+    manual,
     testSets,
     runs,
     nodos,
@@ -420,6 +432,37 @@ function html(modelo) {
   .po-card.huerfano { opacity: 0.55; border-style: dashed; }
   .po-card.huerfano::after { content: '🔌'; position: absolute; top: 6px; right: 6px; font-size: 10px; }
 
+  /* Vista del Manual */
+  .manual-layout { display: grid; grid-template-columns: 220px 1fr; gap: 24px; max-width: 1100px; }
+  .manual-toc { position: sticky; top: 12px; align-self: start; max-height: calc(100vh - 100px); overflow: auto;
+    border-right: 1px solid var(--border); padding-right: 12px; font-size: 13px; }
+  .manual-toc h4 { font-size: 11px; text-transform: uppercase; color: var(--muted);
+    margin: 0 0 8px; letter-spacing: 0.06em; }
+  .manual-toc a { display: block; padding: 4px 8px; border-radius: 4px; color: var(--text); margin: 2px 0; }
+  .manual-toc a:hover { background: var(--panel); text-decoration: none; }
+  .manual-content { font-size: 15px; line-height: 1.65; }
+  .manual-content h1 { font-size: 28px; margin: 0 0 8px; }
+  .manual-content h2 { font-size: 22px; margin: 32px 0 12px; padding-bottom: 6px;
+    border-bottom: 1px solid var(--border); scroll-margin-top: 12px; }
+  .manual-content h3 { font-size: 17px; margin: 24px 0 8px; color: var(--accent); }
+  .manual-content p { margin: 8px 0; }
+  .manual-content ul, .manual-content ol { padding-left: 22px; }
+  .manual-content li { margin: 4px 0; }
+  .manual-content code { background: var(--chip); padding: 2px 6px; border-radius: 4px;
+    font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace; }
+  .manual-content pre { background: var(--panel); border: 1px solid var(--border);
+    padding: 14px 16px; border-radius: 6px; overflow: auto; font-size: 13px; line-height: 1.55; }
+  .manual-content pre code { background: transparent; padding: 0; }
+  .manual-content table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  .manual-content th, .manual-content td { text-align: left; padding: 8px 12px;
+    border-bottom: 1px solid var(--border); vertical-align: top; }
+  .manual-content th { font-weight: 600; color: var(--muted); font-size: 12px;
+    text-transform: uppercase; letter-spacing: 0.06em; }
+  .manual-content blockquote { border-left: 3px solid var(--accent); padding: 4px 14px;
+    color: var(--muted); font-style: italic; margin: 12px 0; }
+  .manual-content hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+  .manual-content a { color: var(--accent); }
+
   /* Vista de Usuario */
   .user-form { max-width: 540px; }
   .user-form .field { margin-bottom: 14px; }
@@ -474,6 +517,15 @@ function html(modelo) {
 
   <script type="module">
     import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    import { marked } from 'https://cdn.jsdelivr.net/npm/marked@12/+esm';
+    // Configurar marked para que genere ids slugificados en headings (para el TOC del manual).
+    marked.use({
+      gfm: true,
+      breaks: false,
+      headerIds: true,
+      headerPrefix: '',
+    });
+    window.marked = marked;
     import svgPanZoom from 'https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/+esm';
 
     mermaid.initialize({
@@ -533,6 +585,20 @@ function html(modelo) {
         </div>
       \`);
 
+      // — Sección Manual —
+      if (datos.manual) {
+        const activeManual = estado.vista === 'manual' ? 'active' : '';
+        html.push(\`
+          <div class="user-row \${activeManual}" onclick="abrirManual()" style="margin-top: 4px;">
+            <div class="avatar" style="background: var(--accent2);">📖</div>
+            <div class="info">
+              <div class="nombre">Manual de uso</div>
+              <div class="meta-line">Tutorial, conceptos, troubleshooting</div>
+            </div>
+          </div>
+        \`);
+      }
+
       // — Sección Test Sets —
       html.push('<h2>Test Sets</h2>');
       if (datos.testSets.length === 0) {
@@ -579,11 +645,16 @@ function html(modelo) {
       estado = { vista: 'usuario', tsSlug: null, testId: null, tab: 'detalles' };
       render();
     }
+    function abrirManual() {
+      estado = { vista: 'manual', tsSlug: null, testId: null, tab: 'detalles' };
+      render();
+    }
     function elegirTab(tab) { estado.tab = tab; renderMain(); }
 
     window.seleccionarTS = seleccionarTS;
     window.seleccionarTest = seleccionarTest;
     window.abrirUsuario = abrirUsuario;
+    window.abrirManual = abrirManual;
     window.elegirTab = elegirTab;
 
     function getTS() { return datos.testSets.find((s) => s.slug === estado.tsSlug); }
@@ -600,12 +671,54 @@ function html(modelo) {
 
     function renderMain() {
       if (estado.vista === 'usuario') { renderUsuario(); return; }
+      if (estado.vista === 'manual') { renderManual(); return; }
       if (estado.vista === 'testset' && estado.tsSlug) {
         if (estado.testId) renderTest();
         else renderTestSet();
         return;
       }
-      $('main').innerHTML = '<div class="empty">Elegí un Test Set, un Test o tu perfil de Usuario del panel izquierdo.</div>';
+      $('main').innerHTML = '<div class="empty">Elegí un Test Set, un Test, el Manual de uso o tu perfil de Usuario del panel izquierdo.</div>';
+    }
+
+    function renderManual() {
+      if (!datos.manual) {
+        $('main').innerHTML = '<div class="empty">Manual no encontrado. Verificá que .autoflow/scripts/dashboard-manual.md exista.</div>';
+        return;
+      }
+      // Convertir markdown a HTML usando marked (cargado al inicio del script).
+      const htmlManual = window.marked ? window.marked.parse(datos.manual) : esc(datos.manual);
+      // Armar TOC con los h2 (sin tocar el HTML rendereado).
+      const tocItems = [];
+      const h2Re = /^## (.+)$/gm;
+      let m;
+      while ((m = h2Re.exec(datos.manual)) !== null) {
+        const titulo = m[1].trim();
+        // El id se genera por marked siguiendo su slugify (lower-case, espacios a -, etc.).
+        const slug = titulo.toLowerCase()
+          .normalize('NFD').replace(/[̀-ͯ]/g, '')
+          .replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-');
+        tocItems.push({ titulo, slug });
+      }
+      const tocHtml = tocItems.length
+        ? \`<h4>En este manual</h4>\${tocItems.map((t) => \`<a href="#\${t.slug}">\${esc(t.titulo)}</a>\`).join('')}\`
+        : '';
+      $('main').innerHTML = \`
+        <div class="panel">
+          <div class="manual-layout">
+            <nav class="manual-toc">\${tocHtml}</nav>
+            <div class="manual-content">\${htmlManual}</div>
+          </div>
+        </div>
+      \`;
+      // Smooth scroll en los anchors del TOC.
+      for (const a of $('main').querySelectorAll('.manual-toc a')) {
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          const id = a.getAttribute('href').slice(1);
+          const target = $('main').querySelector(\`#\${CSS.escape(id)}\`);
+          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      }
     }
 
     function renderUsuario() {
