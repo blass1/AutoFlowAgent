@@ -383,6 +383,7 @@ La **primera vez** detecta que faltan `node_modules` y los browsers de Playwrigh
 | `data/parsers.ts` | Parsers reusables (`parseText`, `parseNumber`, `parseCurrencyAR`, `parseDate`) para nodos `capturar`/`verificar`. |
 | `playwright.config.ts` | Timeouts amplios para fronts lentos (`actionTimeout` 30s, `navigationTimeout` 60s). Excluye `tests/_temp/` del runner. |
 | `clearSession.js` | Resetea el proyecto borrando todo lo generado por el agente. |
+| `docs/presentacion.html` | Presentación HTML autocontenida (32 slides) para mostrar AutoFlow al equipo en una reunión de ~1h. Navegación con flechas / barra espaciadora. |
 
 Más detalle del estado runtime y los archivos de cada grabación: [.autoflow/README.md](.autoflow/README.md).
 

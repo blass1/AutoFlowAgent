@@ -57,6 +57,18 @@ function cargarTestSets() {
     .filter(Boolean);
 }
 
+function cargarUsuario() {
+  return leerJson('.autoflow/user.json', null);
+}
+
+// Color determinístico por nombre — misma string siempre da el mismo hue.
+// Saturación y lightness fijos para que todos se vean balanceados en dark theme.
+function colorParaNombre(nombre) {
+  let h = 0;
+  for (let i = 0; i < nombre.length; i++) h = (h * 31 + nombre.charCodeAt(i)) | 0;
+  return Math.abs(h) % 360;
+}
+
 function cargarNodos() {
   return leerJson('.autoflow/nodos.json', {});
 }
@@ -117,7 +129,7 @@ function parsearSpec(specPath) {
 }
 
 // Para cada Page Object intentamos sacar las líneas donde se asignan los locators
-// (constructor: `this.x = page.{selectorRaw}`). Best-effort, todo en regex.
+// (constructor: `this.x = page.{selectorRaw}`) y los métodos públicos. Best-effort regex.
 function indexarPaginas() {
   const out = {};
   for (const p of listarTs('pages')) {
@@ -127,11 +139,25 @@ function indexarPaginas() {
     if (!claseMatch) continue;
     const clase = claseMatch[1];
     const locators = []; // { selectorRaw, line }
+    const metodos = []; // { nombre, line, retornaPage }
     for (let i = 0; i < lines.length; i++) {
-      const m = lines[i].match(/=\s*(?:this\.)?page\.(.+?);?\s*$/);
-      if (m) locators.push({ selectorRaw: m[1].trim().replace(/;$/, ''), line: i + 1 });
+      const linea = lines[i];
+      const mLoc = linea.match(/=\s*(?:this\.)?page\.(.+?);?\s*$/);
+      if (mLoc) locators.push({ selectorRaw: mLoc[1].trim().replace(/;$/, ''), line: i + 1 });
+      // Métodos públicos: `async <nombre>(...)` que NO arranque con private/#.
+      const mMet = linea.match(/^\s*(?:public\s+)?async\s+(\w+)\s*\(/);
+      if (mMet && !linea.includes('private') && !linea.includes('#')) {
+        // Buscar si el método retorna otra Page (heurística: hay `return new XxxPage` en próximas líneas).
+        let retornaPage = null;
+        for (let j = i + 1; j < Math.min(i + 50, lines.length); j++) {
+          const mRet = lines[j].match(/return\s+new\s+(\w+Page)\(/);
+          if (mRet) { retornaPage = mRet[1]; break; }
+          if (/^\s*}\s*$/.test(lines[j])) break;
+        }
+        metodos.push({ nombre: mMet[1], line: i + 1, retornaPage });
+      }
     }
-    out[clase] = { archivo: p, locators };
+    out[clase] = { archivo: p, locators, metodos };
   }
   return out;
 }
@@ -158,6 +184,7 @@ function construirModelo() {
   const { sessions, paths } = cargarRecordings();
   const runs = cargarRuns();
   const paginas = indexarPaginas();
+  const usuario = cargarUsuario();
 
   // Por cada Test Set, parseamos el spec y armamos los Tests con sus pasos (traza).
   const testSets = sets.map((set) => {
@@ -174,13 +201,24 @@ function construirModelo() {
         }
         return { id, nodo, abrir };
       });
+      // Pages únicas que toca este Test (en orden de aparición).
+      const pagesDelTest = [];
+      const seen = new Set();
+      for (const p of pasos) {
+        if (p.nodo?.page && !seen.has(p.nodo.page)) {
+          seen.add(p.nodo.page);
+          pagesDelTest.push(p.nodo.page);
+        }
+      }
       return {
         testId: t.testId,
         nombre: t.nombre,
         pasos,
+        pagesDelTest,
         sessionExiste: !!session,
         almContext: session?.almContext ?? null,
         canal: session?.canal ?? null,
+        bufferTiempo: session?.bufferTiempo ?? null,
       };
     });
     return {
@@ -198,17 +236,47 @@ function construirModelo() {
   // Resolución absoluta de archivos para vscode://file/.
   const absPath = (rel) => resolve(ROOT, rel).replace(/\\/g, '/');
 
+  // Enriquecer cada page con métricas: nodos, métodos, confiabilidad promedio,
+  // cantidad de Tests que la usan, color determinístico.
+  const paginasOut = {};
+  for (const [nombrePage, info] of Object.entries(paginas)) {
+    const sidecar = sidecars[nombrePage];
+    const idsDelSidecar = [...(sidecar?.nodos ?? []), ...(sidecar?.asserts ?? [])];
+    const nodosResueltos = idsDelSidecar.map((id) => nodos[id]).filter(Boolean);
+    const confs = nodosResueltos.map((n) => n.confiabilidad).filter((c) => typeof c === 'number');
+    const confPromedio = confs.length ? confs.reduce((a, b) => a + b, 0) / confs.length : null;
+    const usadoEnTests = [];
+    for (const ts of testSets) {
+      for (const t of ts.tests) {
+        if (t.pagesDelTest.includes(nombrePage)) {
+          usadoEnTests.push({ testSetSlug: ts.slug, testId: t.testId, nombreTest: t.nombre });
+        }
+      }
+    }
+    paginasOut[nombrePage] = {
+      archivo: info.archivo,
+      archivoAbs: absPath(info.archivo),
+      locators: info.locators.length,
+      metodos: info.metodos,
+      conecta: sidecar?.conecta ?? [],
+      cantidadNodos: sidecar?.nodos?.length ?? 0,
+      cantidadAsserts: sidecar?.asserts?.length ?? 0,
+      confPromedio,
+      usadoEnTests,
+      hue: colorParaNombre(nombrePage),
+    };
+  }
+
   return {
     generadoEn: new Date().toISOString(),
     proyecto: relative(resolve(ROOT, '..'), ROOT) || ROOT.split(sep).pop(),
     rootAbs: absPath('.'),
+    usuario,
     testSets,
     runs,
     nodos,
     sidecars,
-    paginas: Object.fromEntries(
-      Object.entries(paginas).map(([k, v]) => [k, { archivo: v.archivo, archivoAbs: absPath(v.archivo) }])
-    ),
+    paginas: paginasOut,
   };
 }
 
@@ -279,17 +347,28 @@ function html(modelo) {
   header .meta { color: var(--muted); font-size: 12px; }
   header .toolbar { margin-left: auto; display: flex; gap: 6px; }
 
-  .layout { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 50px); }
+  .layout { display: grid; grid-template-columns: 280px 1fr; height: calc(100vh - 50px); }
   aside { border-right: 1px solid var(--border); overflow: auto; background: var(--panel); }
   aside h2 { font-size: 11px; text-transform: uppercase; color: var(--muted); margin: 16px 12px 6px; letter-spacing: 0.06em; }
+  .user-row { padding: 10px 12px; cursor: pointer; border-left: 3px solid transparent;
+    display: flex; align-items: center; gap: 10px; }
+  .user-row:hover { background: var(--panel2); }
+  .user-row.active { background: var(--panel2); border-left-color: var(--accent); }
+  .user-row .avatar { width: 32px; height: 32px; border-radius: 50%; flex: 0 0 32px;
+    display: flex; align-items: center; justify-content: center; font-weight: 700; color: white; font-size: 13px; }
+  .user-row .info .nombre { font-weight: 600; font-size: 13px; }
+  .user-row .info .meta-line { color: var(--muted); font-size: 11px; margin-top: 1px; }
   .ts-row { padding: 6px 12px; cursor: pointer; border-left: 3px solid transparent; }
   .ts-row:hover { background: var(--panel2); }
   .ts-row.active { background: var(--panel2); border-left-color: var(--accent); }
   .ts-row .nombre { font-weight: 600; }
   .ts-row .meta-line { color: var(--muted); font-size: 11px; margin-top: 2px; }
-  .t-row { padding: 5px 12px 5px 28px; cursor: pointer; font-size: 13px; }
+  .t-row { padding: 5px 12px 5px 28px; cursor: pointer; font-size: 13px;
+    display: flex; align-items: center; gap: 8px; }
   .t-row:hover { background: var(--panel2); }
   .t-row.active { background: var(--panel2); color: var(--accent); }
+  .t-row .dots { display: inline-flex; gap: 2px; flex: 0 0 auto; }
+  .t-row .dots .dot { width: 6px; height: 6px; border-radius: 50%; }
 
   main { overflow: auto; padding: 0; }
   .tabs { display: flex; gap: 4px; padding: 12px 20px 0; border-bottom: 1px solid var(--border);
@@ -306,14 +385,47 @@ function html(modelo) {
   tbody tr:hover { background: var(--panel); }
 
   .paso-row { display: grid; grid-template-columns: 50px 1fr auto auto; gap: 12px; padding: 8px 12px;
-    border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; cursor: pointer; align-items: center; }
-  .paso-row:hover { border-color: var(--accent); }
+    border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; cursor: pointer; align-items: center;
+    border-left-width: 4px; }
+  .paso-row:hover { background: var(--panel); }
   .paso-row.deprecated { opacity: 0.5; }
   .paso-row .idx { color: var(--muted); font-family: monospace; }
   .paso-row .descripcion { font-family: monospace; font-size: 12px; }
-  .paso-row .descripcion .page { color: var(--accent); }
+  .paso-row .descripcion .page { font-weight: 600; }
   .paso-row .descripcion .accion { color: var(--warn); }
   .paso-row .conf { font-family: monospace; font-size: 11px; }
+
+  /* Page Object cards — grid de 7 por fila (responsive en pantallas chicas) */
+  .po-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
+  @media (max-width: 1400px) { .po-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+  @media (max-width: 1024px) { .po-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .po-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; cursor: pointer; transition: transform 0.1s, border-color 0.1s;
+    border-top: 3px solid var(--border); position: relative; overflow: hidden;
+  }
+  .po-card:hover { transform: translateY(-2px); }
+  .po-card .po-name { font-weight: 600; font-size: 12px; line-height: 1.2; margin-bottom: 6px;
+    overflow-wrap: break-word; word-break: break-word; }
+  .po-card .po-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; font-size: 10px; color: var(--muted); }
+  .po-card .po-stats .num { font-weight: 700; color: var(--text); font-size: 13px; display: block; }
+  .po-card .po-conf {
+    display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 10px;
+    font-family: monospace; margin-top: 6px;
+  }
+  .po-card.huerfano { opacity: 0.55; border-style: dashed; }
+  .po-card.huerfano::after { content: '🔌'; position: absolute; top: 6px; right: 6px; font-size: 10px; }
+
+  /* Vista de Usuario */
+  .user-form { max-width: 540px; }
+  .user-form .field { margin-bottom: 14px; }
+  .user-form label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .user-form input { width: 100%; background: var(--panel); border: 1px solid var(--border);
+    color: var(--text); padding: 8px 10px; border-radius: 6px; font-family: inherit; font-size: 14px; }
+  .user-form input:focus { outline: none; border-color: var(--accent); }
+  .user-form .acciones { display: flex; gap: 8px; margin-top: 16px; }
+  .user-form .preview { background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+    padding: 12px; margin-top: 16px; font-size: 12px; font-family: monospace; white-space: pre; overflow: auto; }
 
   .empty { color: var(--muted); padding: 20px; text-align: center; font-style: italic; }
 
@@ -369,7 +481,18 @@ function html(modelo) {
 
     const datos = JSON.parse(document.getElementById('datos').textContent);
     const $ = (id) => document.getElementById(id);
-    let estado = { tsSlug: null, testId: null, tab: 'detalles' };
+    let estado = { vista: 'inicio', tsSlug: null, testId: null, tab: 'detalles' };
+
+    // Color helpers — todos los lugares donde aparezca una page usan el mismo hue.
+    function colorPage(nombrePage) {
+      const info = datos.paginas[nombrePage];
+      const hue = info ? info.hue : Math.abs([...nombrePage].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0)) % 360;
+      return { bg: \`hsl(\${hue}, 55%, 22%)\`, fg: \`hsl(\${hue}, 65%, 70%)\`, border: \`hsl(\${hue}, 65%, 55%)\` };
+    }
+    function iniciales(nombre) {
+      if (!nombre) return '?';
+      return nombre.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+    }
 
     function fmtFecha(iso) {
       if (!iso) return '—';
@@ -388,24 +511,51 @@ function html(modelo) {
       \`<span class="chip">\${datos.testSets.length} **Test Sets**</span>\`.replace(/\\*\\*(.+?)\\*\\*/g, '<b>$1</b>');
 
     function renderSidebar() {
-      const html = ['<h2>Test Sets</h2>'];
+      const html = [];
+
+      // — Sección Usuario —
+      html.push('<h2>Usuario</h2>');
+      const u = datos.usuario;
+      const nombreU = u?.nombre || '(sin configurar)';
+      const hueU = colorPage(nombreU);
+      const activeUser = estado.vista === 'usuario' ? 'active' : '';
+      html.push(\`
+        <div class="user-row \${activeUser}" onclick="abrirUsuario()">
+          <div class="avatar" style="background: \${hueU.border};">\${esc(iniciales(nombreU))}</div>
+          <div class="info">
+            <div class="nombre">\${esc(nombreU)}</div>
+            <div class="meta-line">\${u ? esc((u.equipo || '—') + ' · ' + (u.tribu || '—')) : 'Hacé click para configurar'}</div>
+          </div>
+        </div>
+      \`);
+
+      // — Sección Test Sets —
+      html.push('<h2>Test Sets</h2>');
       if (datos.testSets.length === 0) {
         html.push('<div class="empty">No hay Test Sets todavía.</div>');
       } else {
         for (const ts of datos.testSets) {
-          const active = estado.tsSlug === ts.slug && !estado.testId ? 'active' : '';
+          const active = estado.vista === 'testset' && estado.tsSlug === ts.slug && !estado.testId ? 'active' : '';
           html.push(\`
             <div class="ts-row \${active}" onclick="seleccionarTS('\${ts.slug}')">
               <div class="nombre">\${esc(ts.nombre)}</div>
               <div class="meta-line">[testSetId:\${ts.id}] · \${ts.tests.length} Tests</div>
             </div>
           \`);
-          if (estado.tsSlug === ts.slug) {
+          if (estado.tsSlug === ts.slug && estado.vista !== 'usuario') {
             for (const t of ts.tests) {
               const a2 = estado.testId === t.testId ? 'active' : '';
+              // Dots con el color de cada Page que toca el Test
+              const dots = (t.pagesDelTest || []).slice(0, 8).map((p) => {
+                const c = colorPage(p);
+                return \`<span class="dot" style="background:\${c.border}" title="\${esc(p)}"></span>\`;
+              }).join('');
               html.push(\`
                 <div class="t-row \${a2}" onclick="seleccionarTest('\${ts.slug}','\${t.testId}')">
-                  ▸ \${esc(t.nombre)} <span style="color:var(--muted)">[\${t.testId}]</span>
+                  <div style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">
+                    ▸ \${esc(t.nombre)} <span style="color:var(--muted)">[\${t.testId}]</span>
+                  </div>
+                  <div class="dots">\${dots}</div>
                 </div>
               \`);
             }
@@ -416,17 +566,22 @@ function html(modelo) {
     }
 
     function seleccionarTS(slug) {
-      estado = { tsSlug: slug, testId: null, tab: 'detalles' };
+      estado = { vista: 'testset', tsSlug: slug, testId: null, tab: 'detalles' };
       render();
     }
     function seleccionarTest(slug, testId) {
-      estado = { tsSlug: slug, testId, tab: 'detalles' };
+      estado = { vista: 'testset', tsSlug: slug, testId, tab: 'detalles' };
+      render();
+    }
+    function abrirUsuario() {
+      estado = { vista: 'usuario', tsSlug: null, testId: null, tab: 'detalles' };
       render();
     }
     function elegirTab(tab) { estado.tab = tab; renderMain(); }
 
     window.seleccionarTS = seleccionarTS;
     window.seleccionarTest = seleccionarTest;
+    window.abrirUsuario = abrirUsuario;
     window.elegirTab = elegirTab;
 
     function getTS() { return datos.testSets.find((s) => s.slug === estado.tsSlug); }
@@ -442,17 +597,71 @@ function html(modelo) {
     }
 
     function renderMain() {
-      if (!estado.tsSlug) {
-        $('main').innerHTML = '<div class="empty">Elegí un Test Set o un Test del panel izquierdo.</div>';
+      if (estado.vista === 'usuario') { renderUsuario(); return; }
+      if (estado.vista === 'testset' && estado.tsSlug) {
+        if (estado.testId) renderTest();
+        else renderTestSet();
         return;
       }
-
-      if (!estado.testId) {
-        renderTestSet();
-        return;
-      }
-      renderTest();
+      $('main').innerHTML = '<div class="empty">Elegí un Test Set, un Test o tu perfil de Usuario del panel izquierdo.</div>';
     }
+
+    function renderUsuario() {
+      const u = datos.usuario || { nombre: '', legajo: '', equipo: '', tribu: '' };
+      const cuerpo = \`
+        <div class="panel" style="max-width: 720px;">
+          <h2>👤 Mi perfil</h2>
+          <p style="color: var(--muted); font-size: 14px;">
+            Datos del QA, persistidos en <code>.autoflow/user.json</code>. Se usan para registrar quién creó cada Test Set y Test.
+            Como el dashboard es un HTML estático no puede escribir en disco directamente; al guardar te genera un <strong>prompt</strong> para pegar en el chat de AutoFlow y el agente actualiza el archivo.
+          </p>
+          <div class="user-form">
+            <div class="field"><label for="f-nombre">Nombre</label><input id="f-nombre" type="text" value="\${esc(u.nombre || '')}"></div>
+            <div class="field"><label for="f-legajo">Legajo</label><input id="f-legajo" type="text" value="\${esc(u.legajo || '')}"></div>
+            <div class="field"><label for="f-equipo">Equipo</label><input id="f-equipo" type="text" value="\${esc(u.equipo || '')}"></div>
+            <div class="field"><label for="f-tribu">Tribu</label><input id="f-tribu" type="text" value="\${esc(u.tribu || '')}"></div>
+            <div class="acciones">
+              <button class="primary" onclick="guardarUsuarioPrompt()">📋 Copiar prompt para guardar</button>
+              <button onclick="descargarUsuarioJson()">💾 Descargar user.json</button>
+              <button onclick="abrirVSCode('.autoflow/user.json', 1)">📂 Abrir user.json en VSCode</button>
+            </div>
+            <div id="userPreview" class="preview" style="display:none"></div>
+          </div>
+          \${u?.creadoEn ? \`<p style="color:var(--muted); font-size:12px; margin-top:24px">Creado en: \${esc(new Date(u.creadoEn).toLocaleString('es-AR'))}</p>\` : ''}
+        </div>
+      \`;
+      $('main').innerHTML = cuerpo;
+    }
+
+    window.guardarUsuarioPrompt = () => {
+      const nombre = $('f-nombre').value.trim();
+      const legajo = $('f-legajo').value.trim();
+      const equipo = $('f-equipo').value.trim();
+      const tribu = $('f-tribu').value.trim();
+      const datosNuevos = { nombre, legajo, equipo, tribu };
+      const json = JSON.stringify({ ...datosNuevos, creadoEn: datos.usuario?.creadoEn || new Date().toISOString() }, null, 2);
+      const prompt = \`Actualizá .autoflow/user.json con estos datos exactos (mantené el campo creadoEn si ya existe):\\n\\n\\\`\\\`\\\`json\\n\${json}\\n\\\`\\\`\\\`\`;
+      const preview = $('userPreview');
+      preview.style.display = 'block';
+      preview.textContent = prompt;
+      copiar(prompt);
+    };
+
+    window.descargarUsuarioJson = () => {
+      const datosNuevos = {
+        nombre: $('f-nombre').value.trim(),
+        legajo: $('f-legajo').value.trim(),
+        equipo: $('f-equipo').value.trim(),
+        tribu: $('f-tribu').value.trim(),
+        creadoEn: datos.usuario?.creadoEn || new Date().toISOString(),
+      };
+      const blob = new Blob([JSON.stringify(datosNuevos, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'user.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
 
     function renderTestSet() {
       const ts = getTS();
@@ -463,19 +672,47 @@ function html(modelo) {
       ];
       let cuerpo = '';
       if (estado.tab === 'detalles') {
+        // Page Objects usados como grid de 7 cards por fila con data útil.
+        const cardsHtml = ts.imports.length === 0
+          ? '<p class="empty">Todavía no se generó ningún Page Object para este Test Set.</p>'
+          : '<div class="po-grid">' + ts.imports.map((i) => {
+              const info = datos.paginas[i.nombreClase];
+              const c = colorPage(i.nombreClase);
+              if (!info) {
+                // PO importado pero sin sidecar (huérfano o muy nuevo).
+                return \`
+                  <div class="po-card huerfano" style="border-top-color: \${c.border};"
+                       onclick="abrirVSCode('\${esc(i.rutaSinExt)}.ts', 1)" title="Sin sidecar — abrí el .ts">
+                    <div class="po-name" style="color: \${c.fg}">\${esc(i.nombreClase)}</div>
+                    <div class="po-stats"><div><span class="num">—</span>sin sidecar</div></div>
+                  </div>\`;
+              }
+              const conf = info.confPromedio;
+              const confChip = conf == null ? '' :
+                \`<div class="po-conf" style="background: \${c.bg}; color: \${c.fg}">\${conf.toFixed(1)}/5</div>\`;
+              const tests = info.usadoEnTests.length;
+              return \`
+                <div class="po-card" style="border-top-color: \${c.border};"
+                     onclick="abrirVSCode('\${esc(info.archivo)}', 1)" title="\${esc(info.archivo)}">
+                  <div class="po-name" style="color: \${c.fg}">\${esc(i.nombreClase)}</div>
+                  <div class="po-stats">
+                    <div><span class="num">\${info.locators}</span>locators</div>
+                    <div><span class="num">\${info.metodos.length}</span>métodos</div>
+                    <div><span class="num">\${info.cantidadNodos}</span>nodos</div>
+                    <div><span class="num">\${tests}</span>tests</div>
+                  </div>
+                  \${confChip}
+                </div>\`;
+            }).join('') + '</div>';
+
         cuerpo = \`
           <div class="panel">
             <h2>\${esc(ts.nombre)} <span style="color:var(--muted);font-weight:400">[testSetId:\${ts.id}]</span></h2>
             <p>\${esc(ts.descripcion || '(sin descripción)')}</p>
             <h3>Spec</h3>
             <p><code>\${esc(ts.specPath)}</code> <button onclick="abrirVSCode('\${esc(ts.specPath)}', 1)">Abrir en VSCode</button></p>
-            <h3>Page Objects usados</h3>
-            \${ts.imports.length === 0
-              ? '<p class="empty">Ninguno todavía.</p>'
-              : '<ul>' + ts.imports.map((i) =>
-                  \`<li><code>\${esc(i.nombreClase)}</code> — <code>\${esc(i.rutaSinExt)}.ts</code>
-                   <button onclick="abrirVSCode('\${esc(i.rutaSinExt)}.ts', 1)">Abrir</button></li>\`
-                ).join('') + '</ul>'}
+            <h3>Page Objects usados (\${ts.imports.length})</h3>
+            \${cardsHtml}
           </div>
         \`;
       } else if (estado.tab === 'tests') {
@@ -553,13 +790,14 @@ function html(modelo) {
     function renderPaso(paso, idx) {
       const n = paso.nodo;
       if (!n) return \`<div class="paso-row"><div class="idx">\${idx}</div><div>(nodo no resuelto: \${esc(paso.id)})</div></div>\`;
-      const desc = \`<span class="page">\${esc(n.page)}</span> · <span class="accion">\${esc(n.accion)}</span> \${esc(n.selector || '')}\`;
+      const c = colorPage(n.page);
+      const desc = \`<span class="page" style="color:\${c.fg}">\${esc(n.page)}</span> · <span class="accion">\${esc(n.accion)}</span> \${esc(n.selector || '')}\`;
       const conf = n.confiabilidad
         ? \`<span class="conf conf-\${n.confiabilidad}">[\${n.confiabilidad}/5]</span>\`
         : '<span class="conf" style="color:var(--muted)">[—]</span>';
       const dep = n.deprecated ? 'deprecated' : '';
       return \`
-        <div class="paso-row \${dep}" onclick='abrirNodo(\${JSON.stringify(JSON.stringify(paso))})'>
+        <div class="paso-row \${dep}" style="border-left-color: \${c.border};" onclick='abrirNodo(\${JSON.stringify(JSON.stringify(paso))})'>
           <div class="idx">\${idx}</div>
           <div class="descripcion">\${desc}</div>
           \${dep ? '<span class="chip warn">deprecated</span>' : ''}

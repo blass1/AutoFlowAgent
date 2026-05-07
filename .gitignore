@@ -32,3 +32,6 @@ tests/_temp/
 
 # Claude Code (config local del dev, no se versiona)
 .claude/
+
+# Docs / presentaciones (no se versionan por ahora)
+docs/
