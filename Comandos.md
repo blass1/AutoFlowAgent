@@ -1,1 +1,0 @@
-node clearSession.js --yes
