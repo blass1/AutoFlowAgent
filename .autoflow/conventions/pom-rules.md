@@ -38,7 +38,7 @@ Shape:
 ```
 
 - **id**: `{page}::{accion}::{selector}` — determinístico. El mismo nodo en distintas grabaciones colapsa al mismo id.
-- **accion**: `goto | fill | click | press | check | uncheck | selectOption | hover | dragTo | assert`.
+- **accion**: `goto | fill | click | press | check | uncheck | selectOption | hover | setInputFiles | dragTo | assert | capturar | verificar | accionEnLista`.
   - **Filtro de portapapeles**: el parser descarta `press` con valor `Control+C`/`Control+V`/`Meta+C`/`Meta+V` (case-insensitive). Es muy común que el QA pegue valores durante la grabación y esos shortcuts no representan una acción del usuario que queramos reproducir — además, el valor pegado ya queda capturado en el `fill` posterior. Estos nodos no aparecen en `parsed.json`, no se cuentan en el `indice` y no terminan en el PO.
 - **selector**: firma normalizada del locator. Ejemplos:
   - `getByLabel:Usuario`
@@ -51,7 +51,7 @@ Shape:
   - `page` (para asserts a nivel page, ej: `expect(page).toHaveURL(...)`).
 - **selectorRaw**: el locator tal como aparece en el spec, sin normalizar. Sirve para regenerar código.
 - **valor**: input del usuario (`fill`, `press`, `selectOption`) o argumento del assert. En sidecars y `nodos.json` poné `*` cuando es dato variable, así no clava el caso particular.
-- **matcher**: solo para `assert` (`toBeVisible`, `toHaveText`, `toHaveURL`, etc.). En el resto va `null` o se omite.
+- **matcher**: solo para `assert`. Soportados: `toBeVisible`, `toBeHidden`, `toHaveText`, `toContainText`, `toHaveValue`, `toHaveCount`, `toHaveURL`, `toHaveTitle`, `toBeEnabled`, `toBeDisabled`, `toBeChecked`, **`toHaveAttribute`** (lleva `valor`=nombre del atributo y `valorEsperado`=el valor a comparar), **`toHaveClass`** (lleva `valor`=string o regex literal y `modoValor: 'regex' | 'literal'`). En el resto de las acciones va `null` o se omite.
 - **confiabilidad** (1-5, o `null` para `goto` y `assert`):
   - **5** — `getByTestId`
   - **4** — `getByRole` con `name`

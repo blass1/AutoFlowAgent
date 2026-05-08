@@ -170,8 +170,54 @@ const lineas = spec.split('\n');
 for (const linea of lineas) {
   const limpia = linea.trim();
 
-  // await expect(page.<SEL>).<matcher>(<arg opcional>)
+  // await expect(page.<SEL>).toHaveAttribute('attr', 'valor')   — 2 args en quotes
   let mAssert = limpia.match(
+    new RegExp(`^await expect\\(page\\.${SEL}\\)\\.toHaveAttribute\\(['"\`](.+?)['"\`]\\s*,\\s*['"\`](.*?)['"\`]\\)`),
+  );
+  if (mAssert) {
+    indice++;
+    const selectorRaw = mAssert[1];
+    const selector = normalizarSelector(selectorRaw);
+    nodos.push({
+      indice,
+      accion: 'assert',
+      matcher: 'toHaveAttribute',
+      selector,
+      selectorRaw,
+      valor: mAssert[2],         // nombre del atributo (ej: "aria-disabled")
+      valorEsperado: mAssert[3], // valor esperado del atributo (ej: "true")
+      etiqueta: extraerEtiqueta(selector),
+      confiabilidad: null,
+      raw: limpia,
+    });
+    continue;
+  }
+
+  // await expect(page.<SEL>).toHaveClass(/regex/)   — regex literal
+  mAssert = limpia.match(
+    new RegExp(`^await expect\\(page\\.${SEL}\\)\\.toHaveClass\\(\\/(.+?)\\/[gimsuy]*\\)`),
+  );
+  if (mAssert) {
+    indice++;
+    const selectorRaw = mAssert[1];
+    const selector = normalizarSelector(selectorRaw);
+    nodos.push({
+      indice,
+      accion: 'assert',
+      matcher: 'toHaveClass',
+      selector,
+      selectorRaw,
+      valor: mAssert[2],
+      modoValor: 'regex',
+      etiqueta: extraerEtiqueta(selector),
+      confiabilidad: null,
+      raw: limpia,
+    });
+    continue;
+  }
+
+  // await expect(page.<SEL>).<matcher>(<arg opcional>)
+  mAssert = limpia.match(
     new RegExp(`^await expect\\(page\\.${SEL}\\)\\.(\\w+)\\((['"\`](.*?)['"\`])?\\)`),
   );
   if (mAssert) {
@@ -338,6 +384,27 @@ for (const linea of lineas) {
       accion: 'hover',
       selector,
       selectorRaw,
+      etiqueta: extraerEtiqueta(selector),
+      confiabilidad: calcularConfiabilidad(selectorRaw),
+      raw: limpia,
+    });
+    continue;
+  }
+
+  // page.<SEL>.setInputFiles('ruta')
+  m = limpia.match(new RegExp(`^await page\\.${SEL}\\.setInputFiles\\(['"\`](.+?)['"\`]\\)`));
+  if (m) {
+    indice++;
+    const selectorRaw = m[1];
+    const selector = normalizarSelector(selectorRaw);
+    nodos.push({
+      indice,
+      accion: 'setInputFiles',
+      selector,
+      selectorRaw,
+      // El valor lo guardamos como `*` por convención (dato variable) — el path real
+      // del archivo va al data file con un nombre descriptivo (`pathDni`, `pathComprobante`).
+      valor: '*',
       etiqueta: extraerEtiqueta(selector),
       confiabilidad: calcularConfiabilidad(selectorRaw),
       raw: limpia,

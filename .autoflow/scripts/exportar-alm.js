@@ -226,6 +226,12 @@ function humanizar(nodo, idCrudo) {
         descripcion: `Se pasa el mouse sobre ${sujeto}`,
         expected: 'El elemento muestra su estado de hover (tooltip, menú desplegable, resaltado, etc.).',
       };
+    case 'setInputFiles':
+      return {
+        step: 'Subir archivo',
+        descripcion: `Se selecciona un archivo y se sube en ${sujeto}`,
+        expected: 'El archivo queda adjuntado y la interfaz refleja que la carga fue aceptada (nombre del archivo visible, ícono de check, etc.).',
+      };
     case 'assert':
       return humanizarAssert(nodo, sujeto);
     case 'capturar':
@@ -248,6 +254,31 @@ function humanizar(nodo, idCrudo) {
 function humanizarAssert(nodo, sujeto) {
   const matcher = nodo.matcher;
   const valor = nodo.valor;
+
+  // toHaveAttribute lleva 2 valores: nombre del atributo + valor esperado
+  if (matcher === 'toHaveAttribute') {
+    return {
+      step: 'Validar atributo',
+      descripcion: `Se valida que ${sujeto} tenga el atributo "${valor}" con valor "${nodo.valorEsperado || ''}"`,
+      expected: `El elemento expone el atributo HTML/ARIA con el valor esperado (típicamente refleja un estado: deshabilitado, expandido, seleccionado, etc.).`,
+    };
+  }
+
+  // toHaveClass puede venir con regex (modoValor === 'regex') o string literal
+  if (matcher === 'toHaveClass') {
+    if (nodo.modoValor === 'regex') {
+      return {
+        step: 'Validar clase CSS',
+        descripcion: `Se valida que ${sujeto} tenga una clase CSS que matchee con el patrón /${valor}/`,
+        expected: 'El elemento incluye en su atributo class un nombre que cumple el patrón esperado, indicando un estado visual (activo, pendiente, error, etc.).',
+      };
+    }
+    return {
+      step: 'Validar clase CSS',
+      descripcion: `Se valida que ${sujeto} tenga la clase CSS "${valor}"`,
+      expected: 'El elemento incluye la clase CSS esperada, indicando un estado visual específico.',
+    };
+  }
 
   if (sujeto === 'la página') {
     // Asserts a nivel page (selector="page"): toHaveURL, toHaveTitle.

@@ -37,6 +37,7 @@ Usá `vscode/askQuestions` single-select: `"¿Qué hacés con el **Test** [testI
 - `➕ Añadir pasos al final del **Test**`
 - `🎯 Insertar **Nodo** de captura/verificación`
 - `🎯 Acción filtrada en lista (click+submenú o validar existencia/no-existencia de fila)`
+- `📅 Elegir fecha en date picker (parametrizada — no hardcodeada)`
 - `🍴 Bifurcar **Test** desde un **Nodo** (crear Test nuevo a partir de éste)`
 
 ### Opción `🔄 Regrabar desde cero`
@@ -82,6 +83,10 @@ Cargá [insertar-nodo-especial.md](insertar-nodo-especial.md) pasándole `numero
 ### Opción `🎯 Acción filtrada en lista`
 
 Cargá [accion-en-lista.md](accion-en-lista.md) pasándole `numero` y la ruta del spec del **Test** elegido. Ese sub-prompt construye operaciones sobre items específicos de listas/tablas filtrando por contenido (no por posición), parametrizando los criterios como args del método. Soporta tres tipos: click + submenú (típico para 3-puntitos + Cancelar), validar que la fila existe, validar que la fila NO existe.
+
+### Opción `📅 Elegir fecha en date picker`
+
+Cargá [elegir-fecha-en-picker.md](elegir-fecha-en-picker.md) pasándole `numero` y la ruta del spec. Ese sub-prompt construye un método del PO que elige una fecha en un date picker, **parametrizado por la fecha** (no clavada al día capturado por el grabador). Soporta input nativo `<input type="date">`, calendario custom con navegación de meses, y typeable con dropdown de sugerencias. La fecha viene del data file, calculada al vuelo (hoy, +30 días, etc.) o como literal.
 
 ### Opción `🍴 Bifurcar Test desde un Nodo`
 
