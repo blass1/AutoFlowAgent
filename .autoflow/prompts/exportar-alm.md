@@ -64,14 +64,15 @@ Después abrí `vscode/askQuestions` single-select: `"¿Algo más?"`:
 - **Granularidad un Test por archivo**: si querés exportar varios Tests del mismo Test Set, hacelo uno por uno. Más adelante puede convenir batch, pero por ahora simple.
 - **Fuente de verdad: la traza** (`.autoflow/recordings/{testId}-path.json`) cruzada con `.autoflow/nodos.json`. Cada Nodo de la traza se convierte en un row. Si el path.json no existe, el script frena y le indica al QA cómo regenerarlo.
 - **Step**: label corto del tipo de acción — `Click`, `Llenar campo`, `Navegar`, `Validar visibilidad`, `Validar texto exacto`, `Capturar valor`, `Verificar igualdad`, etc. Mapeado desde la `accion` y el `matcher` del Nodo.
-- **Description humanizada**: prosa en castellano describiendo qué hace el paso desde la perspectiva del usuario. Ejemplos:
-  - `"Se hace click en el botón 'Aceptar'"`
-  - `"Se ingresa el valor correspondiente en el campo 'Usuario'"`
-  - `"Se valida que el texto 'Bienvenido' sea visible en pantalla"`
-  - `"Se extrae el valor de el campo 'Saldo' y se almacena en la variable 'saldoInicial'"`
-  - `"Se compara el valor actual de el campo 'Saldo' y se verifica que haya disminuido respecto del valor 'saldoInicial' capturado anteriormente"`
-- **Expected Result humanizado**: descripción del comportamiento, respuesta o estado final esperado. Ejemplos:
-  - `"Se dispara la acción asociada al elemento (navegación, apertura de menú, envío de formulario, etc.)."`
-  - `"El campo acepta el valor ingresado y queda listo para continuar el flujo."`
-  - `"El elemento aparece visible en la pantalla, en una ubicación accesible para el usuario."`
+- **Description en imperativo**: instrucción clara para que un QA pueda reproducir el paso a mano leyendo solo esta columna. Ejemplos:
+  - `"Hacer click en el botón 'Aceptar'"`
+  - `"Ingresar el valor correspondiente en el campo 'Usuario'"`
+  - `"Validar que el título 'Bienvenido' sea visible en pantalla"`
+  - `"Extraer el valor del campo 'Saldo' y guardarlo como 'saldoInicial'"`
+  - `"Comparar el valor actual del campo 'Saldo' con el valor 'saldoInicial' capturado previamente y verificar que haya disminuido"`
+- **Expected Result observable**: una sola línea con lo que el QA tiene que ver después de hacer la acción. Sin paréntesis explicativos genéricos. Ejemplos:
+  - `"El botón 'Aceptar' se acciona correctamente."`
+  - `"El campo 'Usuario' muestra el valor ingresado."`
+  - `"El título 'Bienvenido' se muestra correctamente."`
+  - `"El valor actual del campo 'Saldo' es menor que 'saldoInicial'."`
 - **Output**: `.autoflow/alm-exports/{slug}-testId-{testId}-{timestamp}.{ext}`. La carpeta ya existe (también la usa `parse-alm-export.js` para imports). Los `.xlsx`/`.csv`/`.json` quedan **gitignored** — son artefactos efímeros de exportación.

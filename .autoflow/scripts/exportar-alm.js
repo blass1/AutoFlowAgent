@@ -179,73 +179,73 @@ function humanizar(nodo, idCrudo) {
       const url = nodo.valor || (nodo.selector || '').replace(/^goto:/, '');
       return {
         step: 'Navegar',
-        descripcion: `Se navega a ${url}`,
-        expected: 'La página solicitada se carga correctamente y queda lista para interactuar.',
+        descripcion: `Navegar a ${url}`,
+        expected: 'La página solicitada se carga correctamente.',
       };
     }
     case 'click':
       return {
         step: 'Click',
-        descripcion: `Se hace click en ${sujeto}`,
-        expected: 'Se dispara la acción asociada al elemento (navegación, apertura de menú, envío de formulario, etc.).',
+        descripcion: `Hacer click en ${sujeto}`,
+        expected: `${capitalizar(sujeto)} se acciona correctamente.`,
       };
     case 'fill':
       // En el modelo, 'fill' es nuestro pressSequentially (acción lógica).
       return {
         step: 'Llenar campo',
-        descripcion: `Se ingresa ${valorPretty(nodo.valor)} en ${sujeto}`,
-        expected: 'El campo acepta el valor ingresado y queda listo para continuar el flujo.',
+        descripcion: `Ingresar ${valorPretty(nodo.valor)} en ${sujeto}`,
+        expected: `${capitalizar(sujeto)} muestra el valor ingresado.`,
       };
     case 'press':
       return {
         step: 'Presionar tecla',
-        descripcion: `Se presiona la tecla "${nodo.valor}" en ${sujeto}`,
-        expected: 'La tecla dispara su acción asociada (envío de formulario, navegación, salto de campo, etc.).',
+        descripcion: `Presionar la tecla "${nodo.valor}" en ${sujeto}`,
+        expected: 'La tecla envía la acción asociada al elemento.',
       };
     case 'check':
       return {
-        step: 'Tildar checkbox',
-        descripcion: `Se tilda ${sujeto}`,
-        expected: 'El checkbox queda tildado.',
+        step: 'Tildar',
+        descripcion: `Tildar ${sujeto}`,
+        expected: `${capitalizar(sujeto)} queda tildado.`,
       };
     case 'uncheck':
       return {
-        step: 'Destildar checkbox',
-        descripcion: `Se destilda ${sujeto}`,
-        expected: 'El checkbox queda destildado.',
+        step: 'Destildar',
+        descripcion: `Destildar ${sujeto}`,
+        expected: `${capitalizar(sujeto)} queda destildado.`,
       };
     case 'selectOption':
       return {
-        step: 'Elegir opción',
-        descripcion: `Se selecciona ${valorPretty(nodo.valor)} en ${sujeto}`,
-        expected: 'La opción queda seleccionada y se aplica al formulario o filtro correspondiente.',
+        step: 'Seleccionar',
+        descripcion: `Seleccionar ${valorPretty(nodo.valor)} en ${sujeto}`,
+        expected: `La opción ${valorPretty(nodo.valor)} queda seleccionada en ${sujeto}.`,
       };
     case 'hover':
       return {
-        step: 'Pasar el mouse',
-        descripcion: `Se pasa el mouse sobre ${sujeto}`,
-        expected: 'El elemento muestra su estado de hover (tooltip, menú desplegable, resaltado, etc.).',
+        step: 'Hover',
+        descripcion: `Pasar el mouse sobre ${sujeto}`,
+        expected: 'Aparece el tooltip o menú asociado al elemento.',
       };
     case 'setInputFiles':
       return {
         step: 'Subir archivo',
-        descripcion: `Se selecciona un archivo y se sube en ${sujeto}`,
-        expected: 'El archivo queda adjuntado y la interfaz refleja que la carga fue aceptada (nombre del archivo visible, ícono de check, etc.).',
+        descripcion: `Seleccionar y subir el archivo en ${sujeto}`,
+        expected: 'El archivo queda adjuntado en el formulario.',
       };
     case 'assert':
       return humanizarAssert(nodo, sujeto);
     case 'capturar':
       return {
         step: 'Capturar valor',
-        descripcion: `Se extrae el valor de ${sujeto} y se almacena en la variable "${nodo.varName}"`,
-        expected: 'El valor queda guardado en memoria del test para comparar contra él en un paso posterior.',
+        descripcion: `Extraer el valor de ${sujeto} y guardarlo como "${nodo.varName}"`,
+        expected: 'El valor queda registrado para verificación posterior.',
       };
     case 'verificar':
       return humanizarVerificar(nodo, sujeto);
     default:
       return {
         step: capitalizar(nodo.accion),
-        descripcion: `Se ejecuta la acción "${nodo.accion}" sobre ${sujeto}`,
+        descripcion: `Ejecutar la acción "${nodo.accion}" sobre ${sujeto}`,
         expected: '',
       };
   }
@@ -259,8 +259,8 @@ function humanizarAssert(nodo, sujeto) {
   if (matcher === 'toHaveAttribute') {
     return {
       step: 'Validar atributo',
-      descripcion: `Se valida que ${sujeto} tenga el atributo "${valor}" con valor "${nodo.valorEsperado || ''}"`,
-      expected: `El elemento expone el atributo HTML/ARIA con el valor esperado (típicamente refleja un estado: deshabilitado, expandido, seleccionado, etc.).`,
+      descripcion: `Validar que ${sujeto} tenga el atributo "${valor}" con valor "${nodo.valorEsperado || ''}"`,
+      expected: `${capitalizar(sujeto)} expone el atributo "${valor}" con el valor "${nodo.valorEsperado || ''}".`,
     };
   }
 
@@ -269,14 +269,14 @@ function humanizarAssert(nodo, sujeto) {
     if (nodo.modoValor === 'regex') {
       return {
         step: 'Validar clase CSS',
-        descripcion: `Se valida que ${sujeto} tenga una clase CSS que matchee con el patrón /${valor}/`,
-        expected: 'El elemento incluye en su atributo class un nombre que cumple el patrón esperado, indicando un estado visual (activo, pendiente, error, etc.).',
+        descripcion: `Validar que ${sujeto} tenga una clase CSS que matchee con el patrón /${valor}/`,
+        expected: `${capitalizar(sujeto)} incluye una clase CSS que coincide con el patrón.`,
       };
     }
     return {
       step: 'Validar clase CSS',
-      descripcion: `Se valida que ${sujeto} tenga la clase CSS "${valor}"`,
-      expected: 'El elemento incluye la clase CSS esperada, indicando un estado visual específico.',
+      descripcion: `Validar que ${sujeto} tenga la clase CSS "${valor}"`,
+      expected: `${capitalizar(sujeto)} incluye la clase CSS "${valor}".`,
     };
   }
 
@@ -285,15 +285,15 @@ function humanizarAssert(nodo, sujeto) {
     if (matcher === 'toHaveURL') {
       return {
         step: 'Validar URL',
-        descripcion: `Se valida que la URL del navegador sea ${valorPretty(valor)}`,
-        expected: 'La barra de direcciones del navegador muestra la URL esperada.',
+        descripcion: `Validar que la URL del navegador sea ${valorPretty(valor)}`,
+        expected: `La URL del navegador es ${valorPretty(valor)}.`,
       };
     }
     if (matcher === 'toHaveTitle') {
       return {
         step: 'Validar título',
-        descripcion: `Se valida que el título de la pestaña sea ${valorPretty(valor)}`,
-        expected: 'El título de la pestaña del navegador coincide con el esperado.',
+        descripcion: `Validar que el título de la pestaña sea ${valorPretty(valor)}`,
+        expected: `El título de la pestaña es ${valorPretty(valor)}.`,
       };
     }
   }
@@ -302,62 +302,62 @@ function humanizarAssert(nodo, sujeto) {
     case 'toBeVisible':
       return {
         step: 'Validar visibilidad',
-        descripcion: `Se valida que ${sujeto} sea visible en pantalla`,
-        expected: `${capitalizar(sujeto)} aparece visible en la pantalla, en una ubicación accesible para el usuario.`,
+        descripcion: `Validar que ${sujeto} sea visible en pantalla`,
+        expected: `${capitalizar(sujeto)} se muestra correctamente.`,
       };
     case 'toBeHidden':
       return {
         step: 'Validar elemento oculto',
-        descripcion: `Se valida que ${sujeto} no esté visible`,
-        expected: 'El elemento no aparece en la pantalla (o desapareció tras una acción previa).',
+        descripcion: `Validar que ${sujeto} no esté visible`,
+        expected: `${capitalizar(sujeto)} no aparece en la pantalla.`,
       };
     case 'toHaveText':
       return {
         step: 'Validar texto exacto',
-        descripcion: `Se valida que ${sujeto} contenga exactamente el texto ${valorPretty(valor)}`,
-        expected: 'El elemento muestra exactamente el texto esperado, sin variaciones.',
+        descripcion: `Validar que ${sujeto} contenga exactamente el texto ${valorPretty(valor)}`,
+        expected: `${capitalizar(sujeto)} muestra el texto ${valorPretty(valor)}.`,
       };
     case 'toContainText':
       return {
         step: 'Validar texto contenido',
-        descripcion: `Se valida que ${sujeto} contenga el texto ${valorPretty(valor)}`,
-        expected: 'El texto esperado aparece dentro del contenido del elemento.',
+        descripcion: `Validar que ${sujeto} contenga el texto ${valorPretty(valor)}`,
+        expected: `El texto ${valorPretty(valor)} aparece dentro de ${sujeto}.`,
       };
     case 'toHaveValue':
       return {
         step: 'Validar valor del campo',
-        descripcion: `Se valida que ${sujeto} tenga el valor ${valorPretty(valor)}`,
-        expected: 'El campo contiene el valor esperado.',
+        descripcion: `Validar que ${sujeto} tenga el valor ${valorPretty(valor)}`,
+        expected: `${capitalizar(sujeto)} contiene el valor ${valorPretty(valor)}.`,
       };
     case 'toHaveCount':
       return {
         step: 'Validar cantidad',
-        descripcion: `Se valida que aparezcan ${valor} elementos del tipo ${sujeto}`,
-        expected: 'La cantidad de elementos visibles coincide con la esperada.',
+        descripcion: `Validar que aparezcan ${valor} elementos del tipo ${sujeto}`,
+        expected: `Aparecen ${valor} elementos del tipo ${sujeto}.`,
       };
     case 'toBeEnabled':
       return {
         step: 'Validar habilitado',
-        descripcion: `Se valida que ${sujeto} esté habilitado para interactuar`,
-        expected: 'El elemento responde a la interacción del usuario (no está deshabilitado/grisado).',
+        descripcion: `Validar que ${sujeto} esté habilitado para interactuar`,
+        expected: `${capitalizar(sujeto)} está habilitado y responde a la interacción.`,
       };
     case 'toBeDisabled':
       return {
         step: 'Validar deshabilitado',
-        descripcion: `Se valida que ${sujeto} esté deshabilitado`,
-        expected: 'El elemento aparece deshabilitado y no responde a la interacción.',
+        descripcion: `Validar que ${sujeto} esté deshabilitado`,
+        expected: `${capitalizar(sujeto)} aparece deshabilitado.`,
       };
     case 'toBeChecked':
       return {
         step: 'Validar checkbox tildado',
-        descripcion: `Se valida que ${sujeto} esté tildado`,
-        expected: 'El checkbox aparece tildado.',
+        descripcion: `Validar que ${sujeto} esté tildado`,
+        expected: `${capitalizar(sujeto)} aparece tildado.`,
       };
     default:
       return {
         step: `Validar ${matcher}`,
-        descripcion: `Se valida (${matcher}) sobre ${sujeto}${valor != null ? ` con valor ${valorPretty(valor)}` : ''}`,
-        expected: 'El elemento cumple la condición de validación.',
+        descripcion: `Validar (${matcher}) sobre ${sujeto}${valor != null ? ` con valor ${valorPretty(valor)}` : ''}`,
+        expected: `${capitalizar(sujeto)} cumple la condición ${matcher}.`,
       };
   }
 }
@@ -366,7 +366,8 @@ function humanizarVerificar(nodo, sujeto) {
   const cond = nodo.condicion || {};
   const ref = nodo.modo === 'literal'
     ? `el valor literal "${nodo.literal}"`
-    : `el valor "${nodo.ref}" capturado anteriormente`;
+    : `el valor "${nodo.ref}" capturado previamente`;
+  const refCorto = nodo.modo === 'literal' ? `"${nodo.literal}"` : `"${nodo.ref}"`;
 
   const stepLabels = {
     igual: 'Verificar igualdad',
@@ -377,6 +378,7 @@ function humanizarVerificar(nodo, sujeto) {
     disminuyoAlMenos: 'Verificar disminución mínima',
   };
   const sufijoUnidad = cond.unidad === 'pct' ? '%' : '';
+
   const condDesc = {
     igual: `sea igual a ${ref}`,
     distinto: `sea distinto de ${ref}`,
@@ -385,10 +387,21 @@ function humanizarVerificar(nodo, sujeto) {
     aumentoAlMenos: `haya aumentado al menos ${cond.param}${sufijoUnidad} respecto de ${ref}`,
     disminuyoAlMenos: `haya disminuido al menos ${cond.param}${sufijoUnidad} respecto de ${ref}`,
   };
+
+  // Expected fallback (cuando el QA no escribió mensaje custom): específico por condición.
+  const expFallback = {
+    igual: `El valor actual de ${sujeto} coincide con ${refCorto}.`,
+    distinto: `El valor actual de ${sujeto} difiere de ${refCorto}.`,
+    aumento: `El valor actual de ${sujeto} es mayor que ${refCorto}.`,
+    disminuyo: `El valor actual de ${sujeto} es menor que ${refCorto}.`,
+    aumentoAlMenos: `El valor actual de ${sujeto} es al menos ${cond.param}${sufijoUnidad} mayor que ${refCorto}.`,
+    disminuyoAlMenos: `El valor actual de ${sujeto} es al menos ${cond.param}${sufijoUnidad} menor que ${refCorto}.`,
+  };
+
   return {
     step: stepLabels[cond.tipo] || 'Verificar valor',
-    descripcion: `Se compara el valor actual de ${sujeto} y se verifica que ${condDesc[cond.tipo] || 'cumpla la condición esperada'}`,
-    expected: nodo.mensaje || 'La condición de verificación se cumple según lo esperado por el flujo del negocio.',
+    descripcion: `Comparar el valor actual de ${sujeto} con ${ref} y verificar que ${condDesc[cond.tipo] || 'cumpla la condición esperada'}`,
+    expected: nodo.mensaje || expFallback[cond.tipo] || `${capitalizar(sujeto)} cumple la condición de verificación esperada.`,
   };
 }
 

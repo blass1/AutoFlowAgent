@@ -331,11 +331,11 @@ Single-select de acciones disponibles:
 
    | Test ID | Test Name | Step Number | Step | Description | Expected Result |
    |---|---|---|---|---|---|
-   | 43213 | Compra de dolar... | 1 | Navegar | Se navega a https://... | La página se carga correctamente. |
-   | 43213 | Compra de dolar... | 2 | Click | Se hace click en el campo "Usuario" | Se dispara la acción asociada. |
-   | 43213 | Compra de dolar... | 3 | Llenar campo | Se ingresa el valor correspondiente en el campo "Usuario" | El campo acepta el valor. |
+   | 43213 | Compra de dolar... | 1 | Navegar | Navegar a https://... | La página solicitada se carga correctamente. |
+   | 43213 | Compra de dolar... | 2 | Click | Hacer click en el campo "Usuario" | El campo "Usuario" se acciona correctamente. |
+   | 43213 | Compra de dolar... | 3 | Llenar campo | Ingresar el valor correspondiente en el campo "Usuario" | El campo "Usuario" muestra el valor ingresado. |
    | ... | | | | | |
-   | 43213 | Compra de dolar... | 7 | Validar visibilidad | Se valida que el título "Bienvenido" sea visible | El título aparece visible. |
+   | 43213 | Compra de dolar... | 7 | Validar visibilidad | Validar que el título "Bienvenido" sea visible en pantalla | El título "Bienvenido" se muestra correctamente. |
 
 4. Description y Expected están **humanizadas** en castellano — pensadas para que un QA pueda leer el archivo en ALM y recrear el caso a mano sin tener que mirar código.
 
