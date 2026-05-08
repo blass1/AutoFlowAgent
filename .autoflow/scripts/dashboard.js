@@ -17,7 +17,7 @@
 
 const { readFileSync, writeFileSync, existsSync, readdirSync, statSync, mkdirSync } = require('node:fs');
 const { join, resolve, relative, sep } = require('node:path');
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 
 const ROOT = process.cwd();
 const OUT = '.autoflow/dashboard.html';
@@ -1190,9 +1190,57 @@ import LoginPage from '../../pages/auth/LoginPage'</pre>
 }
 
 // ---------------------------------------------------------------------------
+// Auto-reparación de trazas faltantes
+// ---------------------------------------------------------------------------
+// El dashboard depende de `{numero}-path.json` para mostrar pasos y grafo de
+// cada Test. Si el flujo de generar-pom.md saltó el paso de generar la traza,
+// el Test queda visible pero sin pasos. Antes de leer el estado, detectamos
+// sesiones cerradas (activa: false) cuyo path.json falta pero tienen inputs
+// (parsed.json + grupos.json) y disparamos validar-trazas.js para regenerar.
+
+function regenerarTrazasFaltantes() {
+  const recDir = '.autoflow/recordings';
+  if (!existsSync(recDir)) return;
+
+  const candidatos = [];
+  for (const f of readdirSync(recDir)) {
+    if (!/-session\.json$/.test(f)) continue;
+    const numero = f.replace(/-session\.json$/, '');
+    const sess = leerJson(join(recDir, f));
+    if (!sess || sess.activa !== false) continue;
+    if (existsSync(join(recDir, `${numero}-path.json`))) continue;
+    if (
+      existsSync(join(recDir, `${numero}-parsed.json`)) &&
+      existsSync(join(recDir, `${numero}-grupos.json`))
+    ) {
+      candidatos.push(numero);
+    }
+  }
+  if (candidatos.length === 0) return;
+
+  console.log(`🔧 Detecté ${candidatos.length} traza(s) faltante(s) — regenerando…`);
+  const res = spawnSync('node', ['.autoflow/scripts/validar-trazas.js'], { encoding: 'utf8' });
+  const stdout = res.stdout || '';
+  const m = stdout.match(/AUTOFLOW_VALIDAR_TRAZAS:\s*(\{.*\})/);
+  let resumen = null;
+  if (m) {
+    try { resumen = JSON.parse(m[1]); } catch {}
+  }
+  if (resumen?.regenerado?.length > 0) {
+    const nums = resumen.regenerado.map((r) => r.numero ?? r).join(', ');
+    console.log(`✅ Regeneradas: ${nums}`);
+  }
+  if (resumen?.fallido?.length > 0) {
+    const nums = resumen.fallido.map((r) => r.numero ?? r).join(', ');
+    console.log(`⚠ Fallaron: ${nums} — el dashboard las va a mostrar sin pasos hasta que se reparen.`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
+regenerarTrazasFaltantes();
 const modelo = construirModelo();
 mkdirSync('.autoflow', { recursive: true });
 writeFileSync(OUT, html(modelo), 'utf8');
