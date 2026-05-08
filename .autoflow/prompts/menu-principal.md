@@ -24,13 +24,13 @@ Adaptá la redacción si querés, pero respetá el espíritu: corto, en castella
 
 ## Nivel 1 — Categoría
 
-Usá `#tool:vscode/askQuestions` single-select: `"¿Qué querés hacer?"` con estas opciones (en este orden):
+Usá `#tool:vscode/askQuestions` single-select: `"¿Qué querés hacer?"` con estas opciones (en este orden). **Cada label trae un guion + descripción corta** para que el QA vea el contenido sin abrir el sub-menú:
 
-- `🖥️ Abrir dashboard del proyecto`
-- `🧪 Tests`
-- `📦 Test Sets`
-- `📄 ALM`
-- `🛠️ Mantenimiento`
+- `🖥️ Abrir dashboard del proyecto — vista navegable de Tests, pasos y ejecuciones`
+- `🧪 Tests — crear, editar y correr casos puntuales`
+- `📦 Test Sets — agrupar Tests y correr regresiones completas`
+- `📄 ALM — ida y vuelta con tu sistema de gestión de pruebas`
+- `🛠️ Mantenimiento — sanear locators, validar estado, login reusable, utilidades`
 
 ### Routing del nivel 1
 
@@ -46,9 +46,9 @@ Usá `#tool:vscode/askQuestions` single-select: `"¿Qué querés hacer?"` con es
 
 `vscode/askQuestions` single-select: `"¿Qué hacés con los **Tests**?"`:
 
-- `✨ Crear un **Test**`
-- `✏️ Editar un **Test**`
-- `▶️ Correr un **Test**`
+- `✨ Crear un **Test** — grabar un caso nuevo desde cero`
+- `✏️ Editar un **Test** — regrabar, código, añadir pasos, bifurcar, nodo especial...`
+- `▶️ Correr un **Test** — ejecutar uno puntual con --grep al testId`
 - `↩️ Volver al menú principal`
 
 ### Routing — Tests
@@ -64,9 +64,9 @@ Usá `#tool:vscode/askQuestions` single-select: `"¿Qué querés hacer?"` con es
 
 `vscode/askQuestions` single-select: `"¿Qué hacés con los **Test Sets**?"`:
 
-- `📦 Crear un **Test Set**`
-- `🔧 Editar un **Test Set**`
-- `🚀 Correr un **Test Set**`
+- `📦 Crear un **Test Set** — agrupar Tests existentes en un set nuevo`
+- `🔧 Editar un **Test Set** — mover Tests, renombrar, cambiar id, eliminar`
+- `🚀 Correr un **Test Set** — regresión completa headed o headless`
 - `↩️ Volver al menú principal`
 
 ### Routing — Test Sets
@@ -82,8 +82,8 @@ Usá `#tool:vscode/askQuestions` single-select: `"¿Qué querés hacer?"` con es
 
 `vscode/askQuestions` single-select: `"¿Qué hacés con **ALM**?"`:
 
-- `📥 Importar .xlsx y crear un **Test**`
-- `📤 Exportar **Test** automatizado a **ALM**`
+- `📥 Importar .xlsx y crear un **Test** — leer testId/nombre/enfoque del Export ALM`
+- `📤 Exportar **Test** automatizado a **ALM** — generar xlsx/csv/json humanizado`
 - `↩️ Volver al menú principal`
 
 ### Routing — ALM
@@ -98,11 +98,11 @@ Usá `#tool:vscode/askQuestions` single-select: `"¿Qué querés hacer?"` con es
 
 `vscode/askQuestions` single-select: `"¿Qué tarea de mantenimiento?"`:
 
-- `🪄 Auto-Health Node — sanear locators débiles`
-- `🧬 Validar / Regenerar trazas`
-- `📊 Cobertura de **Nodos**`
-- `🔐 Login reusable (experimental)`
-- `🔧 Utilidades`
+- `🪄 Auto-Health Node — sanear locators débiles antes de que rompan`
+- `🧬 Validar / Regenerar trazas — audit del estado de los path.json`
+- `📊 Cobertura de **Nodos** — qué del producto está testeado de verdad`
+- `🔐 Login reusable (experimental) — grabar un login una sola vez por canal+usuario`
+- `🔧 Utilidades — aplicar librerías complementarias de utils/`
 - `↩️ Volver al menú principal`
 
 ### Routing — Mantenimiento
