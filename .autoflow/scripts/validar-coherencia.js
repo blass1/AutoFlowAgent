@@ -125,17 +125,32 @@ for (const ts of testsetsAValidar) {
   if (casos.length === 0) {
     warn(`Test set "${ts.slug}" no tiene casos.`);
   }
-  // specPath está a nivel raíz del Test Set (todos los casos comparten el mismo spec).
-  // Fallback: si está dentro de los casos (formato viejo), tomar el del primer caso.
-  const specPathSet = data.specPath ?? casos[0]?.specPath ?? casos[0]?.path ?? null;
+  // Resolución de specPath con 3 niveles de fallback:
+  //   1. Nivel raíz del JSON (lo correcto).
+  //   2. Dentro del primer caso (formato viejo).
+  //   3. Calculado del patrón canónico tests/{slug}-{id}.spec.ts.
+  // Si el JSON quedó sin specPath a nivel raíz pero el cálculo funcionó, además de avisar
+  // como warning, el flag --fix lo escribe de vuelta al JSON para sanear el repo.
+  const specPathCanonico = data.slug && data.id ? `tests/${data.slug}-${data.id}.spec.ts` : null;
+  const specPathSet = data.specPath ?? casos[0]?.specPath ?? casos[0]?.path ?? specPathCanonico;
   if (!specPathSet) {
-    err(`Test set "${ts.slug}" no tiene specPath ni a nivel raíz ni en casos[].`);
+    err(`Test set "${ts.slug}" no tiene specPath ni en raíz ni en casos[], y no se puede inferir (faltan slug/id).`);
   } else if (!existsSync(specPathSet)) {
     err(`Test set "${ts.slug}" referencia spec inexistente: ${specPathSet}`);
+  } else if (!data.specPath) {
+    // El JSON está mal armado pero el spec existe. Es un fix mecánico.
+    warn(`Test set "${ts.slug}": specPath falta a nivel raíz del JSON. Resuelto via fallback a "${specPathSet}". Corré con --fix para escribirlo permanentemente.`);
+    if (process.argv.includes('--fix')) {
+      data.specPath = specPathSet;
+      // Limpiar specPath duplicado dentro de cada caso si existiera.
+      for (const c of casos) { delete c.specPath; delete c.path; }
+      writeFileSync(ts.path, JSON.stringify(data, null, 2), 'utf8');
+      console.log(`🔧 Fix aplicado a ${ts.path}: specPath movido a la raíz.`);
+    }
   }
   // Verificar que cada caso del set aparezca dentro del spec
   for (const caso of casos) {
-    const sp = data.specPath ?? caso.specPath ?? caso.path;
+    const sp = data.specPath ?? caso.specPath ?? caso.path ?? specPathCanonico;
     const numero = caso.numero ?? caso.id;
     if (!sp || !numero || !existsSync(sp)) continue;
     const contenido = readFileSync(sp, 'utf8');

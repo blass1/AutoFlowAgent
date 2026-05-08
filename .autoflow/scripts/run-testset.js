@@ -24,14 +24,20 @@ if (!existsSync(setPath)) {
 }
 
 const set = JSON.parse(readFileSync(setPath, 'utf8'));
-if (!set.specPath) {
-  console.error('❌ El test set no tiene specPath. Esperado: tests/{slug}-{id}.spec.ts');
+// Resolución de specPath con 3 niveles de fallback (raíz → dentro de casos[] → canónico
+// derivado de slug+id). El último cubre el caso de testsets cuyo JSON quedó mal armado
+// por el agente y aún no lo detectaron a tiempo.
+const specPathCanonico = set.slug && set.id ? `tests/${set.slug}-${set.id}.spec.ts` : null;
+const specPathFinal = set.specPath ?? set.casos?.[0]?.specPath ?? specPathCanonico;
+if (!specPathFinal) {
+  console.error('❌ El test set no tiene specPath y no se puede inferir (faltan slug y/o id). Esperado: tests/{slug}-{id}.spec.ts');
   process.exit(1);
 }
-if (!existsSync(set.specPath)) {
-  console.error(`❌ No encuentro el spec ${set.specPath}.`);
+if (!existsSync(specPathFinal)) {
+  console.error(`❌ No encuentro el spec ${specPathFinal}.`);
   process.exit(1);
 }
+set.specPath = specPathFinal; // Para que el resto del script lo use sin cambiar referencias.
 
 const totalCasos = Array.isArray(set.casos) ? set.casos.length : 0;
 console.log(`🚀 Corriendo "${set.nombre}" (${totalCasos} casos en ${set.specPath})`);

@@ -456,7 +456,41 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
 
    **Si el Test Set es nuevo** (el archivo spec no existe):
    - Creá `tests/{slug}-{id}.spec.ts` con el `test.describe('{nombreSet} [testSetId:{idSet}]', () => { ... })` y adentro el primer `test('{nombreCaso} [testId:{numero}]', ...)`.
-   - Creá `.autoflow/testsets/{slug}.json` siguiendo el shape de `crear-test-set.md` paso 3 — **`specPath` a nivel raíz** del JSON (no dentro de `casos[]`). Los `casos[]` solo llevan `{ numero, nombre }`. El `specPath` raíz es lo que `dashboard.js`, `run-testset.js` y `validar-coherencia.js` leen — si lo metés dentro de `casos[]` el dashboard no encuentra el spec y los Tests aparecen vacíos en la grilla.
+   - Creá `.autoflow/testsets/{slug}.json` siguiendo el shape de `crear-test-set.md` paso 3.
+
+   > ### ⚠️ REGLA CRÍTICA — `specPath` va a nivel **raíz** del testset JSON, NUNCA dentro de `casos[]`
+   >
+   > Es el bug más recurrente del agente. `dashboard.js`, `run-testset.js`, `validar-coherencia.js` y `exportar-alm.js` leen `set.specPath` (nivel raíz). Si lo metés dentro de `casos[]`:
+   > - el dashboard no encuentra el spec y los Tests aparecen vacíos en la grilla,
+   > - exportar a ALM no genera filas,
+   > - correr el set falla con `specPath` null.
+   >
+   > **❌ INCORRECTO** — `specPath` adentro de cada caso:
+   > ```json
+   > {
+   >   "nombre": "Dolar MEP",
+   >   "slug": "dolarMep",
+   >   "id": "12345",
+   >   "casos": [
+   >     { "numero": "43213", "nombre": "Compra con CA", "specPath": "tests/dolarMep-12345.spec.ts" }
+   >   ]
+   > }
+   > ```
+   >
+   > **✅ CORRECTO** — `specPath` a nivel raíz, `casos[]` sólo con `numero` + `nombre`:
+   > ```json
+   > {
+   >   "nombre": "Dolar MEP",
+   >   "slug": "dolarMep",
+   >   "id": "12345",
+   >   "specPath": "tests/dolarMep-12345.spec.ts",
+   >   "casos": [
+   >     { "numero": "43213", "nombre": "Compra con CA" }
+   >   ]
+   > }
+   > ```
+   >
+   > Antes de escribir el JSON releé el bloque y confirmá visualmente que `"specPath"` está al mismo nivel que `"slug"`, no anidado dentro de un objeto del array `casos`.
 
    **Si el Test Set es existente** (el archivo spec ya existe):
    - **No crees un archivo nuevo y no toques el `test.describe`** — ya existe con su `[testSetId:...]`.

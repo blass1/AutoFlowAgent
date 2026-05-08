@@ -69,7 +69,37 @@ Si confirma:
      ]
    }
    ```
-   **`specPath` va a nivel raíz** (todos los casos del set comparten el mismo archivo spec, así que es redundante repetirlo en cada caso). Si el set se creó vacío, `casos: []`.
+
+   > ### ⚠️ REGLA CRÍTICA — `specPath` va a nivel **raíz** del JSON, NUNCA dentro de `casos[]`
+   >
+   > El dashboard, `run-testset.js`, `validar-coherencia.js` y `exportar-alm.js` leen `set.specPath` (nivel raíz). Si lo metés dentro de cada caso, el dashboard no encuentra el spec, los Tests aparecen vacíos y la corrida del set falla.
+   >
+   > **❌ INCORRECTO** — `specPath` dentro de `casos[]`:
+   > ```json
+   > {
+   >   "nombre": "Dolar MEP",
+   >   "slug": "dolarMep",
+   >   "id": "12345",
+   >   "casos": [
+   >     { "numero": "43213", "nombre": "Compra con CA", "specPath": "tests/dolarMep-12345.spec.ts" }
+   >   ]
+   > }
+   > ```
+   >
+   > **✅ CORRECTO** — `specPath` a nivel raíz, `casos[]` sólo con `numero` + `nombre`:
+   > ```json
+   > {
+   >   "nombre": "Dolar MEP",
+   >   "slug": "dolarMep",
+   >   "id": "12345",
+   >   "specPath": "tests/dolarMep-12345.spec.ts",
+   >   "casos": [
+   >     { "numero": "43213", "nombre": "Compra con CA" }
+   >   ]
+   > }
+   > ```
+   >
+   > Todos los casos del set comparten el mismo archivo spec, así que es redundante repetirlo por caso. Si el set se creó vacío, `casos: []` y `specPath` igual va a nivel raíz.
 
 2. **Creá siempre el archivo spec en `tests/{slug}-{id}.spec.ts`** — cada **Test Set** tiene sí o sí un archivo de spec asociado, aunque arranque vacío. Si el archivo ya existe, no lo pises: avisá y abortá el guardado del JSON.
    - **Si el set es vacío**, escribí solo el header con el `test.describe` listo para recibir **Tests**:

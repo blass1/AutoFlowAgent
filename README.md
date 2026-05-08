@@ -465,6 +465,7 @@ node .autoflow/scripts/generar-traza.js <numero>
 # Validar coherencia (testsets/specs/sidecars/nodos)
 node .autoflow/scripts/validar-coherencia.js          # todo
 node .autoflow/scripts/validar-coherencia.js <slug>   # solo un test set
+node .autoflow/scripts/validar-coherencia.js --fix    # mueve specPath a la raíz si quedó dentro de casos[]
 
 # Audit del estado del proyecto (coherencia + trazas, sin regenerar)
 npm run audit

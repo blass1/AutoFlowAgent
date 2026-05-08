@@ -228,9 +228,13 @@ function construirModelo() {
 
   // Por cada Test Set, parseamos el spec y armamos los Tests con sus pasos (traza).
   const testSets = sets.map((set) => {
-    // specPath está a nivel raíz del Test Set. Backwards compat: si el JSON viejo
-    // lo tiene dentro de los casos, tomá el del primero.
-    const specPathFinal = set.specPath ?? set.casos?.[0]?.specPath ?? null;
+    // Resolución de specPath con 3 niveles de fallback:
+    //   1. Nivel raíz (lo correcto según convención).
+    //   2. Dentro del primer caso (formato viejo o agente que lo metió ahí por error).
+    //   3. Calculado del patrón canónico tests/{slug}-{id}.spec.ts (último recurso —
+    //      cubre el caso de testset.json sin specPath en ningún lado pero con slug + id válidos).
+    const specPathCanonico = set.slug && set.id ? `tests/${set.slug}-${set.id}.spec.ts` : null;
+    const specPathFinal = set.specPath ?? set.casos?.[0]?.specPath ?? specPathCanonico;
     const parsed = specPathFinal ? parsearSpec(specPathFinal) : null;
     const tests = (parsed?.tests || []).map((t) => {
       const pathTraza = paths[t.testId];

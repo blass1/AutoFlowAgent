@@ -44,9 +44,11 @@ if (!existsSync(setPath)) {
   process.exit(1);
 }
 const set = JSON.parse(readFileSync(setPath, 'utf8'));
-const specPathFinal = set.specPath ?? set.casos?.[0]?.specPath;
+// Resolución de specPath con 3 niveles de fallback (raíz → casos[] → canónico).
+const specPathCanonico = set.slug && set.id ? `tests/${set.slug}-${set.id}.spec.ts` : null;
+const specPathFinal = set.specPath ?? set.casos?.[0]?.specPath ?? specPathCanonico;
 if (!specPathFinal || !existsSync(specPathFinal)) {
-  console.error(`❌ Spec no encontrado: ${specPathFinal}`);
+  console.error(`❌ Spec no encontrado: ${specPathFinal ?? '(no se pudo inferir desde slug+id)'}`);
   process.exit(1);
 }
 
