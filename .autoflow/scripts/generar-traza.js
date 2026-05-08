@@ -71,7 +71,19 @@ for (const nodo of parsed.nodos) {
     errores.push(`paso ${nodo.indice} → id "${id}" no existe en nodos.json`);
     continue;
   }
-  path.push(id);
+  // Resolución de deprecated → reemplazadoPor: si la grabación captura un selector
+  // viejo cuyo nodo ya fue reemplazado por uno más confiable (Auto-Health Node /
+  // actualizar-nodos), la traza apunta al id live. Esto mantiene coherencia con
+  // el código del PO que usa el selectorRaw del nodo live.
+  let idFinal = id;
+  if (nodos[id].deprecated && nodos[id].reemplazadoPor) {
+    idFinal = nodos[id].reemplazadoPor;
+    if (!nodos[idFinal]) {
+      errores.push(`paso ${nodo.indice} → id "${id}" deprecated apunta a "${idFinal}" que no existe en nodos.json`);
+      continue;
+    }
+  }
+  path.push(idFinal);
 }
 
 if (errores.length > 0) {

@@ -206,10 +206,13 @@ Cuando el sub-flow [actualizar-nodos.md](../prompts/actualizar-nodos.md) repara 
 Por qué se conserva: las trazas históricas (`{numero}-path.json` de cada recording) apuntan al id viejo. Borrarlo rompería el análisis de caminos pasados. Mantenerlo `deprecated` preserva la historia y deja en claro que está retirado.
 
 Reglas para los consumidores:
-- **`actualizar-nodos.md`** ignora los nodos con `deprecated: true` al armar la lista de candidatos a reparar.
-- **`generar-pom.md`** (matcheo de prefijo, paso 3) ignora los `deprecated: true` — solo matchea contra ids vivos.
+- **`actualizar-nodos.md`** ignora los nodos con `deprecated: true` al armar la lista de candidatos a reparar — no se repara algo ya reemplazado.
+- **`auto-health-node.md`** ignora los `deprecated: true` al listar nodos débiles para sanear — mismo motivo.
+- **`generar-pom.md`** (matcheo de prefijo, paso 3) **sigue `reemplazadoPor`**: si el id tentativo existe pero está deprecated, resuelve al id live y matchea contra ese. Cubre el caso típico de "el grabador capturó el selector viejo en una grabación nueva pero ya tenemos uno mejor saneado por Auto-Health".
+- **`generar-traza.js`** (script que arma `path.json`) **sigue `reemplazadoPor`**: si el parsed.json tiene un nodo cuyo id está deprecated, escribe en la traza el id live. Mantiene coherencia con el código del PO que ejecuta el selectorRaw del nodo live, no del deprecated.
+- **`validar-coherencia.js`** chequea que ningún `deprecated: true` quede sin `reemplazadoPor` válido — refuerzo del invariante en el que confía la resolución de los puntos anteriores.
 - **`grafo-nodos.js`** dibuja los `deprecated` con estilo distinto (a futuro — hoy los muestra igual).
-- Las **trazas no se reescriben** nunca, aunque sus ids estén deprecated.
+- Las **trazas viejas no se reescriben** — preservan los ids deprecated que tenían al momento de generarse. Solo las trazas nuevas (regeneradas) usan los ids live tras seguir `reemplazadoPor`.
 
 ### Traza por recording — `.autoflow/recordings/{numero}-path.json`
 
