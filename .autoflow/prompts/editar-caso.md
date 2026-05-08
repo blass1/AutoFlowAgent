@@ -36,6 +36,7 @@ Usá `vscode/askQuestions` single-select: `"¿Qué hacés con el **Test** [testI
 - `📝 Editar el código manualmente`
 - `➕ Añadir pasos al final del **Test**`
 - `🎯 Insertar **Nodo** de captura/verificación`
+- `🎯 Acción filtrada en lista (click+submenú o validar existencia/no-existencia de fila)`
 - `🍴 Bifurcar **Test** desde un **Nodo** (crear Test nuevo a partir de éste)`
 
 ### Opción `🔄 Regrabar desde cero`
@@ -77,6 +78,10 @@ Cargá [.autoflow/prompts/append-manual.md](append-manual.md) pasándole `numero
 ### Opción `🎯 Insertar Nodo de captura/verificación`
 
 Cargá [insertar-nodo-especial.md](insertar-nodo-especial.md) pasándole `numero` y la ruta del spec del **Test** elegido. Ese sub-prompt maneja toda la interacción y la edición de archivos.
+
+### Opción `🎯 Acción filtrada en lista`
+
+Cargá [accion-en-lista.md](accion-en-lista.md) pasándole `numero` y la ruta del spec del **Test** elegido. Ese sub-prompt construye operaciones sobre items específicos de listas/tablas filtrando por contenido (no por posición), parametrizando los criterios como args del método. Soporta tres tipos: click + submenú (típico para 3-puntitos + Cancelar), validar que la fila existe, validar que la fila NO existe.
 
 ### Opción `🍴 Bifurcar Test desde un Nodo`
 
