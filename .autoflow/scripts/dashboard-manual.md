@@ -1,280 +1,474 @@
 # Manual de uso — AutoFlow
 
-Guía de uso diario del agente. Si es la primera vez, arrancá por **🚀 Primeros pasos**. Si ya conocés lo básico y querés algo concreto, andá directo a la sección que corresponde con el ícono.
+Guía práctica para automatizar casos de prueba con el agente. Cada sección de abajo es un flujo del menú con su paso a paso. Si querés algo concreto, andá directo a la sección correspondiente desde el TOC.
 
 ---
 
 ## 🚀 Primeros pasos
 
-### Lo que necesitás antes de arrancar
+### Lo que necesitás
 
 - **VS Code 1.109+** con la extensión **GitHub Copilot Chat** actualizada.
 - Setting `chat.askQuestions.enabled` habilitado (suele venir por defecto).
 - Plan **Copilot Business** o **Enterprise**.
 - **Node 18+** (verificá con `node --version`).
 
-### Cómo arrancar el agente
+### Cómo arrancar
 
 1. Abrí Copilot Chat (Ctrl+Shift+I en Windows / Cmd+Shift+I en Mac).
 2. En el dropdown arriba del input, elegí el chat mode **AutoFlow**.
 3. Decile *"hola"*.
 
-La **primera vez** detecta si faltan `node_modules` o los browsers de Playwright y te guía para instalarlos. Después hace un onboarding corto: te pregunta nombre, legajo, equipo y tribu. Esos datos quedan en `.autoflow/user.json` y se usan para registrar quién creó cada Test. Si necesitás cambiarlos después, podés hacerlo desde la sección **👤 Mi perfil** del dashboard.
+La **primera vez** te pide nombre, legajo, equipo y tribu — quedan en `.autoflow/user.json`. Si necesitás cambiarlos después, lo hacés desde la sección **👤 Mi perfil** del dashboard.
 
 A partir de ahí cada sesión arranca directo en el menú principal.
 
-### Si te trabás
-
-- **No aparece el chat mode AutoFlow en el dropdown**: actualizá la extensión Copilot Chat. Si seguís sin verlo, fijate que `.github/chatmodes/autoflow.chatmode.md` exista en el repo y reabrí VS Code.
-- **El agente dice "no encuentro node_modules"**: corré `npm install && npx playwright install chromium` y volvé a hablarle.
-- **Aparece el banner ASCII pero después no responde nada**: probablemente el setting `chat.askQuestions.enabled` está deshabilitado. Activalo en Settings de VS Code.
-
 ---
 
-## 🧭 El menú en 2 niveles
+## 🧭 El menú
 
-El menú principal tiene **5 categorías** (nivel 1). Al elegir una, se abre un sub-menú con sus acciones puntuales (nivel 2). Tras completar una acción siempre volvés al nivel 1, no al sub-menú — punto de pivote estable.
+Dos niveles. Nivel 1 son las 5 categorías. Nivel 2 son las acciones puntuales de cada una más un `↩️ Volver`.
 
-### 🖥️ Abrir dashboard
-
-Acción directa, sin sub-menú. Genera y abre el dashboard del proyecto en tu navegador. Lo usás cuando querés navegar visualmente Test Sets, Tests, pasos, ejecuciones o el grafo del flujo, o cuando querés editar tu perfil de Usuario.
-
-### 🧪 Tests
-
-Las 3 acciones core que más vas a usar:
-
-- **✨ Crear** — grabar un caso nuevo desde cero (manual o desde Export ALM).
-- **✏️ Editar** — modificar un Test ya grabado: regrabar, editar código, añadir pasos al final, insertar nodos especiales (capturar/verificar), o bifurcar.
-- **▶️ Correr** — ejecutar un Test puntual con UI mode.
-
-### 📦 Test Sets
-
-Un **Test Set** es un agrupador de Tests (un archivo `tests/{slug}-{id}.spec.ts` con varios `test()` adentro envueltos en un `test.describe`).
-
-- **📦 Crear** — agrupar Tests existentes en un set, o crear uno vacío.
-- **🔧 Editar** — agregar/quitar Tests, renombrar, cambiar descripción, eliminar.
-- **🚀 Correr** — correr toda la regresión del set. Pregunta headed (visual, secuencial) o headless (paralelo, rápido).
-
-### 📄 ALM
-
-Integración con tu sistema ALM:
-
-- **📥 Importar .xlsx y crear Test** — atajo a la rama "desde Export ALM" del flujo de crear caso. Te ahorra tipear nombre/TC a mano si ya los tenés en ALM.
-- **📤 Exportar Test a ALM** — toma un Test ya grabado y emite un xlsx (o csv/json) con el paso a paso (Test ID, Test Name, Step Name, Description, Expected Result) listo para subir a tu ALM.
-
-### 🛠️ Mantenimiento
-
-Tareas para mantener saludable la suite:
-
-- **🪄 Auto-Health Node** — sanea locators débiles antes de que rompan en CI.
-- **📊 Cobertura de Nodos** — reporte HTML con qué nodos están cubiertos por qué Tests, y qué pages tienen 0 cobertura.
-- **🔐 Login reusable** *(experimental)* — graba un storageState reusable para que los siguientes Tests arranquen ya logueados.
-- **🔧 Utilidades** — aplica/desaplica librerías complementarias que dejaste en `utils/`.
-
----
-
-## 🎬 Tu primer Test (tutorial)
-
-El tutorial canónico. Vas a grabar un caso de prueba completo y dejarlo corriendo.
-
-### Paso 1 — Decirle al agente qué querés hacer
-
-Menú principal → **🧪 Tests → ✨ Crear**.
-
-### Paso 2 — Datos del caso
-
-El agente pregunta:
-
-- **¿Cómo querés cargar los datos del caso?** — `📄 Importar desde Export ALM (.xlsx)` o `✍️ Cargar manualmente`. Para tu primer caso, manual es lo más rápido.
-- **Nombre del caso, número (testId), canal** — el canal se elige de un catálogo reusable (`data/urls.ts`); si no está, podés crear uno nuevo en el momento.
-- **¿Arranca logueado?** — si ya configuraste un login reusable para ese canal (vía 🔐 Login reusable), podés elegirlo y saltearte el login en la grabación. Si no, decile "no".
-- **¿Buffer de tiempo de 500ms entre inputs?** — recomendado para forms con validación on-input que se solapa al tipear rápido. Si tu front es responsivo, podés decir no.
-
-### Paso 3 — Confirmar y grabar
-
-El agente lanza Chromium con el Inspector de Playwright. **El chat queda bloqueado** mientras grabás. Navegá tu flujo end-to-end. Cuando termines, **cerrá el browser**.
-
-### Paso 4 — Confirmar que terminaste
-
-Cuando vuelve el control, el agente te pregunta `"¿Ya terminaste de grabar el flujo completo y cerraste el browser?"`. Esto es un safeguard: si decís "no, todavía estoy grabando", te espera y vuelve a preguntar. Si decís "sí" pero el archivo del recording todavía no aparece (race condition de filesystem), el agente reintenta varias veces antes de declarar fallo.
-
-### Paso 5 — Limpieza pre-agrupado
-
-Antes de procesar, el agente te muestra **todos los pasos capturados** y te ofrece borrar los que no querés (clicks accidentales, hovers de paso, asserts ruidosos). Tildá los que querés eliminar; los demás siguen al flujo. Si no hay nada para borrar, dejá el multi-select vacío y seguís.
-
-### Paso 6 — Agrupación en Page Objects
-
-El agente analiza los pasos y los matchea contra Page Objects existentes (prefix matching). Te muestra:
-
-```
-✅ LoginPage          (pasos 1–3, 3 nodos)
-✅ OverviewPage       (paso 4, 1 nodo)
-
-— Nuevo —
-   Paso 5: 👆 click en "Nueva inversión"  [4/5]
-   Paso 6: 👆 click en "Confirmar"        [4/5]
-```
-
-Las pages reusadas van colapsadas con ✅. Los pasos bajo `— Nuevo —` los agrupás vos: escribís `<rango> <NombrePage>`, ej: `5-6 ConfirmarInversion`. El agente:
-
-- Si el nombre **ya existe** como Page Object: te pregunta si querés reusar un método existente (te muestra similitud), agregar un método nuevo dentro de esa Page, o cambiar el nombre.
-- Si es nombre nuevo: genera el archivo `pages/{NombrePage}.ts` siguiendo las convenciones, el sidecar y suma los nodos.
-
-### Paso 7 — Test Set destino
-
-Cuando ya no quedan pasos en `— Nuevo —`, el agente pregunta a qué **Test Set** asociar este caso. Si es el primer Test, creá uno nuevo (te pide nombre, id, descripción).
-
-### Paso 8 — Resumen y correrlo
-
-Te muestra qué generó: pages nuevas, pages reusadas, archivo del spec, Test Set. Te ofrece correrlo en modo headed para verlo en pantalla. Decile que sí.
-
----
-
-## 🧱 Conceptos clave
-
-Si entendés estos 5 conceptos, entendés AutoFlow.
-
-### Nodo
-
-La **unidad atómica del flujo**. Cada acción del recording (click, fill, goto, assert, hover...) es un Nodo con id determinístico:
-
-```
-LoginPage::click::getByRole:button:Ingresar
-```
-
-Formato: `{Page}::{accion}::{selector}`. **El mismo nodo en distintas grabaciones colapsa al mismo id**. Esto permite responder cross-recording: "qué Tests usan este botón", "qué nodos no toca nadie".
-
-Cada nodo tiene **confiabilidad de 1 a 5** según el tipo de locator:
-
-| Confiabilidad | Locator | Cuándo |
-|---|---|---|
-| 5 | `getByTestId` | Lo más sólido |
-| 4 | `getByRole({ name })` | Accesible y semántico |
-| 3 | `getByLabel` | Forms etiquetados |
-| 2 | `getByPlaceholder` / `getByText` | Frágil ante cambios de copy |
-| 1 | `locator(...)` CSS | Frágil ante refactors del front |
-
-La confiabilidad se ve en el dashboard, en el grafo de nodos, y en el listado del agente al agrupar. Es deuda visible **antes** de que rompa.
-
-### Page Object
-
-Una clase TypeScript en `pages/{Nombre}Page.ts` que encapsula los locators y métodos de una pantalla. Cada Page Object tiene un sidecar en `.autoflow/fingerprints/{Nombre}.json` con la lista ordenada de ids de sus nodos. Ese sidecar es la huella que usa el agente para reconocer el flujo en grabaciones futuras.
-
-### Test
-
-Un bloque `test('{nombre} [testId:{numero}]', ...)` dentro de un spec. Tiene sus pasos en `test.step('comentario', async () => { ... })` para que el reporter los muestre como sub-pasos colapsables.
-
-### Test Set
-
-Un agrupador de Tests. Vive en dos lugares:
-
-- `.autoflow/testsets/{slug}.json` — metadata (nombre, id, casos).
-- `tests/{slug}-{id}.spec.ts` — un único `test.describe('{nombre} [testSetId:{id}]', () => { ... })` con todos los `test()` adentro.
-
-### Traza
-
-`.autoflow/recordings/{numero}-path.json` — la secuencia de ids visitados por un Test. Sobrevive a la grabación. Se usa para análisis de cobertura, para bifurcar Tests, y para Auto-Health Node (saber dónde se usa cada Nodo).
-
----
-
-## 🩹 Cuando algo no anda
-
-Tabla de **síntoma → flujo** para los problemas más típicos.
-
-| Síntoma | Qué hacer |
+| Categoría | Acciones |
 |---|---|
-| Un Test pasaba y empezó a fallar — el front cambió un selector | Correr el Test → en el menú post-fallo elegir `🧩 Actualizar Nodos sospechosos`. Tildás los que creés que cambiaron y elegís `🪄 Capturar DOM y proponer` (el agente captura el DOM real y propone un locator más confiable) o `✍️ Pegar a mano`. |
-| Querés mejorar locators frágiles **antes** de que rompan | Menú → `🛠️ Mantenimiento → 🪄 Auto-Health Node`. Lista los nodos con confiabilidad ≤3 ordenados por fragilidad y por cantidad de Tests que los usan. |
-| El login con OTP se hace eterno cada vez que grabás | Menú → `🛠️ Mantenimiento → 🔐 Login reusable`. Lo grabás una vez y los siguientes Tests del mismo canal arrancan ya logueados. |
-| El Test cuelga 30s y falla con timeout sin explicación | Mirá si tu PO usa `waitForLoadState('networkidle')` — en sites con long-polling/analytics/WebSocket persistente nunca se cumple. Cambialo a `'domcontentloaded'` (default actual). |
-| El agente dice "no encuentro el archivo del recording" pero vos lo ves en la carpeta | El agente tiene retry (3 intentos × 1.5s) para race conditions de filesystem. Si igual falla, te muestra el listado real del directorio y te ofrece confirmar manualmente con `✅ Confirmo que el archivo está, seguí`. |
-| Hay grabaciones zombi (sesiones marcadas activas pero el browser ya se cerró) | Al activar el chat mode, `setup-entorno.md` las detecta automáticamente (>30 min con `activa: true`) y te ofrece retomarlas, cerrarlas, o dejarlas como están. |
-| El dashboard muestra `0 Test Sets · 0 Tests` aunque tenés Tests | Regenerá el dashboard: `npm run dashboard`. Es estático, se actualiza solo cuando lo corrés. |
-| Las pages se duplicaron — tenés `LoginPage` y `LoginPage2` | Es un caso de colisión que se resolvió mal en una grabación pasada. Editá a mano: mové los métodos de `LoginPage2` a `LoginPage`, actualizá los imports en los specs y el sidecar, y borrá `LoginPage2.ts`. |
+| `🖥️ Abrir dashboard` | (acción directa, sin sub-menú) |
+| `🧪 Tests` | Crear · Editar · Correr |
+| `📦 Test Sets` | Crear · Editar · Correr |
+| `📄 ALM` | Importar .xlsx · Exportar Test a ALM |
+| `🛠️ Mantenimiento` | Auto-Health Node · Validar/Regenerar trazas · Cobertura · Login reusable · Utilidades |
+
+Tras completar una acción, siempre volvés al **nivel 1** (no al sub-menú desde el que viniste). Punto de pivote estable.
 
 ---
 
-## 🍴 Avanzado
+## 🧪 Crear un Test
 
-Cuando dominás lo básico, estas funcionalidades te ahorran más tiempo.
+**Cuándo usarlo**: querés grabar un caso de prueba nuevo desde cero.
 
-### Bifurcar un Test desde un Nodo
+### Pasos
 
-Útil cuando ya tenés un Test que llega hasta cierto punto del flujo (ej: login + navegar al producto) y querés crear otro que arranque desde ahí. En lugar de regrabar todo:
+1. **Menú → 🧪 Tests → ✨ Crear**.
 
-1. Menú → `🧪 Tests → ✏️ Editar` → elegís el Test fuente → `🍴 Bifurcar Test desde un Nodo`.
-2. El agente lista los `test.step` del Test fuente — elegís el step de corte.
-3. Genera un **warm-up** que ejecuta el prefix usando los métodos del PO existentes y guarda `storageState` en el punto exacto.
-4. Lanza el grabador con el storage cargado apuntando a la URL del nodo de corte. Vos solo grabás la cola.
-5. El agente arma el Test nuevo: prefix copiado del fuente + tail recién agrupado.
+2. **¿Cómo cargás los datos?**
+   - `📄 Importar desde Export ALM (.xlsx)` — si ya tenés el caso en ALM, dejás el `.xlsx` en `.autoflow/alm-exports/` y el agente lee testId, nombre y enfoque automáticamente.
+   - `✍️ Cargar manualmente` — escribís nombre y testId a mano.
 
-**Limitación honesta**: `storageState` captura cookies + localStorage + sessionStorage, **no** estado in-memory (forms a medio llenar, modales abiertos). Si el nodo de corte está mid-form, el agente te avisa y te ofrece elegir otro punto.
+3. **Pide datos del caso** (carrousel):
+   - Nombre del caso (ej: "Compra de dolar mep con CA")
+   - Número/testId
+   - Canal — single-select de los canales conocidos (`data/urls.ts`) o opción para crear uno nuevo.
 
-### Nodos especiales: capturar y verificar
+4. **¿Arranca logueado?**
+   Si para ese canal hay un `auth/{canal}-{user}.json` configurado, te ofrece elegirlo. Decí "sí" si querés saltearte el login y "no" si querés grabarlo.
 
-Cuando un caso necesita validar que un valor del DOM cambió de manera específica (ej: "el saldo disminuyó después de transferir"):
+5. **¿Buffer anti-solape de 500ms?**
+   Recomendado **sí** si el front del banco tiene validators on-input que se solapan al tipear rápido. **No** si el front es responsivo.
 
-- **`capturar`** — lee un valor en un punto del flujo y lo guarda en una variable per-test.
-- **`verificar`** — vuelve a leer y compara contra una variable previa o un literal, según una condición (`igual`, `distinto`, `aumentó`, `disminuyó`, `aumentó al menos N`, `aumentó al menos N%`, etc.).
+6. **Confirmás y el agente lanza Chromium** con el grabador. **El chat queda bloqueado** mientras grabás.
 
-Se insertan **después** de grabar, desde `Editar → Insertar Nodo de captura/verificación`. Para armar el locator hay 4 caminos:
+7. **Grabás tu flujo** end-to-end. Cuando termines, **cerrás el browser**.
 
-1. **🔧 Abrir Chrome hasta el paso N** — el agente abre el browser pausado en el punto exacto.
-2. **📋 HTML + intent** — pegás el HTML y describís qué querés extraer; el agente arma el locator.
-3. **🔁 Reusar locator existente** — del recording.
-4. **✍️ Pegar selector Playwright** — si ya lo tenés.
+8. **El agente vuelve y te pregunta**: `"¿Ya terminaste de grabar?"`. Esto es un safeguard contra retornos prematuros — solo decí `Sí` cuando efectivamente cerraste el browser.
 
-### Importar / Exportar ALM
+9. **Limpieza pre-agrupado**:
+   El agente te muestra todos los pasos que capturó y te ofrece **borrar los no deseados** (clicks accidentales, hovers de paso, asserts ruidosos). Tildá los que querés eliminar y confirmá. Si no hay nada para borrar, dejá vacío y seguí.
 
-- **📥 Importar**: dejás el `.xlsx` exportado de tu ALM en `.autoflow/alm-exports/`, elegís `📄 ALM → Importar .xlsx y crear Test`, el agente lee testId, nombre y enfoque del archivo y arranca el grabador sin que tipees nada a mano.
-- **📤 Exportar**: el agente toma un Test ya grabado y emite un archivo (xlsx default, csv o json) con un row por cada `test.step`. Granularidad: un Test por archivo. Útil para subir a ALM via API o import manual.
+10. **Agrupación de pasos en Page Objects**:
+    El agente te muestra el listado de pasos pendientes bajo `— Nuevo —` (las pages que ya existían las marca con ✅ colapsadas). Vos escribís rangos:
+    ```
+    1-3 LoginPage
+    4 OverviewPage
+    5-7 AccesoFima
+    ```
+    Por cada agrupación, el agente genera el `pages/{Nombre}Page.ts`, el sidecar (`fingerprints/{Nombre}.json`) y los nodos.
+    
+    **Si elegís un nombre que ya existe**: el agente compara el rango de pasos contra los métodos del PO existente. Te ofrece **reusar un método** (si los pasos son muy parecidos), **agregar un método nuevo** dentro del PO existente, o **cambiar el nombre** si era casualidad.
 
-### Utilidades (plugin loader)
+11. **Asociás el Test a un Test Set**:
+    `single-select` con los Test Sets existentes + opción `➕ Crear nuevo`. Si es nuevo, te pide nombre, id y descripción.
 
-Si tenés librerías auxiliares (un reporter custom, un hook de notificación, helpers) podés ponerlas en `utils/` y enchufarlas al proyecto vía `🛠️ Mantenimiento → 🔧 Utilidades`. Cada utilidad se autodescribe con un header tipo `@autoflow-util` que el agente parsea para entender dónde aplicarla y cómo. Idempotente: aplicar dos veces no duplica nada. Convención completa en [utils/README.md](../../utils/README.md).
+12. **El agente genera todo**:
+    - `pages/*.ts` (POs nuevos)
+    - `tests/{slug}-{id}.spec.ts` (spec con `test.describe` + `test.step`)
+    - `data/data-{slug}.ts` (interface + datos del Test Set, autocontenido)
+    - `nodos.json` actualizado
+    - sidecars de las pages
+    - `{numero}-path.json` (la traza)
+    - regenera los grafos (una sola vez al final)
 
-### Buffer de tiempo (anti-solape)
+13. **Te ofrece correrlo headed** para ver la prueba que acabás de grabar ejecutándose en pantalla.
 
-Algunos forms del banco tienen validación on-input asíncrona. Si el siguiente keystroke llega antes de que la validación termine, los eventos se solapan y el campo queda en estado raro. Al crear un Test, el agente pregunta si activar un buffer de 500ms post cada `pressSequentially`. Recomendado encender para forms con validators agresivos.
+### Tips
+
+- **Hacé clicks claros, sin doble-tap accidental**. El parser ya filtra Ctrl+C/V, pero clicks dobles los toma como dos pasos.
+- **Si tu canal tiene login con OTP**: configurá primero un **Login reusable** (Mantenimiento → 🔐) antes de crear casos. Te ahorra tipear el OTP en cada grabación.
+- **Si el flujo tiene un date picker o filtrar una fila de tabla**: terminá la grabación normal, después usá **Editar Test** para insertar esos pasos parametrizados (más abajo).
+- **Si querés bifurcar desde otro Test existente** en lugar de regrabar: usá **Editar Test → 🍴 Bifurcar**.
+
+### Si algo sale mal
+
+- **El agente dice que no encuentra el archivo de la grabación pero vos lo ves**: race condition de filesystem. El agente reintenta 3 veces; si igual falla, te muestra el listado real del directorio y te ofrece confirmar manualmente con `✅ Confirmo que está, seguí`.
+- **El agente no genera la traza**: el flujo se cortó antes del paso 9. Andá a **Mantenimiento → 🧬 Validar / Regenerar trazas** — si los inputs siguen, el script la regenera; si no, hay que regrabar.
+
+---
+
+## ▶️ Correr un Test
+
+**Cuándo usarlo**: querés ejecutar un Test puntual y ver el resultado.
+
+### Pasos
+
+1. **Menú → 🧪 Tests → ▶️ Correr**.
+2. Elegís el **Test Set** que contiene el Test.
+3. Elegís el **Test** dentro del set.
+4. Confirmás y el agente dispara la corrida con `--headed` (browser visible) y `--grep=\[testId:N\]` (filtra al Test elegido — el spec contiene todos los Tests del set, sin el grep correrías todos).
+
+### Lectura del resultado
+
+- ✅ **Pasó** → te ofrece correr otro Test, repetir, o volver al menú.
+- ❌ **Falló** → te ofrece varias acciones:
+  - `🔄 Volver a correr` (reintentar tal cual).
+  - `🧩 Actualizar Nodos sospechosos` → sub-flow para reparar locators rotos. Lista los nodos del Test ordenados por confiabilidad ascendente y por cada uno te ofrece **`🪄 Capturar DOM y proponer`** (Auto-Health) o **`✍️ Pegar a mano`** el locator nuevo.
+  - `📊 Re-correr con trace y abrir reporte HTML` → vuelve a correr con `--debug` (suma `--reporter=html --trace=on`) y abre el reporte de Playwright con screenshots, trace y stack.
+  - `🔍 Ver el error completo` → te muestra el output del terminal.
+  - `📝 Abrir el Test para editar`.
+
+### Tips
+
+- **Default es rápido**: `--reporter=line`, sin trace ni HTML report. Ideal para corridas iterativas.
+- **Para investigar un fallo**, andá siempre por `📊 Re-correr con trace y abrir reporte HTML` — es la única forma de ver paso a paso qué pasó.
+- **Si el Test no existe en el dashboard**: chequea **Validar / Regenerar trazas** (Mantenimiento). Probablemente la traza no se generó.
+
+---
+
+## ✏️ Editar un Test
+
+**Cuándo usarlo**: necesitás modificar un Test existente. El menú de edición tiene 7 sub-opciones — usás la que corresponda.
+
+### Cómo entrar
+
+**Menú → 🧪 Tests → ✏️ Editar**. Elegís Test Set → Test → la acción de abajo.
+
+### 🔄 Regrabar desde cero
+
+**Cuándo**: el flujo cambió mucho y conviene partir de cero.
+
+El agente lee el spec actual (URL inicial, canal, etc.), te confirma los datos, y delega a **Crear Test** desde el paso 3 — saltea las preguntas que ya sabe.
+
+### 📝 Editar el código manualmente
+
+**Cuándo**: querés ajustes finos al código (renombrar un método, agregar un wait específico, ajustar un selector verbatim).
+
+El agente abre en VSCode el spec + todos los Page Objects que el Test usa. Lo editás a mano. **Después** correlo con `▶️ Correr` para verificar.
+
+### ➕ Añadir pasos al final del Test
+
+**Cuándo**: necesitás extender el flujo (más pasos al final), sin tocar lo que ya está.
+
+Te ofrece dos modos:
+- **🎬 Regrabar desde el final** → marca `modo: "append"` en la sesión y lanza el grabador apuntando a la URL final del Test. Vos navegás solo los pasos nuevos, cerrás el browser, y el agente mergea los pasos al spec existente reusando los Page Objects que ya hay (matchea contra los sidecars).
+- **🧱 Construir paso a paso (HTML + acción)** → flujo manual sin volver a navegar. Pegás el HTML del elemento target, elegís la acción (click, fill, hover, etc.), el agente arma el locator y lo agrega al PO.
+
+### 🎯 Insertar Nodo de captura/verificación
+
+**Cuándo**: necesitás validar que un valor del DOM cambió de manera específica (ej: "el saldo disminuyó después de transferir").
+
+Hay dos tipos de Nodo especial:
+- **`capturar`** — lee un valor en un punto del flujo y lo guarda en una variable per-Test.
+- **`verificar`** — vuelve a leer (mismo selector u otro) y compara contra una variable previa o un literal, según una condición (`igual`, `distinto`, `aumentó`, `disminuyó`, `aumentó al menos N`, `aumentó al menos N%`, etc.).
+
+**Pasos**:
+1. Elegís en qué punto del flujo insertar (después de qué paso).
+2. Tipo: `capturar` o `verificar`.
+3. Si `capturar`: nombre de la variable.
+4. Cómo armar el locator — 4 caminos:
+   - **🔧 Abrir Chrome hasta el paso N** → el agente genera un spec temporal que ejecuta los pasos hasta el punto y termina con `page.pause()`. Se abre el Inspector de Playwright; vos usás "Pick locator" o copiás outerHTML con DevTools.
+   - **📋 HTML + intent** → pegás el HTML y describís qué querés extraer (ej: "el saldo en pesos de la cuenta CA"). El agente arma el locator robusto.
+   - **🔁 Reusar locator existente** del recording.
+   - **✍️ Pegar selector Playwright** que ya tenés.
+5. Parser del valor: `text` / `number` / `currency-arg` / `date`.
+6. Si `verificar`: contra qué comparar (variable capturada o literal) y la condición.
+7. Confirmás y el agente edita el PO + spec + nodos.json + sidecar atómicamente.
+
+### 🎯 Acción filtrada en lista
+
+**Cuándo**: tenés que operar sobre **un item específico** de una lista/tabla que cumple criterios concretos. Ejemplos:
+- Click en los 3 puntitos de "la suscripción Fima de hoy con monto $100.000" → `Cancelar`.
+- Validar que existe un plazo fijo de fecha=hoy + monto=X.
+- Validar que NO existe un movimiento de fecha=ayer (porque se canceló).
+
+**Por qué**: el grabador captura por posición (`nth(2)`); si mañana cambia el orden, el test agarra otra fila. Este flujo arma un **filtro por contenido** que es robusto.
+
+**Pasos**:
+1. Elegís el punto de inserción.
+2. Tipo de acción:
+   - `🎯 Click en menú de la fila` (3 puntitos + submenú).
+   - `✓ Validar que la fila exista`.
+   - `🚫 Validar que la fila NO exista`.
+3. Pegás el HTML de la lista (con 2-3 filas para que el agente vea la estructura repetitiva).
+4. Definís hasta **5 criterios de filtro**: nombre del criterio (`fecha`, `monto`, `nombreFondo`...), tipo TS (`string`, `number`, `Date`), valor de ejemplo. **Cada criterio se vuelve un parámetro del método**.
+5. Si es click+menú: pegás el HTML del submenú (los 3 puntitos abiertos) y elegís qué opción se clickea.
+6. Confirmás. El agente arma:
+   ```ts
+   async cancelarSuscripcionFima(fecha: string, monto: number): Promise<void> {
+     const fila = this.page.getByRole('row')
+       .filter({ hasText: fecha })
+       .filter({ hasText: String(monto) });
+     await fila.getByRole('button', { name: 'Más opciones' }).click();
+     await this.page.getByRole('menuitem', { name: 'Cancelar suscripción' }).click();
+     await this.page.waitForLoadState('domcontentloaded');
+   }
+   ```
+7. **Origen de cada criterio**: del data file (sumá el campo nuevo), calculado al vuelo (ej: fecha de hoy), o literal hardcodeado.
+
+### 📅 Elegir fecha en date picker
+
+**Cuándo**: necesitás elegir una fecha en un selector y quere parametrizarla (no clavarla al día capturado por el grabador).
+
+**Pasos**:
+1. Elegís el punto de inserción.
+2. Tipo de date picker:
+   - `📅 Input nativo HTML5 (<input type="date">)`.
+   - `📆 Calendario custom` (con header de mes + botones de día + nav).
+   - `🔤 Input typeable` (escribís + dropdown).
+3. Pegás el HTML del picker (con header del mes si es custom).
+4. Formato: `Date object` o `string` con formato específico (`dd/mm/yyyy`, `yyyy-mm-dd`, etc.).
+5. Si es custom: cómo se ve el header del mes (ej: `mayo 2026`, `Mayo de 2026`).
+6. Nombre del método (ej: `elegirFechaVencimiento`) y del parámetro (`fecha`).
+7. Origen del valor: del data file, calculado al vuelo (hoy, +30 días, próximo viernes, custom), o literal.
+8. Confirmás y el agente arma el método. Para el custom hace un loop: navega meses comparando el header hasta llegar al objetivo, después click en el día.
+
+**Tip**: si el calendario custom tiene un formato de header inusual, el helper `parsearHeader` puede necesitar ajuste manual después. El agente te avisa en el cierre.
+
+### 🍴 Bifurcar Test desde un Nodo
+
+**Cuándo**: tenés un Test que llega hasta cierto punto del flujo (login + navegar al producto) y querés crear otro que arranque desde ahí, sin regrabar todo.
+
+**Pasos**:
+1. Elegís el Test fuente.
+2. Elegís el **step de corte** (el agente lista los `test.step` del Test fuente; vos elegís después de cuál querés bifurcar).
+3. Datos del Test nuevo: nombre, testId nuevo.
+4. Test Set destino: el mismo del Test fuente, otro existente, o uno nuevo.
+5. El agente genera un **warm-up** en `tests/_temp/`: ejecuta los steps 1..N del prefix llamando a los métodos del PO original, y al final guarda el `storageState` (cookies + localStorage + sessionStorage) en el punto de corte.
+6. Lanza el grabador con `--load-storage` apuntando a la URL del nodo de corte. **Vos solo grabás la cola** — el prefix ya quedó hecho.
+7. Cerrás el browser. El agente confirma que terminaste.
+8. El agente arma el Test nuevo: prefix copiado del Test fuente + tail recién agrupado, todo en el mismo `test()` con sus instancias arriba.
+
+**Limitación honesta**: `storageState` captura cookies/localStorage/sessionStorage, **no** estado in-memory (forms a medio llenar, modales abiertos, JS state). Si el step de corte está mid-form, el agente te avisa y te ofrece elegir otro punto.
+
+---
+
+## 📦 Test Sets
+
+### 📦 Crear Test Set
+
+**Cuándo**: querés agrupar Tests para correr regresiones completas.
+
+**Pasos**:
+1. **Menú → 📦 Test Sets → 📦 Crear**.
+2. Carrousel: nombre del set (ej: "Regresión de Plazos Fijos"), id (ej: `12345`), descripción.
+3. Multi-select: elegís Tests existentes para mover al set (cada Test vive en un solo Test Set; al moverlo se borra del spec original). O `📭 Crear vacío` para arrancar sin Tests.
+4. Confirmás. El agente crea:
+   - `.autoflow/testsets/{slug}.json` con metadata + lista de casos.
+   - `tests/{slug}-{id}.spec.ts` con el `test.describe('{nombre} [testSetId:{id}]', () => { ... })` listo para recibir Tests.
+
+### 🔧 Editar Test Set
+
+**Cuándo**: necesitás agregar/quitar Tests, renombrar el set, cambiar la descripción.
+
+Single-select de acciones disponibles:
+- Mover un Test a este set (desde otro o desde "casos sueltos").
+- Mover un Test fuera del set.
+- Renombrar / cambiar id / cambiar descripción.
+- Eliminar el set entero (te confirma; preserva los specs si elegís).
+
+### 🚀 Correr Test Set
+
+**Cuándo**: querés correr toda la regresión.
+
+**Pasos**:
+1. **Menú → 📦 Test Sets → 🚀 Correr**. Elegís el set.
+2. Validación pre-corrida: `validar-coherencia.js` chequea specs faltantes, sidecars con ids inexistentes, POs sin sidecar. Si hay errores te frena antes de gastar tiempo.
+3. **Headed o headless?**
+   - `🎬 Headed (ver el browser, secuencial)` — recomendado para validar visualmente. Workers=1.
+   - `⚡ Headless (rápido, paralelo)` — recomendado para regresiones grandes. Usa los workers default del config.
+4. Corre y reporta totales.
+
+### Lectura del resultado
+
+- ✅ **Todos pasaron** → te ofrece correr otro set o volver al menú.
+- ❌ **Algunos fallaron** → te muestra cuáles y te ofrece:
+  - `▶️ Correr solo los que fallaron` (rearma el grep).
+  - `🧩 Actualizar Nodos sospechosos de un caso` (te pregunta cuál si hay varios).
+  - `📊 Re-correr con trace y abrir reporte HTML`.
+  - `🔍 Ver el primer error en detalle`.
+
+---
+
+## 📄 ALM
+
+### 📥 Importar .xlsx y crear Test
+
+**Cuándo**: ya tenés el caso cargado en ALM y querés ahorrarte tipear nombre/TC a mano.
+
+**Pasos**:
+1. Exportá el caso desde ALM y dejá el `.xlsx` en `.autoflow/alm-exports/`.
+2. **Menú → 📄 ALM → 📥 Importar .xlsx y crear Test**.
+3. Te pide el nombre del archivo (o ruta completa). El script lee:
+   - A2 → testId
+   - C2 → nombre del caso
+   - G2 → enfoque de prueba
+4. El agente confirma con vos y, si hace falta, te deja editar nombre/testId. Después solo te pregunta el canal y arranca el grabador (saltea las preguntas iniciales del flujo de Crear Test).
+
+### 📤 Exportar Test a ALM
+
+**Cuándo**: tenés un Test ya grabado y querés generar un archivo para subir a ALM (xlsx por defecto).
+
+**Pasos**:
+1. **Menú → 📄 ALM → 📤 Exportar Test a ALM**.
+2. Elegís Test Set → Test → formato (`xlsx` recomendado, `csv` o `json` también).
+3. El script genera un archivo en `.autoflow/alm-exports/{slug}-testId-{N}-{ts}.{ext}` con un row por cada Nodo de la traza:
+
+   | Test ID | Test Name | Step Number | Step | Description | Expected Result |
+   |---|---|---|---|---|---|
+   | 43213 | Compra de dolar... | 1 | Navegar | Se navega a https://... | La página se carga correctamente. |
+   | 43213 | Compra de dolar... | 2 | Click | Se hace click en el campo "Usuario" | Se dispara la acción asociada. |
+   | 43213 | Compra de dolar... | 3 | Llenar campo | Se ingresa el valor correspondiente en el campo "Usuario" | El campo acepta el valor. |
+   | ... | | | | | |
+   | 43213 | Compra de dolar... | 7 | Validar visibilidad | Se valida que el título "Bienvenido" sea visible | El título aparece visible. |
+
+4. Description y Expected están **humanizadas** en castellano — pensadas para que un QA pueda leer el archivo en ALM y recrear el caso a mano sin tener que mirar código.
+
+**Tip**: si te dice `❌ No encuentro la traza`, andá a **Mantenimiento → 🧬 Validar / Regenerar trazas** primero.
+
+---
+
+## 🛠️ Mantenimiento
+
+### 🪄 Auto-Health Node
+
+**Cuándo**: querés sanear locators frágiles **antes** de que rompan en CI.
+
+**Pasos**:
+1. **Menú → 🛠️ Mantenimiento → 🪄 Auto-Health Node**.
+2. El agente lista los Nodos con confiabilidad ≤3 ordenados por fragilidad + cantidad de Tests que los usan (los más frágiles y más usados arriba).
+3. Elegís uno.
+4. El agente identifica en qué Test se usa, genera un spec efímero en `tests/_temp/` que ejecuta el flujo hasta el paso anterior, y captura el DOM del elemento (elemento + 7 ancestros, fallback a body completo si el locator está completamente roto).
+5. Razona sobre el HTML capturado y propone un locator más confiable, priorizando `getByTestId` > `getByRole+name` > `getByLabel` > etc.
+6. Te muestra "antes/después" con la confiabilidad delta:
+   ```
+   Locator actual:    getByText('Continuar')                [2/5]
+   Locator propuesto: getByTestId('btn-continuar')          [5/5]
+   ```
+7. Confirmás y aplica atómicamente: PO + nodos.json (con `deprecated: true, reemplazadoPor`) + sidecar.
+
+**Tip**: solo aplica si la confiabilidad mejora. Si no encuentra mejor, te avisa y no toca nada.
+
+### 🧬 Validar / Regenerar trazas
+
+**Cuándo**: el dashboard muestra Tests sin pasos, exportar-alm falla con `❌ No encuentro la traza`, o querés un audit pre-demo.
+
+**Pasos**:
+1. **Menú → 🛠️ Mantenimiento → 🧬 Validar / Regenerar trazas**.
+2. El agente corre `validar-trazas.js`. Reporta 4 categorías:
+   - `ok`: trazas que existen y están bien.
+   - `regenerado`: trazas que faltaban pero se regeneraron desde `parsed.json` + `grupos.json`.
+   - `fallido`: tienen inputs pero `generar-traza.js` falla (típicamente drift entre `nodos.json` y los grupos — Nodos deprecated sin reemplazo).
+   - `irrecuperable`: sin inputs, hay que regrabar.
+3. Para los `fallido` te ofrece cargar `actualizar-nodos.md` (probablemente hay deprecated sin reemplazo).
+4. Para los `irrecuperable` te ofrece borrar las sesiones huérfanas.
+
+**Idempotente**: corrérlo varias veces no rompe nada.
+
+### 📊 Cobertura de Nodos
+
+**Cuándo**: querés saber qué del producto está testeado de verdad.
+
+**Pasos**:
+1. **Menú → 🛠️ Mantenimiento → 📊 Cobertura de Nodos**.
+2. El agente corre `cobertura.js` que agrega todas las trazas y emite un HTML interactivo en `.autoflow/grafos/cobertura.html`.
+3. El HTML muestra:
+   - Qué nodos están cubiertos y por qué Tests.
+   - Qué nodos no pisa nadie (código muerto).
+   - % de cobertura por Page Object.
+   - Grafo de pages coloreado de **rojo (0%)** a **verde (100%)**.
+
+### 🔐 Login reusable (experimental)
+
+**Cuándo**: el banco tiene login con OTP y volver a hacerlo cada grabación es un dolor.
+
+**Pasos**:
+1. **Menú → 🛠️ Mantenimiento → 🔐 Login reusable**.
+2. Single-select: grabar nuevo / refrescar uno existente / borrar uno / volver.
+3. Si grabás nuevo: elegís canal y usuario (escaneados de los `data/data-*.ts` o cargados a mano).
+4. El agente lanza Chromium. Te logueás (incluyendo OTP si aplica) y cerrás el browser cuando estés del otro lado del login.
+5. El estado queda en `.autoflow/auth/{canal-slug}-{userKey}.json` (gitignored, sensible).
+6. La próxima vez que crees un caso en ese canal, el agente detecta el auth y te pregunta si arrancás logueado.
+
+**Reduce un caso de "12 pasos (login + OTP + flujo)" a "2 pasos (solo flujo)"** cuando ya tenés el auth.
+
+### 🔧 Utilidades
+
+**Cuándo**: tenés librerías auxiliares (reporting custom, hooks de notificación, helpers) que querés enchufar al proyecto.
+
+**Pasos**:
+1. Pones tu archivo en `utils/` con un header convencional (ver `utils/README.md` para el shape de los tags `@autoflow-util`, `@descripcion`, `@aplicarEn`, `@como-aplicar`, etc.).
+2. **Menú → 🛠️ Mantenimiento → 🔧 Utilidades**.
+3. El agente lista las utilidades disponibles con su estado (aplicada / no aplicada / sin instrucciones).
+4. Tildás las que querés aplicar/desaplicar.
+5. Por cada una: el agente te muestra las instrucciones literales del header + un preview de los cambios concretos. Confirmás y aplica idempotentemente.
+
+**Reglas**: el agente nunca toca archivos sin confirmación, no duplica imports/hooks (idempotente), y frena si las instrucciones del header son ambiguas.
+
+---
+
+## 🖥️ Dashboard
+
+**Cuándo usarlo**: para tener una vista visual del estado del proyecto. Lo abrís desde **Menú → 🖥️ Abrir dashboard** o con `npm run dashboard`.
+
+### Lo que vas a encontrar
+
+**Sidebar (izquierda)**:
+- 👤 **Mi perfil** — editás tus datos del `user.json` (el agente actualiza el archivo cuando le pegás el prompt al chat).
+- 📖 **Manual de uso** — esta misma guía.
+- **Test Sets** expandibles a Tests. Cada Test tiene una **page-bar** debajo: una barra horizontal coloreada que muestra qué Pages toca (un segmento por Page, en orden de visita).
+
+**Vista principal (derecha)**:
+- **Test Set seleccionado** → 3 tabs: Detalles (descripción + grilla de Page Objects con métricas: locators, métodos, nodos, # de Tests que lo usa, confiabilidad promedio), Tests, Ejecuciones.
+- **Test seleccionado** → 4 tabs: Detalles (canal, sesión, origen ALM si aplica), Pasos (cada paso con su confiabilidad y color por Page), Grafo (Mermaid agrupado en `subgraph` por Page), Ejecuciones.
+
+### Modal de Nodo
+
+Si hacés click en un paso o en un nodo del grafo, se abre un modal con la info del Nodo (id, page, accion, selector, selectorRaw, confiabilidad, deprecated) y 4 acciones:
+- **📂 Abrir en VSCode** → deep link a la línea exacta del locator en el PO.
+- **📋 Copiar prompt: actualizar Nodo** → copia al portapapeles un prompt listo para pegar en el chat (`actualizar-nodos.md`).
+- **🍴 Bifurcar Test desde acá** → copia un prompt para bifurcar el Test desde este Nodo.
+- **🪄 Auto-Health (capturar DOM)** → copia un prompt para sanear el locator del Nodo.
+
+### Tip importante
+
+El dashboard es **estático** — se actualiza solo cuando lo regenerás. Cada vez que querés ver lo último, corré `npm run dashboard` o entrá desde el menú.
 
 ---
 
 ## ❓ Troubleshooting
 
-Errores específicos y cómo destrabarlos.
-
-### "El agente dice que no hay sesión activa"
-
-Pasa cuando hiciste `node clearSession.js` o cuando una sesión vieja se cerró pero quedó marcada incorrectamente. Solución: arrancá un caso nuevo (`🧪 Tests → ✨ Crear`) y el agente la crea por vos.
-
-### "Codegen abre Chromium pero la URL no carga"
-
-Mirá si la URL del canal en `data/urls.ts` está bien. También puede ser que el banco bloquee tu IP — probá levantar la VPN si aplica.
-
-### "El test corre pero falla en la primera línea con `selector strict mode violation`"
-
-Tu selector matchea más de un elemento. El agente debería haber capturado un selectorRaw específico (con `.first()` / `.nth(N)` / `.filter(...)`). Si no, abrí el PO y agregá el chain a mano. El "audit" te lo va a mostrar como confiabilidad baja la próxima vez.
-
-### "Cobertura dice 0 nodos cubiertos pero corrí los tests"
-
-Cobertura usa las **trazas** (`{numero}-path.json`), no los runs reales. Las trazas se generan al **grabar** un Test, no al correrlo. Si no ves nada cubierto, regenerá las trazas o regrabá los Tests.
-
-### "Quiero borrar todo y empezar de cero"
-
-```bash
-node clearSession.js
-```
-
-Te pide confirmación (escribir `SI`). Borra grabaciones, fingerprints, testsets, nodos.json, pages/, tests/, data/data-*.ts. **No toca** scripts, prompts, conventions, fixtures, configs, ni `utils/`.
-
-### "El dashboard no se actualiza con cambios recientes"
-
-Es estático. Cada vez que querés ver lo último, corré `npm run dashboard` (o `🖥️ Abrir dashboard` desde el menú).
-
-### "Quiero ver los logs de una corrida que falló"
-
-Después de un fallo, el agente ofrece `📊 Re-correr con trace y abrir reporte HTML`. Eso dispara la corrida con `--reporter=html --trace=on` y abre `npx playwright show-report` cuando termina. Ahí tenés trace, screenshots y stack trace.
+| Síntoma | Qué hacer |
+|---|---|
+| El agente dice "no encuentro el archivo del recording" pero vos lo ves en la carpeta | Race condition de filesystem. El agente reintenta 3 veces antes de declarar fallo. Si igual falla, te muestra el listado real y te ofrece confirmar manualmente con `✅ Confirmo que está, seguí`. |
+| El dashboard muestra Tests sin pasos | La traza no se generó. Andá a `🛠️ Mantenimiento → 🧬 Validar / Regenerar trazas`. Si los inputs siguen, el script la regenera. |
+| Un Test pasaba y empezó a fallar — el front cambió un selector | Correr el Test → menú post-fallo elegí `🧩 Actualizar Nodos sospechosos`. Tildás los que creés que cambiaron y elegís `🪄 Capturar DOM y proponer` (recomendado) o `✍️ Pegar locator a mano`. |
+| Querés mejorar locators frágiles antes de que rompan | `🛠️ Mantenimiento → 🪄 Auto-Health Node`. |
+| El login con OTP se hace eterno cada vez que grabás | `🛠️ Mantenimiento → 🔐 Login reusable`. Lo grabás una vez y los siguientes Tests del mismo canal arrancan ya logueados. |
+| El Test cuelga 30s y falla con timeout sin explicación | Probable que tu PO use `waitForLoadState('networkidle')` en un site con long-polling/analytics persistente. Cambialo a `'domcontentloaded'` (que es el default actual). Para Tests viejos podés migrar a mano. |
+| Hay grabaciones zombi (sesiones marcadas activas pero el browser cerrado) | Al activar el chat mode, `setup-entorno.md` las detecta automáticamente (>30 min con `activa: true`) y te ofrece retomarlas, cerrarlas, o dejarlas como están. |
+| Querés un audit completo del estado del proyecto | `npm run audit` → corre `validar-coherencia.js` + `validar-trazas.js --solo-audit` en cascada. Punto único de "está todo OK". |
+| Las pages se duplicaron (`LoginPage` y `LoginPage2`) | Caso de colisión que se resolvió mal en una grabación pasada. Editá a mano: mové los métodos de `LoginPage2` a `LoginPage`, actualizá los imports en los specs y el sidecar, borrá `LoginPage2.ts`. |
+| El grep no filtra el Test correctamente al correr | El bug de PowerShell escapando mal los corchetes. Asegurate que el comando use `--grep=\[testId:N\]` (forma `=` sin quotes), no `--grep "\[testId:N\]"`. |
+| Quiero borrar todo y empezar de cero | `node clearSession.js` (pide confirmación con `SI`). Borra grabaciones, fingerprints, testsets, nodos.json, pages, tests, data/data-*.ts. **No toca** scripts, prompts, conventions, fixtures, configs, ni `utils/`. |
+| Quiero ver una corrida headless rápida vs headed visual | Al correr un Test Set te pregunta. Headed = secuencial con browser visible (validar visualmente). Headless = paralelo con workers default (regresiones grandes). |
+| El export a ALM tiene rows técnicas en vez de humanizadas | Probable que estés usando una versión vieja del script. Verificá que `exportar-alm.js` lea la traza (`{testId}-path.json`) y genere un row por Nodo, no por `test.step`. |
 
 ---
 
-> Si encontrás algo que no está en este manual o un error al usar el agente, comentalo en el chat y se actualiza. El manual vive en `.autoflow/scripts/dashboard-manual.md` — editalo libremente.
+> Si encontrás algo que no está cubierto en este manual, comentalo en el chat. El manual vive en `.autoflow/scripts/dashboard-manual.md` — editalo libremente, el dashboard lo lee al regenerarse.
