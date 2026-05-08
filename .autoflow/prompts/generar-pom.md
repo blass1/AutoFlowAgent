@@ -456,7 +456,7 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
 
    **Si el Test Set es nuevo** (el archivo spec no existe):
    - Creá `tests/{slug}-{id}.spec.ts` con el `test.describe('{nombreSet} [testSetId:{idSet}]', () => { ... })` y adentro el primer `test('{nombreCaso} [testId:{numero}]', ...)`.
-   - Creá `.autoflow/testsets/{slug}.json` con el shape de `crear-test-set.md` paso 3, incluyendo `id` y el path del spec en `casos`.
+   - Creá `.autoflow/testsets/{slug}.json` siguiendo el shape de `crear-test-set.md` paso 3 — **`specPath` a nivel raíz** del JSON (no dentro de `casos[]`). Los `casos[]` solo llevan `{ numero, nombre }`. El `specPath` raíz es lo que `dashboard.js`, `run-testset.js` y `validar-coherencia.js` leen — si lo metés dentro de `casos[]` el dashboard no encuentra el spec y los Tests aparecen vacíos en la grilla.
 
    **Si el Test Set es existente** (el archivo spec ya existe):
    - **No crees un archivo nuevo y no toques el `test.describe`** — ya existe con su `[testSetId:...]`.
@@ -475,7 +475,15 @@ node .autoflow/scripts/generar-traza.js {numero}
 
 El script lee `.autoflow/recordings/{numero}-parsed.json` + `.autoflow/recordings/{numero}-grupos.json` + `.autoflow/nodos.json` y emite `.autoflow/recordings/{numero}-path.json` con la secuencia de ids de nodo visitados (incluyendo asserts) en el orden del recording.
 
-**Si el script falla** (típicamente porque falta `grupos.json` o porque hay un nodo sin page asignada), **frená el flujo** y avisá al QA: probablemente algún paso del recording no se agrupó. No avances al resumen ni a la limpieza hasta resolver. Esto es intencional: la traza es el output de mayor valor analítico del flujo, perderla por un olvido del agente sería costoso.
+**Verificación obligatoria**: después de correr el script, **leé `.autoflow/recordings/{numero}-path.json` con la herramienta `read`** para confirmar que existe y que tiene `path[]` no vacío. Si no existe o está vacío, **el flujo se considera incompleto** — sin traza, el dashboard no muestra los pasos del Test, exportar a ALM falla, cobertura no cuenta el Test, y Auto-Health Node no puede operar sobre ese caso.
+
+**Si el script falla o el archivo no se generó**:
+1. **NO avances** al resumen ni al paso 10 de limpieza — los inputs `parsed.json`/`grupos.json` siguen siendo necesarios para reintentar.
+2. Mostrale al QA el error concreto del stderr (típicamente: falta `grupos.json`, algún nodo no cae en ningún rango, id no existe en `nodos.json`).
+3. Abrí `vscode/askQuestions` single-select: `"La traza no se generó. ¿Qué hacés?"`:
+   - `🔄 Reintentar generar-traza` → volvé a correr el script.
+   - `📋 Ver inputs` → ejecutá `dir .autoflow/recordings/{numero}-*` (Windows) o `ls -la .autoflow/recordings/{numero}-*` (Linux/Mac) con `runCommands` y mostrale al QA qué archivos existen.
+   - `↩️ Volver al menú sin limpiar` → marcá `session.activa: false` pero **NO** borres temporales. El QA puede regenerar después con `node .autoflow/scripts/generar-traza.js {numero}` a mano cuando arregle el problema.
 
 ## 9.5. Regenerar los grafos (una sola vez por sesión)
 

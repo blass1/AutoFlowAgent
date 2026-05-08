@@ -275,7 +275,7 @@ El menú es de **2 niveles**. Nivel 1: 5 categorías. Nivel 2: las acciones punt
 | `🧪 Tests` | Crear · Editar · Correr |
 | `📦 Test Sets` | Crear · Editar · Correr |
 | `📄 ALM` | Importar .xlsx y crear · Exportar a ALM |
-| `🛠️ Mantenimiento` | Auto-Health Node · Cobertura de Nodos · Login reusable · Utilidades |
+| `🛠️ Mantenimiento` | Auto-Health Node · Validar/Regenerar trazas · Cobertura de Nodos · Login reusable · Utilidades |
 
 Detalle de cada acción:
 
@@ -290,6 +290,7 @@ Detalle de cada acción:
 | 🔐 Login reusable (experimental) | `setup-auth.md` | Graba un storageState por (canal, usuario) para que los siguientes Tests arranquen logueados sin re-grabar el login. |
 | 📊 Cobertura de Nodos | (corre `cobertura.js`) | Agrega todas las trazas y emite un reporte HTML con qué nodos están cubiertos, por qué Tests, y qué pages tienen 0 cobertura. |
 | 🪄 Auto-Health Node | `auto-health-node.md` | Lista los Nodos con confiabilidad ≤3 ordenados por fragilidad + cantidad de Tests que los usan. Para el elegido, navega el flujo hasta el paso anterior, captura el DOM (elemento + 7 ancestros, fallback a body completo) y propone un locator más confiable razonando sobre el HTML. Solo aplica si la confiabilidad mejora. |
+| 🧬 Validar / Regenerar trazas | `validar-trazas.md` | Audita las trazas de todos los Tests grabados. Reporta cuáles están OK, cuáles regeneró desde inputs disponibles (`parsed.json` + `grupos.json`), cuáles fallan, y cuáles son irrecuperables (sin inputs, hay que regrabar). Soluciona el caso típico de "el dashboard muestra Tests sin pasos" porque la traza nunca se generó. |
 | 📥 Importar .xlsx y crear Test | `crear-caso.md` con `origen: "alm"` | Atajo a la rama de Export ALM de `crear-caso.md` saltando la pregunta inicial. Lee A2 (testId), C2 (nombre), G2 (enfoque) del xlsx que dejaste en `.autoflow/alm-exports/`. |
 | 📤 Exportar Test a ALM | `exportar-alm.md` | Exporta un Test a un archivo importable por ALM (xlsx por defecto, csv o json). **Un row por cada Nodo de la traza** (acción atómica del flujo) con Test ID, Test Name, Step Number, Step (label corto: `Click`, `Llenar campo`, `Validar visibilidad`, etc.), Description (humanizada en castellano: *"Se hace click en el botón 'Aceptar'"*) y Expected Result (humanizado: comportamiento, respuesta o estado final esperado). Pensado para que un QA lea el archivo en ALM y pueda recrear el caso a mano. Granularidad un Test por archivo. |
 | 🔧 Utilidades | `utilidades.md` | Aplica/desaplica librerías complementarias que el QA deja en `utils/` (ej: `pdfReporter.ts` para reportes custom). Cada archivo se autodescribe con un header (`@autoflow-util`, `@descripcion`, `@aplicarEn`, `@como-aplicar`). El agente parsea, muestra preview de los cambios y aplica con confirmación por utilidad. Idempotente. Frena si las instrucciones son ambiguas. |

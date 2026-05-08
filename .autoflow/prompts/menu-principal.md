@@ -99,6 +99,7 @@ Usá `#tool:vscode/askQuestions` single-select: `"¿Qué querés hacer?"` con es
 `vscode/askQuestions` single-select: `"¿Qué tarea de mantenimiento?"`:
 
 - `🪄 Auto-Health Node — sanear locators débiles`
+- `🧬 Validar / Regenerar trazas`
 - `📊 Cobertura de **Nodos**`
 - `🔐 Login reusable (experimental)`
 - `🔧 Utilidades`
@@ -109,6 +110,7 @@ Usá `#tool:vscode/askQuestions` single-select: `"¿Qué querés hacer?"` con es
 | Opción | Acción |
 | --- | --- |
 | `🪄 Auto-Health Node — sanear locators débiles` | `.autoflow/prompts/auto-health-node.md` |
+| `🧬 Validar / Regenerar trazas` | `.autoflow/prompts/validar-trazas.md` |
 | `📊 Cobertura de **Nodos**` | corré `node .autoflow/scripts/cobertura.js` con `runCommands`, después abrí `.autoflow/grafos/cobertura.html` (`start ` en Windows, `open ` en macOS, `xdg-open ` en Linux). Mostrale al QA un resumen de 3 líneas con totales (cubiertos / no cubiertos / % cobertura). Después releé el sub-menú. |
 | `🔐 Login reusable (experimental)` | `.autoflow/prompts/setup-auth.md` |
 | `🔧 Utilidades` | `.autoflow/prompts/utilidades.md` |
