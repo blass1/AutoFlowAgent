@@ -503,11 +503,11 @@ Eso reescribe `.autoflow/grafos/grafo.{md,html}` (grafo de pages) y `.autoflow/g
 Una vez que `path.json` existe (verificá su existencia antes de borrar nada), borrá los archivos temporales:
 - `.autoflow/recordings/{numero}-parsed.json`
 - `.autoflow/recordings/{numero}.spec.ts`
-- `.autoflow/recordings/{numero}-grupos.json` (ya cumplió su función al alimentar el script de traza)
 
 **Mantené** como historial:
 - `.autoflow/recordings/{numero}-session.json` (con `activa: false`)
 - `.autoflow/recordings/{numero}-path.json` (traza de nodos)
+- `.autoflow/recordings/{numero}-grupos.json` — **NO lo borres**. `validar-trazas.js` lo necesita para regenerar la traza si después se pierde el `path.json` (git pull, clearSession parcial, etc.). Pesa ~1 KB, no contamina nada visible.
 
 ## Bloque AÑADIR PASOS — pasos nuevos al final de un Test existente
 

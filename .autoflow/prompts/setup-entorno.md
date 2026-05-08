@@ -37,6 +37,24 @@ Leé el output con `terminalLastCommand`. Solo seguí el branch de "falta instal
      - `🚪 Salir y resolverlo manualmente`
   3. **Si pasó**: `✅ Dependencias instaladas.` y seguí al menú.
 
+## 1.5. Limpieza de specs temporales colgados
+
+Antes de chequear sesiones zombi, limpiá los specs temporales viejos de `tests/_temp/` que pueden haber quedado de corridas anteriores que crashearon a mitad de un flujo (warm-up de bifurcación, captura de DOM de Auto-Health Node, prueba de auth). El threshold de **>1 hora de antigüedad** evita borrar specs que estén siendo usados activamente en una corrida en paralelo.
+
+Ejecutá con `runCommands` un comando determinístico que liste los archivos viejos y los borre. En Windows (PowerShell):
+
+```powershell
+Get-ChildItem tests/_temp/*.spec.ts -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -lt (Get-Date).AddHours(-1) } | Remove-Item -Force
+```
+
+En bash/macOS/Linux:
+
+```bash
+find tests/_temp -name '*.spec.ts' -type f -mmin +60 -delete 2>/dev/null
+```
+
+**Hacelo callado**: no le anuncies al QA cada limpieza. Si por algún motivo el comando falla (carpeta no existe, permisos), seguí silencioso — no es bloqueante.
+
 ## 2. Sesiones zombi (grabaciones colgadas)
 
 Antes de pasar al menú, chequeá si hay alguna grabación huérfana. Esto pasa cuando el QA cerró VSCode mientras la grabación corría: la sesión queda con `"activa": true` y el siguiente arranque la levanta y se confunde.

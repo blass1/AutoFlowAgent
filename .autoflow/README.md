@@ -45,7 +45,7 @@ Cuando el QA arranca "Crear caso" y graba el flujo, se generan en `recordings/`:
 | `{numero}-session.json` | Metadata de la sesión + flag `activa: true/false` | Sí (historial) |
 | `{numero}.spec.ts` | Output crudo de `playwright codegen` | No (temporal) |
 | `{numero}-parsed.json` | Nodos crudos parseados del spec | No (temporal) |
-| `{numero}-grupos.json` | Rangos `{ page, desde, hasta }` que el agente persiste mientras agrupa | No (temporal) |
+| `{numero}-grupos.json` | Rangos `{ page, desde, hasta }` que el agente persiste mientras agrupa | **Sí** (lo necesita `validar-trazas.js` para regenerar `path.json` si se pierde) |
 | `{numero}-path.json` | Traza del recording: secuencia de ids de nodo visitados | **Sí (histórico)** |
 
 Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/generar-pom.md), pero solo después de verificar que `path.json` se generó correctamente.
@@ -71,7 +71,7 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 
 | Prompt | Para qué |
 | --- | --- |
-| `setup-entorno.md` | Se carga al activar el modo. Verifica `node_modules` y los browsers de Playwright; además detecta sesiones zombi (grabaciones con `activa: true` de hace > 30 min) y le pregunta al QA qué hacer con ellas. |
+| `setup-entorno.md` | Se carga al activar el modo. Verifica `node_modules` y los browsers de Playwright, limpia specs viejos de `tests/_temp/` (>1 hora de antigüedad — basura de corridas que crashearon mid-flow), y detecta sesiones zombi (grabaciones con `activa: true` de hace > 30 min) preguntando al QA qué hacer. |
 | `setup-auth.md` | Graba un `storageState` por (canal, usuario) en `.autoflow/auth/`. Sirve para que los casos arranquen logueados sin volver a grabar el login. |
 | `onboarding.md` | Primer uso — pide nombre, legajo, equipo, tribu. |
 | `menu-principal.md` | Menú de **2 niveles**. Nivel 1: 5 categorías — `🖥️ Dashboard` (acción directa), `🧪 Tests`, `📦 Test Sets`, `📄 ALM`, `🛠️ Mantenimiento`. Nivel 2: las acciones puntuales de cada categoría + `↩️ Volver`. Tras completar una acción, siempre se vuelve al nivel 1 (no al sub-menú). |

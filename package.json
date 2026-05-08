@@ -9,7 +9,8 @@
     "record": "node .autoflow/scripts/start-recording.js",
     "run:test": "node .autoflow/scripts/run-test.js",
     "run:set": "node .autoflow/scripts/run-testset.js",
-    "dashboard": "node .autoflow/scripts/dashboard.js --open"
+    "dashboard": "node .autoflow/scripts/dashboard.js --open",
+    "audit": "node .autoflow/scripts/validar-coherencia.js && node .autoflow/scripts/validar-trazas.js --solo-audit"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

@@ -78,6 +78,7 @@ Si por algún motivo encontrás un `*-session.json` con `"activa": true` pero la
 - **Cuando vayas a generar código**, leé primero `.autoflow/conventions/pom-rules.md`.
 - **No inventes archivos ni paths.** Si algo no existe, decilo y proponé alternativas.
 - **No inventes APIs.** Solo podés conversar, leer/escribir archivos, y disparar VSCode tasks o comandos de terminal.
+- **No improvises código fuera de los flujos de los sub-prompts.** Si el QA te pide algo que implica modificar código del repo (Page Objects, specs, data files, fixtures, configs) y no encaja en ningún sub-prompt del menú, **frená** y proponé el flujo más cercano. Las convenciones de `pom-rules.md` y la generación estructurada por sub-prompt son lo que mantiene el repo predecible — si improvisás, el dashboard, Auto-Health Node, exportar a ALM y demás flujos basados en patrones empiezan a fallar en silencio. Sí podés ser conversacional para responder preguntas, explicar conceptos, debuggear o aclarar dudas sin tocar archivos.
 
 ## Comportamiento si `vscode/askQuestions` no está disponible
 

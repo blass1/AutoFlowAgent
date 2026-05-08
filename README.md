@@ -466,6 +466,15 @@ node .autoflow/scripts/generar-traza.js <numero>
 node .autoflow/scripts/validar-coherencia.js          # todo
 node .autoflow/scripts/validar-coherencia.js <slug>   # solo un test set
 
+# Audit del estado del proyecto (coherencia + trazas, sin regenerar)
+npm run audit
+# o equivalente:
+node .autoflow/scripts/validar-coherencia.js && node .autoflow/scripts/validar-trazas.js --solo-audit
+
+# Validar/Regenerar trazas (si hay tests sin path.json y los inputs siguen)
+node .autoflow/scripts/validar-trazas.js              # regenera lo que pueda
+node .autoflow/scripts/validar-trazas.js --solo-audit # solo reporta, no regenera
+
 # Reporte de cobertura (.autoflow/grafos/cobertura.{md,html})
 node .autoflow/scripts/cobertura.js
 
