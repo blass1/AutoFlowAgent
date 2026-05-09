@@ -308,17 +308,32 @@ Esta prioridad la usa **el grabador al grabar**, no el agente al generar el PO. 
 - Web-first con `expect()` de Playwright. Nunca `.then()`.
 - Si un PO necesita verificar que cargó, exponé un método `estaVisible(): Promise<void>` que haga `await expect(this.heading).toBeVisible()`.
 
-### Buffer de tiempo per-Test (anti-solape de validación on-input)
+### Buffer de tiempo per-Test (anti-solape de validación on-input y selección)
 
-Cuando el QA crea un **Test**, `crear-caso.md` paso 1.6 le pregunta si activar un **buffer de 500ms** entre inputs. La decisión se persiste en `session.json` como `bufferTiempo: true | false`. Si está en `true`, `generar-pom.md` paso 6 emite, **después de cada `pressSequentially(...)`** dentro de un método público:
+Cuando el QA crea un **Test**, `crear-caso.md` paso 1.6 le pregunta si activar un **buffer de 500ms**. La decisión se persiste en `session.json` como `bufferTiempo: true | false`. Si está en `true`, `generar-pom.md` paso 6 emite el wait **después de cada acción de input/selección** dentro de un método público — concretamente: `pressSequentially`, `click`, `check`, `uncheck`, `selectOption`. Ejemplo con dos inputs y un click de avanzar:
 
 ```typescript
-await this.<locator>.pressSequentially(valor);
-// Wait: buffer anti-solape de validación on-input (configurado al crear el Test).
+await this.usuario.pressSequentially(usuario);
+// Wait: buffer anti-solape (configurado al crear el Test).
+await this.page.waitForTimeout(500);
+await this.password.pressSequentially(password);
+// Wait: buffer anti-solape (configurado al crear el Test).
+await this.page.waitForTimeout(500);
+await this.botonIngresar.click();
+// Wait: buffer anti-solape (configurado al crear el Test).
 await this.page.waitForTimeout(500);
 ```
 
-Ese único patrón cubre los dos casos típicos: input → input (la espera queda después del primero) e input → click de avanzar/continuar/siguiente (la espera queda entre ambos). Es el único lugar donde `waitForTimeout` se inserta de forma "automática" — el resto de las esperas siguen las reglas de la próxima sección.
+Cubre tres casos típicos:
+- **input → input**: la validación on-input del primero se emite antes del siguiente focus.
+- **input → click de avanzar/continuar/siguiente**: el botón se habilita después de que terminó de validar.
+- **click → click rápido (típicamente checkboxes/toggles consecutivos)**: cada checkbox/toggle se procesa antes del siguiente. Sin esto, el segundo click suele ejecutarse antes de que el front terminó de aplicar el primero y el estado queda inconsistente.
+
+**Excepciones — NO emitir el wait** si:
+- La siguiente línea ya es `await this.page.waitForLoadState(...)` (redundante: la espera de carga cubre la espera de buffer).
+- La acción es la **última del método** y el método dispara navegación (cerrás con `waitForLoadState('domcontentloaded')` en lugar de waitForTimeout).
+
+Es el único lugar donde `waitForTimeout` se inserta de forma "automática" — el resto de las esperas siguen las reglas de la próxima sección.
 
 **Herencia**: en flujos que reusan un **Test** existente (añadir pasos al final, bifurcar, insertar nodo especial), el setting se hereda de la sesión del **Test** original. Si la sesión original no tiene el campo (Tests viejos previos a esta convención), se asume `false`. Por lo tanto el buffer queda **baked en el método del PO** en el momento de generación: si dos **Tests** comparten el mismo PO con buffer distinto, gana el primero que lo generó. Para cambiar después, editar el PO a mano.
 

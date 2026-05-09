@@ -115,12 +115,12 @@ Si hay uno o más, abrí `vscode/askQuestions` single-select: `"¿El caso arranc
 
 Si elige uno, guardá el path en `authState`. Si elige no, `authState = null`.
 
-## 1.6. ¿Buffer de tiempo entre inputs?
+## 1.6. ¿Buffer de tiempo entre acciones?
 
-Algunos forms del banco tienen validación on-input que se ejecuta de forma asíncrona y, si el siguiente keystroke llega antes de que termine, se solapan los eventos y la grabación queda inestable (campos que se autocompletan mal, botones que no se habilitan, etc.). El buffer es una espera corta que se inserta **después de cada input** (sea otro input el siguiente paso, o un botón de avanzar/continuar/siguiente) para darle aire a esa validación.
+Algunos forms del banco tienen validación on-input asíncrona y, si el siguiente keystroke o click llega antes de que termine, los eventos se solapan: campos que se autocompletan mal, botones que no se habilitan, **checkboxes/toggles que no se seleccionan bien si se clickean en sucesión rápida**. El buffer es una espera corta de 500ms que se inserta **después de cada acción de input o selección** (`pressSequentially`, `click`, `check`, `uncheck`, `selectOption`) para darle aire al front.
 
-Abrí `vscode/askQuestions` single-select: `"¿Aplicar buffer de 500ms entre inputs?"`:
-- `✅ Sí, recomendado para UIs lentas (anti-solape de eventos)`
+Abrí `vscode/askQuestions` single-select: `"¿Aplicar buffer de 500ms entre acciones?"`:
+- `✅ Sí, recomendado para UIs lentas (anti-solape de eventos y selecciones)`
 - `⏭️ No, sin buffer (más rápido pero puede haber solape)`
 
 Guardá la decisión en memoria como `bufferTiempo: true | false`. Va a viajar al `session.json` en el paso 3 y la consume `generar-pom.md` paso 6 al emitir los métodos del **Page Object**.
