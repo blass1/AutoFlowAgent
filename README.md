@@ -300,7 +300,9 @@ Sub-prompts adicionales que el agente carga sin que el QA los pida:
 - `setup-entorno.md` — al activar el modo, verifica `node_modules` y browsers de Playwright + detecta sesiones zombi.
 - `onboarding.md` — primer uso, pide identidad del QA y la guarda en `.autoflow/user.json`.
 - `menu-principal.md` — menú de 2 niveles (5 categorías × N acciones cada una).
-- `generar-pom.md` — post-grabación, limpieza pre-agrupado, prefix matching, agrupación interactiva (con manejo de colisión de nombres), generación de POMs/sidecar/spec, regrafos al final.
+- `generar-pom.md` — post-grabación, limpieza pre-agrupado, prefix matching, agrupación interactiva, generación de POMs/sidecar/spec, regrafos al final. Delega en `pom-colision.md` (colisión de nombres) y `pom-append-grabado.md` (modo añadir pasos).
+- `pom-colision.md` — sub-flow de `generar-pom.md`. Maneja la colisión cuando el QA elige un nombre de Page Object que ya existe (reusar método, agregar método nuevo, o cambiar nombre).
+- `pom-append-grabado.md` — sub-flow de `generar-pom.md`. Mergea pasos recién grabados al final de un Test existente reusando POs ya conocidos. Distinto de `append-manual.md` (este último arranca de HTML pegado, sin grabar).
 - `insertar-nodo-especial.md` — invocado desde "Editar Test" → "Insertar nodo de captura/verificación".
 - `actualizar-nodos.md` — invocado tras un Test fallido para reparar locators que cambiaron en el front. Ofrece "🪄 Capturar DOM y proponer" o "✍️ Pegar a mano".
 - `bifurcar-caso.md` — invocado desde "Editar Test" o desde el modal de Nodo del dashboard. Crea un Test nuevo reusando el prefix de un Test existente.

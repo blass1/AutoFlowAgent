@@ -10,7 +10,7 @@ Se carga cuando vuelve el control después de la grabación (la task `autoflow:s
 
 ## 0. ¿Modo añadir pasos?
 
-Leé `.autoflow/recordings/{numero}-session.json`. Si tiene `"modo": "append"` (flag interno del flujo de **añadir pasos al final del Test**), **saltás todo el flujo normal** y vas al **Bloque AÑADIR PASOS** al final de este prompt. En este modo no se generan **Page Objects** nuevos ni **Test Sets** nuevos: se mergean los pasos al spec existente reusando los locators que ya están.
+Leé `.autoflow/recordings/{numero}-session.json`. Si tiene `"modo": "append"` (flag interno del flujo de **añadir pasos al final del Test**), **saltás todo el flujo normal** y delegás en `pom-append-grabado.md`: ese sub-prompt mergea los pasos al spec existente reusando locators y métodos de pages ya conocidas, sin generar Page Objects ni Test Sets nuevos.
 
 Si no hay `modo` o es `"crear"` (o cualquier otro valor), seguí con el flujo normal del paso 1 en adelante.
 
@@ -176,65 +176,9 @@ Antes de generar:
 
 ## 5.5. Colisión con Page Object existente
 
-Solo se entra acá si el nombre del paso 5 coincide con un PO ya existente. Es una **oportunidad** (consolidar conocimiento de pantalla en un único PO), no un error.
+Si el nombre del paso 5 coincide con un PO ya existente (`pages/{Nombre}Page.ts`), **delegá en `pom-colision.md`**: ese sub-prompt carga los métodos públicos del PO existente, calcula similitud contra el rango actual y le ofrece al QA reusar un método, agregar un método nuevo a esa Page o cambiar el nombre.
 
-### 5.5.1. Cargar el PO existente
-
-1. Leé `pages/{Nombre}Page.ts` y extraé los **métodos públicos** (`async <nombre>(...)` que no sean `private`/`#`). Para cada método, anotá:
-   - `nombreMetodo`
-   - `firma` (parámetros)
-   - `cuerpo` (líneas dentro del método, hasta el `}` de cierre)
-   - `selectoresUsados` — lista ordenada de `(accion, selectorRaw)` extraídos del cuerpo. Heurística: cada línea `await this.<locator>.<accion>(...)` mapea a `(accion, selectorRaw del locator privado)`. Resolvé `selectorRaw` cruzando con la asignación del constructor (`this.<locator> = page.<selectorRaw>`).
-2. Leé `.autoflow/fingerprints/{Nombre}.json` (sidecar). Tenés `nodos[]` planos.
-
-### 5.5.2. Comparar con el rango actual
-
-El rango que el QA quiere agrupar es una secuencia de nodos (acciones del usuario, sin asserts) con su `selectorRaw` y `accion` en `nodos.json` (vía `parsed.json`).
-
-Para cada método existente, calculá la **similitud** = porcentaje de pasos del rango que matchean en orden contra los `selectoresUsados` del método.
-
-- Match exacto: `(accion, selectorRaw)` idénticos.
-- Match parcial: `accion` igual + `selector` normalizado igual (descontando modificadores).
-- Si la secuencia del rango es **subsecuencia exacta** de los selectores del método o viceversa → **similitud alta** (≥80%).
-- Si comparten al menos el **primer y último paso** + parte del medio → similitud media (50–80%).
-- Si no → similitud baja (<50%, no se ofrece como opción).
-
-### 5.5.3. Preguntar al QA qué hacer
-
-Single-select `vscode/askQuestions`: `"⚠️ {Nombre}Page ya existe. ¿Qué hacés con este rango?"`. Opciones (en este orden):
-
-- Por cada método con similitud ≥50%, una opción:
-  - `🔁 Reusar método "{nombreMetodo}({firma})" — cubre {N}/{M} pasos del rango ({similitud}%)` 
-- Después de las opciones de reuso (si las hay):
-  - `🆕 Agregar método nuevo dentro de {Nombre}Page (recomendado si ningún match es exacto)`
-- Siempre al final:
-  - `✏️ Cambiar el nombre (no es la misma pantalla, fue casualidad)` → vuelve al paso 5 esperando otro comando.
-
-### 5.5.4. Si elige reusar
-
-- **NO** se crea ni se modifica `pages/{Nombre}Page.ts`. **NO** se modifica el sidecar (`nodos[]` ya tiene esos ids; no duplicar).
-- Persistí el grupo en `{numero}-grupos.json` igual que en el paso 6.5 con `{ page, desde, hasta, metodoReusado: '<nombreMetodo>' }`. El campo `metodoReusado` lo usa el spec en el paso 8.b para elegir qué método llamar.
-- Si entre los pasos del rango hay **asserts** que NO están en `sidecar.asserts[]`, sumalos al sidecar y a `nodos.json` (los asserts no son parte del método público; son enriquecimiento de la firma de la page).
-- Si hay nodos `capturar`/`verificar` en el rango, son siempre nuevos: agregalos a `nodos.json`. El spec los va a emitir inline después de la llamada al método reusado.
-- Volvé al paso 4 (mostrá el listado actualizado: la page agrupada va con ✅ colapsada).
-
-### 5.5.5. Si elige agregar método nuevo
-
-- **NO** se crea archivo nuevo. **EDITÁ** `pages/{Nombre}Page.ts`:
-  1. Si los nodos del rango usan locators que ya están en el constructor (mismo `selectorRaw`), reusalos. NO sumes locators duplicados.
-  2. Para cada locator nuevo, sumá `private readonly {nombreLocator}: Locator;` al bloque de declaraciones y la inicialización en el constructor (`selectorRaw` verbatim, ver paso 6).
-  3. Sumá el método público nuevo siguiendo todas las reglas del paso 6 (verbo en infinitivo, JSDoc de una línea, `pressSequentially`, buffer si aplica, `waitForLoadState('domcontentloaded')` si dispara navegación). El método retorna `Promise<void>` siempre — no retorna otra Page.
-- **EDITÁ** el sidecar `.autoflow/fingerprints/{Nombre}.json`:
-  - Sumá los ids de los nodos nuevos al final de `nodos[]` (ya están en orden por el rango). Mantené los ids existentes intactos. Si un id se repite (locator reusado, misma acción), no lo dupliques.
-  - Sumá los asserts nuevos a `asserts[]` sin duplicar.
-- **Actualizá** `nodos.json` igual que en el paso 6.3 (nuevos ids, sin sobreescribir existentes).
-- Persistí el grupo en `{numero}-grupos.json` con `{ page, desde, hasta, metodoNuevo: '<nombreMetodoCreado>' }`.
-- Volvé al paso 4 con la page actualizada.
-
-### 5.5.6. Notas
-
-- La detección de similitud es heurística — el QA siempre tiene la última palabra. Si propones "reusar" mal, el QA elige "agregar método nuevo" y ya.
-- Si el método reusado **retorna otra page**, el spec va a usar el retorno tal cual (`const overview = await login.ingresar(...)`). Si el método nuevo creado retorna otra page (porque la última acción navega), seguí la misma regla del paso 6.
+Cuando vuelve, persistió `metodoReusado` o `metodoNuevo` en `{numero}-grupos.json` (el paso 8.b lee ese campo) y enriqueció sidecar + `nodos.json` si correspondía. Volvé al paso 4 con el listado actualizado.
 
 ## 6. Generar el PO de la nueva page
 
@@ -564,82 +508,6 @@ Una vez que `path.json` existe (verificá su existencia antes de borrar nada), b
 - `.autoflow/recordings/{numero}-session.json` (con `activa: false`)
 - `.autoflow/recordings/{numero}-path.json` (traza de nodos)
 - `.autoflow/recordings/{numero}-grupos.json` — **NO lo borres**. `validar-trazas.js` lo necesita para regenerar la traza si después se pierde el `path.json` (git pull, clearSession parcial, etc.). Pesa ~1 KB, no contamina nada visible.
-
-## Bloque AÑADIR PASOS — pasos nuevos al final de un Test existente
-
-Solo se entra acá si `session.modo === "append"` (flag interno; visible al QA como **"Añadir pasos al final del Test"**). La sesión ya trae:
-- `numero` del **Test** original (testId)
-- `specPath` del spec ya existente (`tests/{slug}-{id}.spec.ts`)
-- `testNombre` — el nombre del `test('...')` que se va a extender (formato `"{nombre} [testId:{numero}]"`)
-
-### A.1. Cerrar la sesión y parsear
-
-Igual al paso 1 (marcar `activa: false`, `fechaFin`) y al paso 2 (correr `parse-codegen-output.js {numero}` para tener `parsed.json`).
-
-### A.2. Matchear contra Page Objects existentes
-
-Igual al paso 3 (prefix matching contra `.autoflow/fingerprints/*.json`). En este modo esperamos que **TODOS** los nodos matcheen con **Page Objects** conocidos — el QA está extendiendo un flujo, no creando pantallas nuevas.
-
-Si quedan pasos en "Nuevo" sin matchear:
-- Mostralos al QA y abrí `vscode/askQuestions` single-select:
-  - `🆕 Agruparlos como **Page Objects** nuevos (caemos al flujo normal del paso 4)` — si el QA confirma, salí del bloque AÑADIR PASOS y seguí desde el paso 4 normal.
-  - `↩️ Cancelar (no toco nada)` — borrá los archivos temporales y volvé al menú.
-
-### A.3. Confirmar con el QA
-
-Mostrá el listado de los pasos nuevos asignados a sus **Page Objects** existentes, formato similar al paso 4, y confirmá:
-
-```
-Voy a añadir al final del **Test** [testId:{numero}] estos pasos:
-
-✅ AccesoFima
-   ✅ Paso 1: Click en botón "Fondos Fima"           [4/5]
-   ✅ Paso 2: Click en botón "Fima Premium"          [2/5]
-
-✅ ConfirmarSuscripcion
-   ✅ Paso 3: Click en botón "Suscribir"             [4/5]
-```
-
-`vscode/askQuestions` single-select: `"¿Confirmás añadir los pasos?"`:
-- `✅ Sí, añadirlos`
-- `❌ Cancelar`
-
-### A.4. Editar el spec (sin regenerar)
-
-1. Leé `tests/{slug}-{id}.spec.ts`.
-2. Localizá el bloque `test('{testNombre}', ...)` exacto **dentro del `test.describe`**. El nombre tiene formato `"{nombre} [testId:{numero}]"`. Si no aparece, frená y avisá al QA.
-3. Identificá el **bloque de instancias** del Test (al inicio del `test()`, después del destructuring de data): `const loginPage = new LoginPage(page); const overviewPage = new OverviewPage(page); ...`. Es la lista visual de las pages que el Test usa.
-4. Para cada page del añadido:
-   - Si la page **ya está** en el bloque de instancias (porque ya se usaba en el Test), reusá esa variable. No agregues una nueva instancia.
-   - Si la page es **nueva** para este Test (primera vez que aparece tras añadir pasos), agregá una línea más al bloque de instancias respetando el orden y la prolijidad (ej: `const transferenciasPage = new TransferenciasPage(page);`).
-5. Para cada paso del añadido, envolvelo en su propio `test.step('comentario corto', async () => { ... })` — mismo estilo que el resto del **Test**. El cuerpo es `await {paginaCamelCase}.{metodo}(args)`. **Reusá los nombres de método que ya existen en cada PO** — no inventes métodos nuevos. Si los pasos del recording no encajan en ningún método público existente, frená y avisá al QA: el caso requiere editar los POs, lo que cae fuera del scope de este modo.
-6. Insertá los nuevos `test.step(...)` justo **antes del cierre** del bloque `test()`, después del último step.
-
-### A.5. Sidecars y `nodos.json`
-
-- Los nodos añadidos ya existen en `nodos.json` (son los mismos ids reusados de pages conocidas) — no se agregan ni modifican.
-- Los sidecars de las pages involucradas tampoco cambian — el matcheo confirmó que el flujo de cada page es el mismo.
-- Si surgió un assert nuevo (`assert` que no estaba en el sidecar.asserts[]), sí sumalo a `asserts[]` del sidecar correspondiente y a `nodos.json`.
-
-### A.6. Traza
-
-Generá la traza igual que en el paso 9 (`generar-traza.js {numero}`) — la nueva traza reemplaza a la vieja en `{numero}-path.json`. El añadido redefine el camino completo del **Test**, no solo lo nuevo.
-
-### A.7. Limpieza
-
-Borrá `parsed.json`, `grupos.json` (si se creó) y el `.spec.ts` temporal de la grabación (no el spec del **Test Set**, que vive en `tests/`). Mantené `session.json` (con `modo: "append"` para historial) y `path.json`.
-
-### A.8. Resumen
-
-```
-✅ Listo. Añadí al final del **Test** [testId:{numero}] en {specPath}:
-  • {N} pasos nuevos en {pages involucradas}
-```
-
-`vscode/askQuestions` single-select: `"¿Qué hacemos?"`:
-- `▶️ Correrlo ahora`
-- `✏️ Editar otra cosa`
-- `🏠 Volver al menú`
 
 ## 11. Resumen final
 
