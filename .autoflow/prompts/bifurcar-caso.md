@@ -189,7 +189,7 @@ Cuando vuelve el control y el QA confirmó que terminó, el grabador escribió `
    ```
    Tenés `parsed.json` con los nodos crudos del tail.
 3. **Cargá `generar-pom.md`** pasándole un contexto especial: `{ modo: 'fork', numero: nuevoTestId, prefix: { steps, nodosIds }, dataDestino, slugDestino }`. En `generar-pom.md`, antes del paso 4, sumá la siguiente lógica de modo fork (instrucción interna, no es un cambio al prompt):
-   - El prefix matching del paso 3 corre normal sobre los nodos del **tail**.
+   - El matcheo por vocabulario del paso 3 corre normal sobre los nodos del **tail**.
    - Saltás los pasos 7 y 8.a normales y vas al **paso 8.b adaptado para fork** (ver paso 9 acá).
 
 > Implementación pragmática: en lugar de tocar `generar-pom.md`, hacé los pasos 3-6 de matcheo/agrupación inline acá replicando la lógica (matchear contra fingerprints, agrupar nodos nuevos en POs, persistir nodos.json + sidecars, regenerar grafos). Si en el futuro se vuelve repetitivo, extraemos en un helper.

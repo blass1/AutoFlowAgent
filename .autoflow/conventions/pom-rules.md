@@ -56,12 +56,12 @@ Shape:
   - **5** — `getByTestId`
   - **4** — `getByRole` con `name`
   - **3** — `getByLabel`
-  - **2** — `getByPlaceholder` / `getByText`
-  - **1** — `locator(...)` con CSS crudo o posicional
+  - **2** — `getByPlaceholder` / `getByText` / `locator('#id')` simple (sin combinadores)
+  - **1** — otros `locator(...)` (clases, CSS posicional, XPath, atributos)
 
 #### Page activa
 
-Los asserts a nivel `page` (ej: `expect(page).toHaveURL(...)`) no tienen locator propio, así que se atribuyen a la **page activa**: la última page que tuvo un nodo asignado en el recording. El puntero se actualiza cada vez que un nodo se asigna a una page (por matcheo de prefijo o por agrupación manual). Si el primer paso del recording es un assert a nivel page, queda sin atribuir hasta que el QA agrupe el primer bloque "Nuevo".
+Los asserts a nivel `page` (ej: `expect(page).toHaveURL(...)`) no tienen locator propio, así que se atribuyen a la **page activa**: la última page que tuvo un nodo asignado en el recording. El puntero se actualiza cada vez que un nodo se asigna a una page (por matcheo automático contra el vocabulario o por agrupación manual). Si el primer paso del recording es un assert a nivel page, queda sin atribuir hasta que se asigne el primer nodo de acción.
 
 #### Nodos especiales: `capturar` y `verificar`
 
@@ -208,7 +208,7 @@ Por qué se conserva: las trazas históricas (`{numero}-path.json` de cada recor
 Reglas para los consumidores:
 - **`actualizar-nodos.md`** ignora los nodos con `deprecated: true` al armar la lista de candidatos a reparar — no se repara algo ya reemplazado.
 - **`auto-health-node.md`** ignora los `deprecated: true` al listar nodos débiles para sanear — mismo motivo.
-- **`generar-pom.md`** (matcheo de prefijo, paso 3) **sigue `reemplazadoPor`**: si el id tentativo existe pero está deprecated, resuelve al id live y matchea contra ese. Cubre el caso típico de "el grabador capturó el selector viejo en una grabación nueva pero ya tenemos uno mejor saneado por Auto-Health".
+- **`generar-pom.md`** (matcheo por vocabulario, paso 3) **sigue `reemplazadoPor`**: si el id tentativo existe pero está deprecated, resuelve al id live y matchea contra ese. Cubre el caso típico de "el grabador capturó el selector viejo en una grabación nueva pero ya tenemos uno mejor saneado por Auto-Health".
 - **`generar-traza.js`** (script que arma `path.json`) **sigue `reemplazadoPor`**: si el parsed.json tiene un nodo cuyo id está deprecated, escribe en la traza el id live. Mantiene coherencia con el código del PO que ejecuta el selectorRaw del nodo live, no del deprecated.
 - **`validar-coherencia.js`** chequea que ningún `deprecated: true` quede sin `reemplazadoPor` válido — refuerzo del invariante en el que confía la resolución de los puntos anteriores.
 - **`grafo-nodos.js`** dibuja los `deprecated` con estilo distinto (a futuro — hoy los muestra igual).
@@ -256,13 +256,13 @@ Shape del sidecar:
 }
 ```
 
-- **nodos**: lista ordenada de ids de **acciones del usuario** (sin asserts). Es el contrato del matcheo de prefijo en `generar-pom.md`. La definición de cada nodo (accion, selector, valor, confiabilidad) vive en `.autoflow/nodos.json`.
-- **asserts**: lista de ids de nodos `assert` que se vieron alguna vez en esta page. Se enriquece con cada grabación (sin duplicar). **No participa del matcheo de prefijo** — los asserts son opcionales y pueden variar entre grabaciones del mismo flujo. Sirven para análisis y para el grafo de nodos.
+- **nodos**: **vocabulario** (set) de ids de **acciones del usuario** (sin asserts) que el agente alguna vez vio asignados a esta page. Es el contrato del matcheo en `generar-pom.md` paso 3. La definición de cada nodo (accion, selector, valor, confiabilidad) vive en `.autoflow/nodos.json`. **El orden no es semántico** — se mantiene por estabilidad visual al hacer diff, pero el matcheo no lo respeta.
+- **asserts**: lista de ids de nodos `assert` que se vieron alguna vez en esta page. Se enriquece con cada grabación (sin duplicar). **No participa del matcheo** — los asserts son opcionales y pueden variar entre grabaciones del mismo flujo. Sirven para análisis y para el grafo de nodos.
 - **conecta**: array de nombres de pages (PascalCase, sin `.ts`) a las que esta page lleva. Una page puede conectar a varias. Si la page es terminal, va vacío `[]`.
 
 Reglas:
 
-- Mantené el orden tal como lo grabó el grabador — el matcheo es secuencial.
+- **`nodos[]` es vocabulario, no flujo**: el matcheo de `generar-pom.md` paso 3 chequea si cada nodo del recording está **en el set** de algún sidecar, sin importar el orden ni si todos los ids del sidecar están en el recording. Esto permite que dos flujos parecidos (ej: comprar Samsung vs Sony) reusen las mismas pages aunque divergen en algún paso del medio.
 - **No incluyas asserts en `nodos[]`** — van en `asserts[]` aparte.
 - Si actualizás un PO existente y le cambiás el flujo, actualizá el sidecar y `nodos.json` en el mismo cambio.
 - El JSDoc de la clase queda en **una sola línea** describiendo la pantalla en español. Nada de listar acciones ni párrafos.
@@ -282,8 +282,8 @@ Esta prioridad la usa **el grabador al grabar**, no el agente al generar el PO. 
 1. `page.getByTestId('...')` → 5
 2. `page.getByRole('...', { name: '...' })` → 4
 3. `page.getByLabel('...')` → 3
-4. `page.getByPlaceholder('...')` / `page.getByText('...')` → 2
-5. `page.locator('...')` (CSS crudo) → 1. Sin comentarios FIXME en el PO: la fragilidad ya queda registrada en `confiabilidad: 1` del nodo y se ve en el grafo.
+4. `page.getByPlaceholder('...')` / `page.getByText('...')` / `page.locator('#id')` simple → 2 (en la práctica los devs cambian texto/i18n más seguido que ids; castigar `#id` a 1 hace que Auto-Health Node sobre-dispare)
+5. `page.locator('...')` con clases, CSS posicional, XPath o atributos → 1. Sin comentarios FIXME en el PO: la fragilidad ya queda registrada en `confiabilidad: 1` del nodo y se ve en el grafo.
 
 ### Métodos públicos
 
@@ -314,15 +314,14 @@ Cuando el QA crea un **Test**, `crear-caso.md` paso 1.6 le pregunta si activar u
 
 ```typescript
 await this.usuario.pressSequentially(usuario);
-// Wait: buffer anti-solape (configurado al crear el Test).
 await this.page.waitForTimeout(500);
 await this.password.pressSequentially(password);
-// Wait: buffer anti-solape (configurado al crear el Test).
 await this.page.waitForTimeout(500);
 await this.botonIngresar.click();
-// Wait: buffer anti-solape (configurado al crear el Test).
 await this.page.waitForTimeout(500);
 ```
+
+**No emitas comentarios** repitiendo "buffer anti-solape" antes de cada `waitForTimeout(500)` — el patrón ya es reconocible y el comentario inflama el archivo (un PO de checkout con 13 acciones tendría 13 comentarios idénticos = ruido visual). El waitForTimeout pelado, sin comentario, es suficiente.
 
 Cubre tres casos típicos:
 - **input → input**: la validación on-input del primero se emite antes del siguiente focus.

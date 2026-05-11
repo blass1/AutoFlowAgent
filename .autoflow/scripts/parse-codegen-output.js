@@ -126,7 +126,15 @@ function normalizarSelector(raw) {
 // Confiabilidad según el segmento HOJA del chain (lo último que apunta al
 // elemento real). Los segmentos `contentFrame()` y los iframe-container no
 // cuentan: lo que importa es la calidad del locator final.
-// 5 = testid, 4 = role+name, 3 = label, 2 = placeholder/text, 1 = css/posicional.
+// 5 = testid
+// 4 = role+name
+// 3 = label
+// 2 = placeholder/text  |  locator('#id')  ← #id se trata aparte porque es
+//     bastante más estable que clases/CSS posicional (en la práctica los devs
+//     cambian texto/i18n más seguido que ids), pero invisible al QA si cambia.
+//     Confiabilidad 2 evita que Auto-Health Node sobre-dispare en flujos que
+//     dependen de inputs con id (ej: forms estándar).
+// 1 = otros locator (clases, CSS posicional, XPath, atributos)
 function calcularConfiabilidad(raw) {
   const segmentos = partirChain(raw);
   let hoja = null;
@@ -139,6 +147,8 @@ function calcularConfiabilidad(raw) {
   if (hoja.startsWith('getByRole(')) return 4;
   if (hoja.startsWith('getByLabel(')) return 3;
   if (hoja.startsWith('getByPlaceholder(') || hoja.startsWith('getByText(')) return 2;
+  // locator('#id') sin combinadores → confiabilidad 2. Cualquier otro locator → 1.
+  if (/^locator\((['"`])#[\w-]+\1\)$/.test(hoja)) return 2;
   if (hoja.startsWith('locator(')) return 1;
   return null;
 }

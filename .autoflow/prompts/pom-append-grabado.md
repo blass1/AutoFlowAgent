@@ -21,7 +21,7 @@ Igual al paso 1 de `generar-pom.md` (marcar `activa: false`, `fechaFin`) y al pa
 
 ## A.2. Matchear contra Page Objects existentes
 
-Igual al paso 3 de `generar-pom.md` (prefix matching contra `.autoflow/fingerprints/*.json`). En este modo esperamos que **TODOS** los nodos matcheen con **Page Objects** conocidos — el QA está extendiendo un flujo, no creando pantallas nuevas.
+Igual al paso 3 de `generar-pom.md` (matcheo por vocabulario contra `.autoflow/fingerprints/*.json`). En este modo esperamos que **TODOS** los nodos matcheen con **Page Objects** conocidos — el QA está extendiendo un flujo, no creando pantallas nuevas.
 
 Si quedan pasos en "Nuevo" sin matchear:
 - Mostralos al QA y abrí `vscode/askQuestions` single-select:

@@ -1,0 +1,8 @@
+{
+  "page": "CartPage",
+  "nodos": [
+    "CartPage::click::getByRole:button:Place Order"
+  ],
+  "asserts": [],
+  "conecta": ["CheckoutPage"]
+}

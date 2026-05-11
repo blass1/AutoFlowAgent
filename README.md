@@ -15,7 +15,7 @@ La automatización moderna tiene cuatro fricciones recurrentes:
 AutoFlow ataca las cuatro:
 
 - El QA **navega** el flujo en el browser. La grabación se traduce a código siguiendo las convenciones del repo (`.autoflow/conventions/pom-rules.md`). El QA no tipea TypeScript — confirma con botones.
-- Cada acción se materializa como un **Nodo** con id determinístico (`{page}::{accion}::{selector}`). Los nodos viven en `.autoflow/nodos.json` y son la base para que el agente **reconozca** flujos repetidos por matcheo de prefijo y **reuse** Page Objects existentes en lugar de duplicarlos.
+- Cada acción se materializa como un **Nodo** con id determinístico (`{page}::{accion}::{selector}`). Los nodos viven en `.autoflow/nodos.json` y son la base para que el agente **reconozca** flujos repetidos por **matcheo por vocabulario** (cada sidecar es un set de ids posibles en esa page) y **reuse** Page Objects existentes en lugar de duplicarlos.
 - Cada nodo lleva una **confiabilidad de 1 a 5** según el tipo de locator (5 = `getByTestId`, 1 = CSS posicional). Visible en el listado al QA y en el grafo de nodos — la deuda de testabilidad se ve antes de que rompa.
 - Cada grabación deja una **traza** (`{numero}-path.json`) con la secuencia de ids visitados, incluyendo asserts. Eso permite responder con un diff "qué nodos pasan por dónde" cross-recording, y construir un grafo dirigido del comportamiento real del usuario.
 
@@ -86,7 +86,7 @@ flowchart LR
     CrearALMImp --> CrearLogin
     CrearLogin --> CrearGrabar[Grabar flujo en codegen]
     CrearGrabar --> CrearConfirm[Confirmar terminó<br/>+ limpieza pre-agrupado]
-    CrearConfirm --> CrearPOM[Agrupar pasos en pages<br/>· prefix matching<br/>· colisión = reusar/extender<br/>· generar POM + sidecar + spec]
+    CrearConfirm --> CrearPOM[Agrupar pasos en pages<br/>· matcheo por vocabulario<br/>· colisión = reusar/extender<br/>· generar POM + sidecar + spec]
 
     Editar --> EditarQue{¿Qué editar?}
     EditarQue --> EditRegrabar[Regrabar de cero]
@@ -192,7 +192,7 @@ sequenceDiagram
     QA->>Codegen: cierra browser
     Codegen-->>Script: spec.ts crudo
     Chat->>Script: parse-codegen-output → nodos crudos
-    Chat->>Chat: matcheo de prefijo contra fingerprints
+    Chat->>Chat: matcheo por vocabulario contra fingerprints
     Chat->>QA: listado con ✅ pages reusadas + "Nuevo" para agrupar
     QA-->>Chat: agrupa rangos en pages nuevas
     Chat->>FS: pages/*.ts + sidecars + nodos.json + grupos.json
@@ -225,7 +225,7 @@ Tres usos del modelo:
 
 1. **Reconocimiento de flujos repetidos.** Cuando una grabación nueva arranca con la misma secuencia de ids que un sidecar existente (`.autoflow/fingerprints/{Page}.json`), el agente la marca con ✅ y reusa el Page Object. Solo lo nuevo va a "Nuevo" para agrupar.
 2. **Análisis de caminos.** Cada grabación deja una `{numero}-path.json` con la secuencia completa de ids visitados (acciones + asserts). Sirve para responder cross-recording "qué tests pasan por este nodo".
-3. **Confiabilidad visible.** Escala 1-5 calculada del tipo de locator: 5 = `getByTestId`, 4 = `getByRole+name`, 3 = `getByLabel`, 2 = `getByPlaceholder`/`getByText`, 1 = CSS crudo. El agente la muestra al QA durante la agrupación y el grafo la pinta.
+3. **Confiabilidad visible.** Escala 1-5 calculada del tipo de locator: 5 = `getByTestId`, 4 = `getByRole+name`, 3 = `getByLabel`, 2 = `getByPlaceholder`/`getByText`/`locator('#id')` simple, 1 = otros locator (clases, CSS posicional, XPath). `#id` queda en 2 (no en 1) porque en la práctica los devs cambian texto/i18n más seguido que ids — castigarlo como CSS crudo hace que Auto-Health Node sobre-dispare. El agente la muestra al QA durante la agrupación y el grafo la pinta.
 
 Dos grafos derivados se regeneran con scripts y viven en `.autoflow/grafos/`:
 - [.autoflow/grafos/grafo.md](.autoflow/grafos/grafo.md) — pages y conexiones (`conecta`) entre ellas (alto nivel).
@@ -300,7 +300,7 @@ Sub-prompts adicionales que el agente carga sin que el QA los pida:
 - `setup-entorno.md` — al activar el modo, verifica `node_modules` y browsers de Playwright + detecta sesiones zombi.
 - `onboarding.md` — primer uso, pide identidad del QA y la guarda en `.autoflow/user.json`.
 - `menu-principal.md` — menú de 2 niveles (5 categorías × N acciones cada una).
-- `generar-pom.md` — post-grabación, limpieza pre-agrupado, prefix matching, agrupación interactiva, generación de POMs/sidecar/spec, regrafos al final. Delega en `pom-colision.md` (colisión de nombres) y `pom-append-grabado.md` (modo añadir pasos).
+- `generar-pom.md` — post-grabación, limpieza pre-agrupado, matcheo por vocabulario contra sidecars conocidos (sidecar como set de ids, no como secuencia de flujo), agrupación interactiva, generación de POMs/sidecar/spec, regrafos al final. Delega en `pom-colision.md` (colisión de nombres) y `pom-append-grabado.md` (modo añadir pasos).
 - `pom-colision.md` — sub-flow de `generar-pom.md`. Maneja la colisión cuando el QA elige un nombre de Page Object que ya existe (reusar método, agregar método nuevo, o cambiar nombre).
 - `pom-append-grabado.md` — sub-flow de `generar-pom.md`. Mergea pasos recién grabados al final de un Test existente reusando POs ya conocidos. Distinto de `append-manual.md` (este último arranca de HTML pegado, sin grabar).
 - `insertar-nodo-especial.md` — invocado desde "Editar Test" → "Insertar nodo de captura/verificación".

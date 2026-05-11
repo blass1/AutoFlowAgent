@@ -45,7 +45,7 @@ El script produce `.autoflow/recordings/{numero}-parsed.json` con la lista orden
 
 Para `assert`: si el assert es a nivel page (`expect(page).toHaveURL(...)`), `selector` vale `"page"`.
 
-La **page** y el **id final** (`{page}::{accion}::{selector}`) se asignan en los pasos siguientes (matcheo de prefijo + agrupación manual). Llevá un puntero **"page activa"** mientras procesás el recording: arranca vacío, se actualiza cada vez que un nodo se asigna a una page (matcheo o agrupación). Los nodos `assert` con `selector="page"` heredan la page activa al momento del paso.
+La **page** y el **id final** (`{page}::{accion}::{selector}`) se asignan en los pasos siguientes (matcheo automático contra el vocabulario + agrupación manual). Llevá un puntero **"page activa"** mientras procesás el recording: arranca vacío, se actualiza cada vez que un nodo se asigna a una page (matcheo o agrupación). Los nodos `assert` con `selector="page"` heredan la page activa al momento del paso.
 
 Si el script falla o no existe, leé directamente `.autoflow/recordings/{numero}.spec.ts` y derivá la lista a mano siguiendo el mismo shape.
 
@@ -86,21 +86,46 @@ Antes de matchear contra Page Objects existentes, dale al QA la chance de borrar
 
 Después de este paso, seguí al paso 3 con el `parsed.json` ya limpio (las trazas, sidecars y todo lo que sigue trabajan sobre la lista filtrada y renumerada).
 
-## 3. Reconocer pages existentes (prefix matching)
+## 3. Reconocer pages existentes (matcheo por vocabulario)
 
-1. Listá los archivos `.autoflow/fingerprints/*.json`. Cada uno es el sidecar de una page existente con el shape `{ page, nodos: [id, id, ...], conecta: [...] }` (ver `.autoflow/conventions/pom-rules.md`). Cargá también `.autoflow/nodos.json` para resolver cada id a su definición.
+1. Listá los archivos `.autoflow/fingerprints/*.json`. Cada uno es el sidecar de una page existente con el shape `{ page, nodos: [id, ...], asserts: [id, ...], conecta: [...] }`. Cargá también `.autoflow/nodos.json` para resolver cada id a su definición.
 2. Verificá que el `pages/{page}.ts` correspondiente exista; si no, ignorá ese sidecar (huérfano).
-3. Para cada nodo crudo del recording, calculá su id **tentativo** asumiendo que pertenece a una page conocida: probá `{page}::{accion}::{selector}` para cada page candidata. **Resolución de deprecated**: si el id tentativo existe en `nodos.json` con `deprecated: true`, **resolvelo** siguiendo `reemplazadoPor` y trabajá con el id resuelto (live) de ahí en más. Esto cubre el caso típico: el grabador captura el selector viejo (porque el front no cambió), pero un Auto-Health Node anterior ya lo reemplazó por uno más confiable — sin esta resolución, la grabación nueva no matchearía contra la Page existente y el QA tendría que regroupar pasos que ya conocemos. Recorré los nodos del recording de izquierda a derecha (saltando los `assert` para el matcheo: el matching es solo sobre acciones del usuario) y, mientras quede prefijo sin asignar, intentá matchear el prefijo contra los `nodos[]` de cada sidecar conocido. Una page matchea si **todos** sus ids aparecen en orden al inicio del prefijo actual (igualdad exacta de id **después de resolver deprecated**, y para `fill`/`press`/`selectOption` el `valor` del recording debe coincidir con el del nodo live en `nodos.json`, donde `*` matchea cualquier valor). Si matchea, esos nodos quedan asignados a esa page existente, avanzás y actualizás el puntero de **page activa**. Si ninguna matchea, parás y todo lo que sigue queda en `-Nuevo-`.
+3. **Para cada nodo de acción del recording** (en orden de izquierda a derecha, saltando los `assert` — esos los atribuís en el paso 5):
+   - **a.** Calculá el id tentativo `{page}::{accion}::{selector}` para cada page candidata (las que tienen sidecar válido).
+   - **b. Resolución de deprecated**: si el id tentativo existe en `nodos.json` con `deprecated: true`, resolvelo siguiendo `reemplazadoPor` y trabajá con el id live de ahí en más. Cubre el caso del grabador capturando el selector viejo después de que Auto-Health Node lo saneó.
+   - **c. Matcheo**: el nodo del recording matchea con un sidecar si el id resuelto está en `sidecar.nodos[]`. Para `fill`/`press`/`selectOption`, el `valor` del nodo live en `nodos.json` debe coincidir con el del recording (`*` matchea cualquier valor).
+   - **d. Resolución de ambigüedad**: si el id matchea en más de un sidecar (raro pero posible si dos pages comparten un control idéntico), preferí la **page activa actual** (continuidad del flujo). Si la page activa no es candidata o es `null`, tomá el primer match en orden alfabético de page.
+   - **e.** Si matchea: el paso queda asignado a esa page existente y la **page activa** se actualiza. Si no matchea: el paso queda como `-Nuevo-` y la page activa **no cambia** (sigue siendo la última asignada — relevante para atribuir asserts intermedios).
 4. Pages sin sidecar (POs viejos previos a esta convención) **no participan** del matcheo automático.
 
-> Solo prefijo: una vez que hubo un nodo "Nuevo", todos los siguientes son nuevos también, aunque más adelante vuelvan a aparecer nodos de una page conocida. Esto es intencional para mantener el flujo predecible.
+> ### 🔑 El matcheo es por **vocabulario**, no por secuencia ni por prefijo
+>
+> Cualquier paso del recording puede matchear cualquier sidecar conocido en cualquier momento del flujo, sin importar el orden en que aparecen los nodos en `sidecar.nodos[]`. El sidecar funciona como **vocabulario** (set de ids posibles en esa page), no como secuencia de un flujo único.
+>
+> Esto permite que un mismo Test reuse pages cuya secuencia varía entre flujos. Ejemplos:
+> - "Compra Samsung" y "Compra Sony" reusan HomePage/LoginPage/CartPage/CheckoutPage al 100% aunque diverjan en el click de producto.
+> - "Login + Logout" reusa HomePage + LoginPage del flujo de compra aunque después diverja totalmente.
+>
+> Versiones anteriores del agente exigían "todos los ids del sidecar deben aparecer en orden al inicio del prefijo del recording", lo que producía 0% de reuso entre flujos parecidos. Esa restricción ya no aplica.
 
-**Por cada page que matcheó**, escribí también una entrada en `.autoflow/recordings/{numero}-grupos.json` con el rango de índices del recording que cubrió esa page (`{ rangos: [{ page, desde, hasta }, ...] }`). Esto se hace acá y también en el paso 6.5 — ver detalle ahí. Si hubo asserts inmediatamente después del último nodo de una page matcheada (antes del próximo nodo de acción), atribuilos a esa misma page (page activa) y sumalos a su `sidecar.asserts[]` y a `nodos.json`.
+**Por cada page que matcheó al menos un nodo**, escribí entradas en `.autoflow/recordings/{numero}-grupos.json` con el shape `{ rangos: [{ page, desde, hasta }, ...] }`. Como ya no se exige rangos contiguos por page, **podés tener múltiples rangos para la misma page** en el mismo Test (ej: el QA navega Home → Login → vuelve a Home). Cada rango es un bloque de pasos consecutivos asignados a la misma page; se cierra cuando aparece un paso que cae en otra page o en "Nuevo".
+
+**Ejemplo de rangos generados** para un recording `[goto, click(login), fill(user), fill(pass), click(submit), click(producto), click(addToCart), click(cart)]`:
+```json
+{ "rangos": [
+  { "page": "HomePage",   "desde": 1, "hasta": 2 },
+  { "page": "LoginPage",  "desde": 3, "hasta": 5 },
+  { "page": "HomePage",   "desde": 6, "hasta": 6 },
+  { "page": "ProductPage","desde": 7, "hasta": 8 }
+]}
+```
+
+**Asserts**: si un assert del recording aparece intercalado, atribuilo a la **page activa** al momento del paso (la última page que tuvo un nodo asignado). Si todavía no hay page activa (assert al inicio del recording sin nodo de acción previo), queda pendiente hasta que se asigne el primer nodo y se atribuye a esa primera page. Sumá el id del assert a `sidecar.asserts[]` de la page atribuida (sin duplicar) y a `nodos.json`.
 
 ## 4. Mostrar el listado y explicar la sintaxis
 
 > **REGLA — pages agrupadas colapsadas, "Nuevo" siempre completo.** Cada vez que mostrés este listado (la primera vez y cada vuelta desde el paso 6 después de agrupar una page):
-> - **Pages ya agrupadas** (las que ya tienen ✅, sean reusadas del prefix matching o agrupadas en iteraciones previas) → mostralas **colapsadas en una línea** con `✅ {NombrePage} (pasos {desde}–{hasta}, {N} nodos)`. NO listar los pasos internos. El QA ya tomó esa decisión, no la necesita re-leer.
+> - **Pages ya agrupadas** (las que ya tienen ✅, sean reusadas del matcheo automático o agrupadas en iteraciones previas) → mostralas **colapsadas en una línea** con `✅ {NombrePage} (pasos {desde}–{hasta}, {N} nodos)`. Si la misma page tuvo varios rangos no contiguos, mostrá una línea por rango. NO listar los pasos internos.
 > - **Pasos bajo `— Nuevo —`** → SIEMPRE completos, del primero al último de "Nuevo", sin abreviar con `…`, `...`, `[N pasos más]`, `(varios pasos)` ni ningún resumen. Es lo que el QA tiene que decidir ahora; cortar acá le rompe la decisión.
 >
 > Justificación: re-imprimir 50 pasos en cada vuelta hace lentas las respuestas del agente. Colapsar lo decidido y mostrar solo lo pendiente reduce drásticamente el tamaño de cada respuesta sin perder utilidad.
@@ -193,9 +218,9 @@ Cuando el comando es válido **y el nombre NO chocaba con un PO existente**:
    - **`fill` se traduce siempre a `pressSequentially`** (ver `pom-rules.md` → "Fidelidad al recording"). El nodo en `nodos.json` lleva `accion: "fill"` (lógico), pero en el código del PO emitís `await this.<locator>.pressSequentially(valor)`. Sin excepciones — los campos del banco tienen máscaras y validators que rompen con `fill`.
    - **Buffer de tiempo (anti-solape)**: leé `session.bufferTiempo`. Si es `true`, **después de cada acción de input/selección** dentro del método agregá un wait de 500ms. Las acciones que disparan el wait son: `pressSequentially`, `click`, `check`, `uncheck`, `selectOption`.
      ```typescript
-     // Wait: buffer anti-solape (configurado al crear el Test).
      await this.page.waitForTimeout(500);
      ```
+     **Sin comentario arriba** del wait — un PO con 13 acciones tendría 13 comentarios idénticos, es puro ruido visual. El patrón es reconocible solo.
      Cubre tres casos típicos: (a) input → input (validación on-input), (b) input → click de avanzar/continuar (el botón se habilita tras la validación), (c) click → click rápido en checkboxes/toggles consecutivos (sin el wait el segundo se ejecuta antes de que el front terminó de aplicar el primero y el checkbox queda mal seleccionado). **No** emitas el wait si la siguiente línea ya es `waitForLoadState(...)` (redundante) o si la acción es la última del método y el método dispara navegación (cerrás con `waitForLoadState('domcontentloaded')` en lugar). Si `session.bufferTiempo` es `false` o falta el campo, no agregues nada.
    - **Métodos retornan siempre `Promise<void>`**. Sin chains. Los Page Objects no se conocen entre sí — `LoginPage` no importa `OverviewPage`. Si el método dispara una navegación a otra page, terminá con `await this.page.waitForLoadState('domcontentloaded')` **antes de retornar** (no instancies la próxima page; el spec se encarga). **Default `'domcontentloaded'`** (ver pom-rules.md → "Esperas"): `'networkidle'` cuelga 60s en sites con long-polling o analytics persistente, así que solo usalo en SPAs limpias y con comentario justificando.
    - **Si el primer nodo del rango es `goto`**, **no lo metas en un método del PO**. El `goto` lo dispara el spec en su propio `test.step('Abrir el canal', async () => page.goto(urlInicial))`. El nodo `goto` queda registrado en `sidecar.nodos[]` igual (es parte de la firma de la page para el matcheo), pero sin código en la clase. Los demás nodos del rango sí tienen métodos.
@@ -207,7 +232,7 @@ Cuando el comando es válido **y el nombre NO chocaba con un PO existente**:
    - **Ids únicos**: el id es determinístico (`{page}::{accion}::{selector}`). Si dos nodos del recording producen el mismo id es porque el selector normalizado los colapsa — eso es intencional (es la misma acción). **Nunca uses sufijos `_1`/`_2`** para desambiguar; si te pasa, frená y avisá: probablemente hay un bug en el normalizador del parser.
 4. Generá el sidecar `.autoflow/fingerprints/{NombrePage}.json` con el shape `{ page, nodos: [...], asserts: [...], conecta: [...] }` documentado en `pom-rules.md`:
    - `nodos[]`: ids de **acciones del usuario** del rango (no asserts), en orden. Si el id se repite consecutivamente (mismo nodo dos veces seguidas), incluilo una sola vez.
-   - `asserts[]`: ids de los `assert` del rango, en orden. **No participan del matcheo de prefijo**.
+   - `asserts[]`: ids de los `assert` del rango, en orden. **No participan del matcheo** (son opcionales y pueden variar entre grabaciones del mismo flujo).
    - `conecta[]`: vacío por ahora — se completa en el paso 6.5.
    - Si el sidecar ya existía (page reusada por matcheo), enriquecelo: sumá ids nuevos a `asserts[]` sin duplicar; `nodos[]` se respeta tal cual estaba (el matcheo confirmó que el flujo es el mismo).
 5. **Persistí el grupo** en `.autoflow/recordings/{numero}-grupos.json` (creá el archivo si no existe; appendeá al array `rangos`):
@@ -227,7 +252,7 @@ Cuando el comando es válido **y el nombre NO chocaba con un PO existente**:
 
 ## 6.5. Enriquecer el grafo de conexiones
 
-Después de cualquier iteración del paso 6 (sea page nueva o no), revisá la **secuencia de pages** del recording (incluyendo las existentes que matchearon en el prefix matching). Ej: el flujo grabado fue `LoginPage → CelularesPage → CarritoPage`.
+Después de cualquier iteración del paso 6 (sea page nueva o no), revisá la **secuencia de pages** del recording (incluyendo las existentes que matchearon en el paso 3 y las que aparecen varias veces como rangos no contiguos). Ej: el flujo grabado fue `LoginPage → CelularesPage → CarritoPage`. Si una page aparece dos veces (`HomePage → LoginPage → HomePage`), tomá pares contiguos como están — `HomePage → LoginPage` y `LoginPage → HomePage` son dos conexiones distintas.
 
 Para cada par contiguo `A → B` en esa secuencia:
 

@@ -1,0 +1,12 @@
+{
+  "page": "HomePage",
+  "nodos": [
+    "HomePage::goto::goto:/",
+    "HomePage::click::getByRole:link:Log in",
+    "HomePage::click::getByRole:link:Samsung galaxy s6"
+  ],
+  "asserts": [
+    "HomePage::assert::locator:#nameofuser"
+  ],
+  "conecta": ["LoginPage", "ProductPage"]
+}

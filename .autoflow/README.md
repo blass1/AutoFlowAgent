@@ -55,7 +55,7 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 | Archivo / carpeta | Qué tiene |
 | --- | --- |
 | `nodos.json` | Diccionario `{ id: nodo }` con todos los nodos conocidos. Cada id es `{page}::{accion}::{selector}`. Se enriquece con cada grabación; los nodos existentes no se sobreescriben. |
-| `fingerprints/{Page}.json` | Sidecar de cada Page Object: `{ page, nodos: [id, ...], asserts: [id, ...], conecta: [destino, ...] }`. `nodos[]` participa del matcheo de prefijo; `asserts[]` no. |
+| `fingerprints/{Page}.json` | Sidecar de cada Page Object: `{ page, nodos: [id, ...], asserts: [id, ...], conecta: [destino, ...] }`. `nodos[]` es el **vocabulario** de la page (set de ids posibles) que usa `generar-pom.md` paso 3 para matchear nodo por nodo en grabaciones nuevas; `asserts[]` no participa del matcheo. |
 | `testsets/{slug}.json` | Definición de cada test set (id, nombre, descripción, casos). |
 | `alm-exports/` | xlsx exportados desde ALM. El QA suelta el archivo acá y `crear-caso.md` lo levanta vía `parse-alm-export.js` para prellenar nombre/TC/enfoque. |
 | `auth/{canal-slug}-{userKey}.json` | StorageState (cookies + localStorage) post-login. Generado por `setup-auth.md`. Permite que los casos arranquen logueados sin re-grabar el login. **Sensible** — gitignored. |

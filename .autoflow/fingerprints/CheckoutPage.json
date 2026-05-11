@@ -1,0 +1,22 @@
+{
+  "page": "CheckoutPage",
+  "nodos": [
+    "CheckoutPage::click::locator:#name",
+    "CheckoutPage::fill::locator:#name",
+    "CheckoutPage::click::locator:#country",
+    "CheckoutPage::fill::locator:#country",
+    "CheckoutPage::click::locator:#city",
+    "CheckoutPage::fill::locator:#city",
+    "CheckoutPage::click::locator:#card",
+    "CheckoutPage::fill::locator:#card",
+    "CheckoutPage::click::locator:#month",
+    "CheckoutPage::fill::locator:#month",
+    "CheckoutPage::click::locator:#year",
+    "CheckoutPage::fill::locator:#year",
+    "CheckoutPage::click::getByRole:button:Purchase"
+  ],
+  "asserts": [
+    "CheckoutPage::assert::locator:h2.sweet-alert"
+  ],
+  "conecta": []
+}
