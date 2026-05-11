@@ -90,7 +90,7 @@ Usá `#tool:vscode/askQuestions` single-select: `"¿Qué querés hacer?"` con es
 
 | Opción | Acción |
 | --- | --- |
-| `📥 Importar .xlsx y crear un **Test**` | cargá `.autoflow/prompts/crear-caso.md` **pasando contexto** `{ origen: "alm" }`. El sub-prompt salta la pregunta del paso 0 y va directo al paso 0.a (importar desde Export ALM). El resto del flujo (canal, login, grabación, agrupación) es idéntico al normal. |
+| `📥 Importar .xlsx y crear un **Test**` | cargá `.autoflow/prompts/crear-caso.md` **pasando contexto** `{ origen: "alm-xlsx" }` (o `"alm"`, alias legado). El sub-prompt salta la pregunta del paso 0 y va directo al paso 0.b (importar desde Export ALM .xlsx). El resto del flujo (canal, login, grabación, agrupación) es idéntico al normal. |
 | `📤 Exportar **Test** automatizado a **ALM**` | `.autoflow/prompts/exportar-alm.md` |
 | `↩️ Volver al menú principal` | reabrí el menú principal (nivel 1) |
 

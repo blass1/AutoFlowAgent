@@ -417,7 +417,7 @@ La **primera vez** detecta que faltan `node_modules` y los browsers de Playwrigh
 | `.autoflow/fingerprints/` | Sidecar por page con `tipo`, `nodos[]`, `asserts[]` y `conecta[]`. `tipo: 'componente'` distingue navbars/headers globales de pages reales. |
 | `.autoflow/testsets/` | Definición de cada test set como JSON. |
 | `.autoflow/alm-exports/` | xlsx exportados desde ALM. El QA suelta el archivo acá para arrancar un caso con datos prellenados. |
-| `.autoflow/alm/integrations/` | Ejecutables propietarios que pegan a ALM por testid. Si está `fetch_test_v1.0.0.exe`, `crear-caso.md` paso 1.4 lo invoca con `--name {testid}` para traer el `test_name` + steps registrados. **Gitignored** — los binarios se distribuyen aparte. |
+| `.autoflow/alm/integrations/` | Ejecutables propietarios que pegan a ALM por testid. Si está `fetch_test_v1.0.0.exe`, la opción `🆔 Importar caso de ALM con el número de Test ID` (paso 0.a de `crear-caso.md`) lo invoca con `--name {testid}` para traer el `test_name` + steps registrados. **Gitignored** — los binarios se distribuyen aparte. |
 | `.autoflow/alm/originalTests/` | Cache local del JSON crudo devuelto por cada fetch de la integración (un archivo por testid). **Gitignored**. |
 | `.autoflow/auth/` | StorageState (cookies + localStorage) por (canal, usuario) para que los casos arranquen logueados. **Gitignored** — contiene tokens de sesión. |
 | `.autoflow/captures/` | Por cada nodo `capturar`/`verificar`: HTML pegado, intent del QA, locator propuesto/final y razonamiento. Histórico para reparar locators cuando el front cambia. |

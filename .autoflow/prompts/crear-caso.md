@@ -8,16 +8,104 @@ tools: ['vscode/askQuestions', 'edit', 'read', 'runCommands', 'runTasks']
 
 ## 0. ¿De dónde sacamos los datos del caso?
 
-**Si el prompt fue invocado con contexto `origen: "alm"`** (típicamente desde el sub-menú `📄 ALM → Importar .xlsx y crear un Test` del menú principal): **salteá la pregunta** y andá directo al **paso 0.a** asumiendo que el QA ya eligió importar desde Export ALM.
+**Si el prompt fue invocado con contexto `origen: "alm-testid"`**: salteá la pregunta y andá directo al **paso 0.a** (import por Test ID).
 
-**Si el prompt fue invocado con contexto `origen: "manual"`**: salteá la pregunta y andá directo al **paso 0.b**.
+**Si el prompt fue invocado con contexto `origen: "alm"` o `origen: "alm-xlsx"`** (típicamente desde el sub-menú `📄 ALM → Importar .xlsx y crear un Test` del menú principal — `"alm"` se mantiene como alias de `"alm-xlsx"` por compatibilidad con invocaciones viejas): salteá la pregunta y andá directo al **paso 0.b** (import xlsx).
+
+**Si el prompt fue invocado con contexto `origen: "manual"`**: salteá la pregunta y andá directo al **paso 0.c** (carga manual).
 
 **Sin contexto** (invocación normal desde el menú o desde otro sub-prompt como `editar-caso.md` modo "Regrabar"): preguntale al QA cómo quiere cargar los datos del caso. Usá `#tool:vscode/askQuestions` single-select con la pregunta `"¿Cómo querés cargar los datos del caso?"` y estas opciones:
 
-- `📄 Importar desde Export ALM (.xlsx)`
-- `✍️ Cargar manualmente`
+- `🆔 Importar caso de ALM con el número de Test ID`
+- `📄 Importar caso de ALM utilizando un archivo XLSX`
+- `✍️ Cargar datos del Test de manera Manual`
 
-### 0.a. Si eligió `📄 Importar desde Export ALM`
+### 0.a. Si eligió `🆔 Importar caso de ALM con el número de Test ID`
+
+Esta opción usa la integración binaria `fetch_test_v1.0.0.exe` para traer el `test_name` + steps registrados del test directamente de ALM por testid.
+
+**Verificación previa**: chequeá que exista el ejecutable:
+```
+.autoflow/alm/integrations/fetch_test_v1.0.0.exe
+```
+
+Si **no existe**, avisale al QA y volvé a abrir la pregunta del paso 0:
+```
+⚠️ No tenés instalada la integración con ALM (.autoflow/alm/integrations/fetch_test_v1.0.0.exe).
+Si tu equipo te la pasó, pegala en esa carpeta. Si no, elegí otra opción.
+```
+
+Si **existe**, pedí el testid con `vscode/askQuestions` text input:
+- `"¿Qué Test ID querés importar? (ej: 668998)"`
+
+Limpiá el input (sin espacios extras). Después corré con `runCommands` (PowerShell):
+
+```powershell
+& ".\.autoflow\alm\integrations\fetch_test_v1.0.0.exe" --name {testid}
+```
+
+Leé la salida con `terminalLastCommand`. La integración imprime un JSON con esta forma:
+
+```json
+{
+  "success": true,
+  "test_id": "668998",
+  "step_count": 9,
+  "test_name": "Test Prueba",
+  "version": "1.0.0",
+  "message": "✓ Obtenidos 9 steps del test 668998",
+  "steps": [
+    {
+      "step-order": "1",
+      "name": "Pre-requisitos",
+      "description": "Confirmar que el ambiente QA esté disponible...",
+      "expected": "- Ambiente QA accesible...",
+      "vts": "...", "ver-stamp": "...", "attachment": "",
+      "has-params": "N", "vc-user-name": "",
+      "id": "8379810", "parent-id": "668998"
+    },
+    ...
+  ]
+}
+```
+
+**Manejo de errores**:
+- Exit code ≠ 0, JSON inválido, o `success: false` → mensaje corto con el error y volvé a abrir la pregunta del paso 0. No reintentes en loop.
+- Timeout (>10s) → idem.
+
+**Si `success: true`**:
+
+1. **Guardá una copia del JSON crudo** en `.autoflow/alm/originalTests/{test_id}.json` (sobreescribí si ya existía). Sirve como cache/audit local — la integración no se re-invoca si el agente necesita los datos después.
+
+2. Tomá `nombre = test_name`, `numero = test_id`.
+
+3. **Mostrale al QA un resumen** con los datos del test + los steps. De cada step emití solo `name`, `description` y `expected` — el resto de campos no le interesan al QA:
+   ```
+   📥 Encontré el test en ALM:
+     • Test ID: {test_id}
+     • Nombre:  "{test_name}"
+
+   Steps registrados ({step_count}):
+     1. {steps[0].name}
+        → {steps[0].description}
+        ✅ Esperado: {steps[0].expected}
+
+     2. {steps[1].name}
+        → {steps[1].description}
+        ✅ Esperado: {steps[1].expected}
+
+     ...
+   ```
+
+4. **Confirmá el nombre** con `vscode/askQuestions` single-select: `"¿Usás este nombre o lo cambiás?"`:
+   - `✅ Usar "{test_name}"` → seguí con ese nombre.
+   - `✏️ Cambiar nombre` → text input para que pegue uno nuevo. Reemplazá `nombre` con lo que tipee.
+
+> **Por ahora el agente NO usa los steps para construir el caso**. Son puramente informativos para que el QA tenga a la vista qué tiene que grabar (la grabación arranca limpia en el paso 5 como siempre). En versiones futuras de la integración se podrían usar para validar cobertura post-grabación.
+
+Saltá directamente al **paso 1.canal** (solo preguntar canal). El `test_id` se persiste en `almContext` en el paso 3.
+
+### 0.b. Si eligió `📄 Importar caso de ALM utilizando un archivo XLSX`
 
 Antes de pedir el archivo, **decile al QA dónde dejarlo** con un mensaje corto:
 
@@ -63,7 +151,7 @@ Si elige editar, abrí un carousel con dos text inputs prefillados (`nombre`, `n
 
 Saltá directamente al **paso 1.canal** (solo preguntar canal). El `enfoque` queda guardado para escribirlo en la session en el paso 3.
 
-### 0.b. Si eligió `✍️ Cargar manualmente`
+### 0.c. Si eligió `✍️ Cargar datos del Test de manera Manual`
 
 Seguí con el flujo tradicional desde el paso 1.
 
@@ -87,7 +175,7 @@ Usá `#tool:vscode/askQuestions` con estas preguntas en **una sola llamada** (ca
 
 Limpiá `numero` (sin espacios extras, mayúsculas consistentes).
 
-> **Si venís del paso 0.a (import ALM)**, ya tenés `nombre` y `numero`. Acá pedí solamente la pregunta 3 (canal), reusando la misma lógica de `data/urls.ts` y `➕ Crear nuevo canal`.
+> **Si venís del paso 0.a (testid) o del paso 0.b (xlsx)**, ya tenés `nombre` y `numero`. Acá pedí solamente la pregunta 3 (canal), reusando la misma lógica de `data/urls.ts` y `➕ Crear nuevo canal`.
 
 ### 1.b. Si eligió `➕ Crear nuevo canal`
 
@@ -102,84 +190,6 @@ Agregá el nuevo canal al array `canales` de `data/urls.ts` (insertá un nuevo o
 ### 1.c. Si eligió uno existente
 
 Tomá `nombre` y `url` directamente del entry seleccionado. **No preguntes la URL** — ya está.
-
-## 1.4. Enriquecimiento ALM (si la integración está disponible)
-
-Antes de seguir con auth y buffer, chequeá si está la integración de ALM para traer el nombre y pasos del test directamente desde la herramienta. Esta sección se ejecuta tanto si el QA cargó manualmente como si vino del paso 0.a (Import xlsx) — la integración es más autoritativa que el xlsx.
-
-### Chequeo de disponibilidad
-
-Verificá que exista el ejecutable:
-```
-.autoflow/alm/integrations/fetch_test_v1.0.0.exe
-```
-
-Si **no existe** → salteá toda esta sección silencioso. Andá directo al paso 1.5.
-
-### Fetch del test desde ALM
-
-Si existe, corré con `runCommands` (PowerShell):
-
-```powershell
-& ".\.autoflow\alm\integrations\fetch_test_v1.0.0.exe" --name {numero}
-```
-
-Leé la salida con `terminalLastCommand`. La integración imprime un JSON con esta forma:
-
-```json
-{
-  "success": true,
-  "test_id": "668998",
-  "step_count": 9,
-  "test_name": "Test Prueba",
-  "version": "1.0.0",
-  "message": "✓ Obtenidos 9 steps del test 668998",
-  "steps": [
-    {
-      "step-order": "1",
-      "name": "Pre-requisitos",
-      "description": "Confirmar que el ambiente QA esté disponible...",
-      "expected": "- Ambiente QA accesible...",
-      "vts": "...", "ver-stamp": "...", "attachment": "",
-      "has-params": "N", "vc-user-name": "",
-      "id": "8379810", "parent-id": "668998"
-    },
-    ...
-  ]
-}
-```
-
-**Manejo de errores** (no bloquees el flujo — el caso se puede grabar igual):
-- Exit code ≠ 0, JSON inválido, o `success: false` → avisale corto al QA (`No pude traer el test del ALM, sigo con el nombre que pusiste.`) y andá al paso 1.5. No reintentes.
-- Timeout (>10s) → idem, mensaje corto y seguir.
-
-**Si `success: true`**:
-
-1. **Guardá una copia del JSON crudo** en `.autoflow/alm/originalTests/{numero}.json` (sobreescribí si ya existía). Sirve como cache/audit — no se vuelve a fetchear si el agente lo necesita después.
-
-2. **Mostrale al QA un resumen** con el nombre del ALM + los steps. Solo emití `name`, `description` y `expected` por step — el resto de campos no le interesan al QA:
-   ```
-   📥 Encontré el test en ALM:
-
-     Nombre: "{test_name}"
-
-     Steps registrados ({step_count}):
-       1. {steps[0].name}
-          → {steps[0].description}
-          ✅ Esperado: {steps[0].expected}
-
-       2. {steps[1].name}
-          → {steps[1].description}
-          ✅ Esperado: {steps[1].expected}
-
-       ...
-   ```
-
-3. **Preguntale qué nombre usar** con `vscode/askQuestions` single-select: `"¿Qué nombre usás para el caso?"`:
-   - `📥 Usar "{test_name}" (del ALM)` → reemplazá `nombre` en memoria con `test_name`.
-   - `✍️ Mantener "{nombre actual}"` → no toques `nombre`.
-
-> **Por ahora el agente NO usa los steps para construir el caso**. Son puramente informativos para que el QA tenga a la vista qué tiene que grabar (la grabación arranca limpia en el paso 5 como siempre). En versiones futuras de la integración se podrían usar para validar cobertura post-grabación.
 
 ## 1.5. ¿Arranca logueado?
 
@@ -247,7 +257,17 @@ Leé `.autoflow/user.json` y escribí:
 
 Si `authState` está seteado, `start-recording.js` lo va a pasar al grabador con `--load-storage` y la grabación arranca con la sesión ya cargada — el QA no graba el login. En `generar-pom.md` el spec generado va a emitir `test.use({ storageState: '<authState>' })` arriba del bloque `test()`.
 
-`almContext` solo se incluye si vino del paso 0.a:
+`almContext` solo se incluye si vino del paso 0.a (testid) o del paso 0.b (xlsx):
+
+**Si vino del paso 0.a (testid)**:
+```json
+{
+  "origen": "alm-testid",
+  "testId": "<test_id del JSON>"
+}
+```
+
+**Si vino del paso 0.b (xlsx)**:
 ```json
 {
   "origen": "alm-export",
@@ -255,7 +275,8 @@ Si `authState` está seteado, `start-recording.js` lo va a pasar al grabador con
   "enfoque": "<texto de G2>"
 }
 ```
-Si fue carga manual, omití el campo `almContext` directamente (no lo pongas en `null`).
+
+Si fue carga manual (paso 0.c), omití el campo `almContext` directamente (no lo pongas en `null`).
 
 > No se crean archivos de markers ni notes. Durante la grabación el QA no interactúa con el chat.
 
