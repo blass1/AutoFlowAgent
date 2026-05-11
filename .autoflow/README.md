@@ -15,6 +15,9 @@ Este directorio contiene los **prompts del agente AutoFlow**, sus **convenciones
 ├── fingerprints/           # un sidecar JSON por page con nodos[], asserts[], conecta[]
 ├── testsets/               # un JSON por test set
 ├── alm-exports/            # xlsx exportados desde ALM, fuente para "crear caso" desde ALM
+├── alm/                    # operación interna del agente con ALM (integraciones binarias)
+│   ├── integrations/       # ejecutables que pegan a ALM por testid (fetch_test_*.exe, etc.) — gitignored
+│   └── originalTests/      # JSON crudo devuelto por la integración por testid — cache local, gitignored
 ├── auth/                   # storageState .json para login reusable (gitignored)
 ├── captures/               # HTML + intent + razonamiento de cada nodo capturar/verificar
 ├── grafos/                 # diagramas Mermaid (.md) y vista interactiva (.html)
@@ -35,6 +38,8 @@ Este directorio contiene los **prompts del agente AutoFlow**, sus **convenciones
 - `recordings/*` — estado efímero de grabaciones (excepto el `.gitkeep`).
 - `auth/*.json` — storageState con tokens de sesión sensibles.
 - `alm-exports/*.xlsx` — exports propietarios del usuario.
+- `alm/integrations/*.exe` — binarios propietarios provistos externamente.
+- `alm/originalTests/*.json` — cache local de fetches desde la integración.
 
 ## Archivos de una sesión de grabación
 
@@ -58,6 +63,8 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 | `fingerprints/{Page}.json` | Sidecar de cada Page Object: `{ page, tipo, nodos: [id, ...], asserts: [id, ...], conecta: [destino, ...] }`. `nodos[]` es el **vocabulario** de la page (set de ids posibles) que usa `generar-pom.md` paso 3 para matchear nodo por nodo en grabaciones nuevas; `asserts[]` no participa del matcheo. **`tipo`**: `'page'` (default, omitible) o `'componente'` para navbars/headers/footers globales que viven fuera del flujo de navegación — el archivo del PO va sin sufijo (`pages/Navbar.ts`, no `pages/NavbarPage.ts`), `conecta` queda vacío y el matcheo evalúa el componente sin importar la page activa. |
 | `testsets/{slug}.json` | Definición de cada test set (id, nombre, descripción, casos). |
 | `alm-exports/` | xlsx exportados desde ALM. El QA suelta el archivo acá y `crear-caso.md` lo levanta vía `parse-alm-export.js` para prellenar nombre/TC/enfoque. |
+| `alm/integrations/` | Ejecutables propietarios que pegan a ALM por testid. La primera integración es `fetch_test_v1.0.0.exe` (trae `test_name` + `steps[]` por testid). `crear-caso.md` paso 1.4 lo invoca si está presente. **Gitignored** — los binarios se distribuyen aparte. |
+| `alm/originalTests/{testid}.json` | Copia cruda del JSON que devuelve la integración por testid. Sirve como cache/audit local — el agente lo escribe en cada fetch exitoso y lo puede releer sin volver a llamar al exe. **Gitignored**. |
 | `auth/{canal-slug}-{userKey}.json` | StorageState (cookies + localStorage) post-login. Generado por `setup-auth.md`. Permite que los casos arranquen logueados sin re-grabar el login. **Sensible** — gitignored. |
 | `captures/{numero}/{key}.json` | Por cada nodo `capturar`/`verificar` armado vía "HTML + intent": guarda el HTML pegado, el intent del QA, el locator propuesto, el final, y el razonamiento. Sirve para `actualizar-nodos.md` cuando el front cambia. |
 | `grafos/grafo.md` · `grafo.html` | Grafo de pages (alto nivel). |
@@ -75,7 +82,7 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 | `setup-auth.md` | Graba un `storageState` por (canal, usuario) en `.autoflow/auth/`. Sirve para que los casos arranquen logueados sin volver a grabar el login. |
 | `onboarding.md` | Primer uso — pide nombre, legajo, equipo, tribu. |
 | `menu-principal.md` | Menú de **2 niveles**. Nivel 1: 5 categorías — `🖥️ Dashboard` (acción directa), `🧪 Tests`, `📦 Test Sets`, `📄 ALM`, `🛠️ Mantenimiento`. Nivel 2: las acciones puntuales de cada categoría + `↩️ Volver`. **Cada label trae descripción inline** (ej: `🧪 Tests — crear, editar y correr casos puntuales`) para que el QA vea el contenido sin abrir el sub-menú. Tras completar una acción, siempre se vuelve al nivel 1. |
-| `crear-caso.md` | Lanza grabación con codegen. Por default pregunta si los datos del caso vienen de un Export ALM (xlsx) o se cargan a mano. Acepta contexto opcional `origen: "alm"` (invocado desde el sub-menú ALM → Importar) u `origen: "manual"` para saltar esa pregunta y arrancar directo en el camino correspondiente. Después pregunta si arranca logueado (lista los `auth/*.json` del canal). |
+| `crear-caso.md` | Lanza grabación con codegen. Por default pregunta si los datos del caso vienen de un Export ALM (xlsx) o se cargan a mano. Acepta contexto opcional `origen: "alm"` (invocado desde el sub-menú ALM → Importar) u `origen: "manual"` para saltar esa pregunta y arrancar directo en el camino correspondiente. **Paso 1.4 — Enriquecimiento ALM**: si está presente el ejecutable `.autoflow/alm/integrations/fetch_test_v1.0.0.exe`, lo invoca con `--name {testid}`, guarda el JSON crudo en `alm/originalTests/{testid}.json`, muestra `test_name` + `steps[]` (name/description/expected, informativos) y le pregunta al QA si usa el nombre del ALM o el que cargó a mano. Los steps no se materializan — el caso se graba normal. Si el .exe no está, el paso es silencioso. Después pregunta si arranca logueado (lista los `auth/*.json` del canal). |
 | `editar-caso.md` | Regrabar / editar código / **añadir pasos al final del Test** (mergea pasos al final del `test()` existente reusando POMs) / insertar nodo de captura/verificación. |
 | `insertar-nodo-especial.md` | Sub-flow invocado desde `editar-caso.md`. Inserta un nodo `capturar` o `verificar` en un caso existente. Para armar el locator ofrece 4 caminos: abrir Chrome hasta el paso N (`page.pause()`), pegar HTML + intent (el agente arma el locator), reusar un locator de un nodo existente, o pegar a mano. |
 | `bifurcar-caso.md` | Sub-flow invocado desde `editar-caso.md` (o desde el botón "🍴 Bifurcar Test desde acá" del dashboard). Crea un **Test** nuevo a partir de un step de un **Test** existente: corre un warm-up que ejecuta el prefix y guarda `storageState`, después lanza el grabador con `--load-storage` para grabar sólo la cola, y materializa el nuevo `test()` con prefix copiado + tail recién agrupado. |

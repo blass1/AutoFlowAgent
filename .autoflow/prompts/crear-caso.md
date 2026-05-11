@@ -103,6 +103,84 @@ Agregá el nuevo canal al array `canales` de `data/urls.ts` (insertá un nuevo o
 
 Tomá `nombre` y `url` directamente del entry seleccionado. **No preguntes la URL** — ya está.
 
+## 1.4. Enriquecimiento ALM (si la integración está disponible)
+
+Antes de seguir con auth y buffer, chequeá si está la integración de ALM para traer el nombre y pasos del test directamente desde la herramienta. Esta sección se ejecuta tanto si el QA cargó manualmente como si vino del paso 0.a (Import xlsx) — la integración es más autoritativa que el xlsx.
+
+### Chequeo de disponibilidad
+
+Verificá que exista el ejecutable:
+```
+.autoflow/alm/integrations/fetch_test_v1.0.0.exe
+```
+
+Si **no existe** → salteá toda esta sección silencioso. Andá directo al paso 1.5.
+
+### Fetch del test desde ALM
+
+Si existe, corré con `runCommands` (PowerShell):
+
+```powershell
+& ".\.autoflow\alm\integrations\fetch_test_v1.0.0.exe" --name {numero}
+```
+
+Leé la salida con `terminalLastCommand`. La integración imprime un JSON con esta forma:
+
+```json
+{
+  "success": true,
+  "test_id": "668998",
+  "step_count": 9,
+  "test_name": "Test Prueba",
+  "version": "1.0.0",
+  "message": "✓ Obtenidos 9 steps del test 668998",
+  "steps": [
+    {
+      "step-order": "1",
+      "name": "Pre-requisitos",
+      "description": "Confirmar que el ambiente QA esté disponible...",
+      "expected": "- Ambiente QA accesible...",
+      "vts": "...", "ver-stamp": "...", "attachment": "",
+      "has-params": "N", "vc-user-name": "",
+      "id": "8379810", "parent-id": "668998"
+    },
+    ...
+  ]
+}
+```
+
+**Manejo de errores** (no bloquees el flujo — el caso se puede grabar igual):
+- Exit code ≠ 0, JSON inválido, o `success: false` → avisale corto al QA (`No pude traer el test del ALM, sigo con el nombre que pusiste.`) y andá al paso 1.5. No reintentes.
+- Timeout (>10s) → idem, mensaje corto y seguir.
+
+**Si `success: true`**:
+
+1. **Guardá una copia del JSON crudo** en `.autoflow/alm/originalTests/{numero}.json` (sobreescribí si ya existía). Sirve como cache/audit — no se vuelve a fetchear si el agente lo necesita después.
+
+2. **Mostrale al QA un resumen** con el nombre del ALM + los steps. Solo emití `name`, `description` y `expected` por step — el resto de campos no le interesan al QA:
+   ```
+   📥 Encontré el test en ALM:
+
+     Nombre: "{test_name}"
+
+     Steps registrados ({step_count}):
+       1. {steps[0].name}
+          → {steps[0].description}
+          ✅ Esperado: {steps[0].expected}
+
+       2. {steps[1].name}
+          → {steps[1].description}
+          ✅ Esperado: {steps[1].expected}
+
+       ...
+   ```
+
+3. **Preguntale qué nombre usar** con `vscode/askQuestions` single-select: `"¿Qué nombre usás para el caso?"`:
+   - `📥 Usar "{test_name}" (del ALM)` → reemplazá `nombre` en memoria con `test_name`.
+   - `✍️ Mantener "{nombre actual}"` → no toques `nombre`.
+
+> **Por ahora el agente NO usa los steps para construir el caso**. Son puramente informativos para que el QA tenga a la vista qué tiene que grabar (la grabación arranca limpia en el paso 5 como siempre). En versiones futuras de la integración se podrían usar para validar cobertura post-grabación.
+
 ## 1.5. ¿Arranca logueado?
 
 Listá `.autoflow/auth/*.json` (excluí `.gitkeep`) cuyo nombre arranque con el slug del canal elegido (`{canalSlug}-...`). El slug se calcula como en `setup-auth.md` (kebab-case del nombre del canal).

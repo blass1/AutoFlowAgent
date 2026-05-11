@@ -24,6 +24,10 @@ tests/_temp/
 .autoflow/alm-exports/*.csv
 .autoflow/alm-exports/*.json
 !.autoflow/alm-exports/.gitkeep
+.autoflow/alm/integrations/*.exe
+!.autoflow/alm/integrations/.gitkeep
+.autoflow/alm/originalTests/*.json
+!.autoflow/alm/originalTests/.gitkeep
 .autoflow/runs/*.json
 !.autoflow/runs/.gitkeep
 .autoflow/dashboard.html
