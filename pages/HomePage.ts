@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { expect } from '../fixtures';
+import { bufferEntreAcciones, expect } from '../fixtures';
 
 /** Pantalla principal de Demoblaze (home + navbar global). */
 export default class HomePage {
@@ -17,7 +17,7 @@ export default class HomePage {
 
   async abrirModalLogin(): Promise<void> {
     await this.linkLogin.click();
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
   }
 
   async verificarWelcome(usuario: string): Promise<void> {

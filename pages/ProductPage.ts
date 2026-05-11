@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import { bufferEntreAcciones } from '../fixtures';
 
 /** Detalle de un producto + acceso al carrito desde el navbar. */
 export default class ProductPage {
@@ -15,7 +16,7 @@ export default class ProductPage {
   async agregarAlCarrito(): Promise<void> {
     this.page.once('dialog', (d) => d.accept());
     await this.linkAddToCart.click();
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
   }
 
   async irAlCarrito(): Promise<void> {

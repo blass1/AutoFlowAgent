@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import { bufferEntreAcciones } from '../fixtures';
 
 /** Modal de login de Demoblaze (usuario / contraseña / botón Log in). */
 export default class LoginPage {
@@ -16,14 +17,14 @@ export default class LoginPage {
 
   async ingresar(usuario: string, password: string): Promise<void> {
     await this.inputUsuario.click();
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
     await this.inputUsuario.pressSequentially(usuario);
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
     await this.inputPassword.click();
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
     await this.inputPassword.pressSequentially(password);
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
     await this.botonLogIn.click();
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
   }
 }

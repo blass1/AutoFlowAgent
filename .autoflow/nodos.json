@@ -1,13 +1,4 @@
 {
-  "HomePage::goto::goto:/": {
-    "id": "HomePage::goto::goto:/",
-    "page": "HomePage",
-    "accion": "goto",
-    "selector": "goto:/",
-    "selectorRaw": "goto('https://www.demoblaze.com/')",
-    "valor": "https://www.demoblaze.com/",
-    "confiabilidad": null
-  },
   "HomePage::click::getByRole:link:Log in": {
     "id": "HomePage::click::getByRole:link:Log in",
     "page": "HomePage",
@@ -218,6 +209,15 @@
     "selector": "locator:h2.sweet-alert",
     "selectorRaw": "locator('h2.sweet-alert')",
     "valor": "Thank you for your purchase!",
+    "confiabilidad": null
+  },
+  "HomePage::goto::goto:demoblaze.com/": {
+    "id": "HomePage::goto::goto:demoblaze.com/",
+    "page": "HomePage",
+    "accion": "goto",
+    "selector": "goto:demoblaze.com/",
+    "selectorRaw": "goto('https://www.demoblaze.com/')",
+    "valor": "https://www.demoblaze.com/",
     "confiabilidad": null
   }
 }

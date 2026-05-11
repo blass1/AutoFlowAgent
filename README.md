@@ -427,7 +427,7 @@ La **primera vez** detecta que faltan `node_modules` y los browsers de Playwrigh
 | `.autoflow/consolegraph/` | Banner ASCII de arranque que el agente muestra como primer mensaje. |
 | `pages/` | Page Objects (los puebla el agente). |
 | `tests/` | Specs Playwright (los puebla el agente). |
-| `fixtures/index.ts` | Fixtures tipadas (`test.extend`). Sin clase base. Incluye fixture `humanize`. |
+| `fixtures/index.ts` | Fixtures tipadas (`test.extend`). Sin clase base. Incluye fixture `humanize` + helper `bufferEntreAcciones(page)` que los POs invocan para el wait anti-solape (centraliza el valor del buffer en un solo lugar; respeta env `AUTOFLOW_BUFFER_MS` para override global). |
 | `data/types.ts` | Seeds: interfaces `User` y `Canal` (compartidas por todos los Test Sets). |
 | `data/data-{slug}.ts` | Datos autocontenidos del Test Set (interface + usuarios + valores). Lo crea el agente. |
 | `data/urls.ts` | Catálogo de canales (nombre + URL inicial) reusables al crear casos. Lo lee/edita el agente. |

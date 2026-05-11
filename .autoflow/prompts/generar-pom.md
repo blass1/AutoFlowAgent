@@ -240,11 +240,13 @@ Cuando el comando es válido **y el nombre NO chocaba con un PO existente**:
      }
      ```
      **`once`, no `on`**: el handler se desuscribe tras el primer dialog para no interferir con disparos posteriores.
-   - **Buffer de tiempo (anti-solape)**: leé `session.bufferTiempo`. Si es `true`, **después de cada acción de input/selección** dentro del método agregá un wait de 500ms. Las acciones que disparan el wait son: `pressSequentially`, `click`, `check`, `uncheck`, `selectOption`.
+   - **Buffer de tiempo (anti-solape)**: leé `session.bufferTiempo`. Si es `true`, **después de cada acción de input/selección** dentro del método invocá el helper `bufferEntreAcciones` (importado de `'../fixtures'`). Las acciones que disparan el wait son: `pressSequentially`, `click`, `check`, `uncheck`, `selectOption`.
      ```typescript
-     await this.page.waitForTimeout(500);
+     import { bufferEntreAcciones } from '../fixtures';
+     // ...
+     await bufferEntreAcciones(this.page);
      ```
-     **Sin comentario arriba** del wait — un PO con 13 acciones tendría 13 comentarios idénticos, es puro ruido visual. El patrón es reconocible solo.
+     **NO emitas `await this.page.waitForTimeout(500)` literal** — usá siempre el helper. El valor del wait queda centralizado en `fixtures/index.ts` (respeta env `AUTOFLOW_BUFFER_MS` para override global) y los POs no tienen valores mágicos repetidos. **Sin comentario arriba** del wait — el nombre del helper ya documenta el intento.
      Cubre tres casos típicos: (a) input → input (validación on-input), (b) input → click de avanzar/continuar (el botón se habilita tras la validación), (c) click → click rápido en checkboxes/toggles consecutivos (sin el wait el segundo se ejecuta antes de que el front terminó de aplicar el primero y el checkbox queda mal seleccionado). **No** emitas el wait si la siguiente línea ya es `waitForLoadState(...)` (redundante) o si la acción es la última del método y el método dispara navegación (cerrás con `waitForLoadState('domcontentloaded')` en lugar). Si `session.bufferTiempo` es `false` o falta el campo, no agregues nada.
    - **Métodos retornan siempre `Promise<void>`**. Sin chains. Los Page Objects no se conocen entre sí — `LoginPage` no importa `OverviewPage`. Si el método dispara una navegación a otra page, terminá con `await this.page.waitForLoadState('domcontentloaded')` **antes de retornar** (no instancies la próxima page; el spec se encarga). **Default `'domcontentloaded'`** (ver pom-rules.md → "Esperas"): `'networkidle'` cuelga 60s en sites con long-polling o analytics persistente, así que solo usalo en SPAs limpias y con comentario justificando.
    - **Si el primer nodo del rango es `goto`**, **no lo metas en un método del PO**. El `goto` lo dispara el spec en su propio `test.step('Abrir el canal', async () => page.goto(urlInicial))`. El nodo `goto` queda registrado en `sidecar.nodos[]` igual (es parte de la firma de la page para el matcheo), pero sin código en la clase. Los demás nodos del rango sí tienen métodos.
@@ -353,6 +355,10 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
 
    ```typescript
    import type { User } from './types';
+   // Si algún método de PO toma un objeto compuesto como parámetro, importá la interface
+   // del PO con `import type` (la interface vive en el archivo del PO con `export interface`,
+   // no en `data/types.ts`). Ver pom-rules.md → "Tipos de parámetros: dónde viven las interfaces".
+   // Ejemplo: import type { DatosCompra } from '../pages/CheckoutPage';
 
    export interface DataDolarMep {
      urlInicial: string;

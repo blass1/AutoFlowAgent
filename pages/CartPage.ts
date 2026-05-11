@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import { bufferEntreAcciones } from '../fixtures';
 
 /** Carrito con los items agregados + botón para iniciar la compra. */
 export default class CartPage {
@@ -12,6 +13,6 @@ export default class CartPage {
 
   async iniciarCompra(): Promise<void> {
     await this.botonPlaceOrder.click();
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
   }
 }

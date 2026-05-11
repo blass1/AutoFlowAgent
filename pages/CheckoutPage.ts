@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { expect } from '../fixtures';
+import { bufferEntreAcciones, expect } from '../fixtures';
 
 export interface DatosCompra {
   nombre: string;
@@ -36,31 +36,31 @@ export default class CheckoutPage {
 
   async comprar(datos: DatosCompra): Promise<void> {
     await this.inputNombre.click();
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
     await this.inputNombre.pressSequentially(datos.nombre);
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
     await this.inputPais.click();
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
     await this.inputPais.pressSequentially(datos.pais);
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
     await this.inputCiudad.click();
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
     await this.inputCiudad.pressSequentially(datos.ciudad);
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
     await this.inputTarjeta.click();
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
     await this.inputTarjeta.pressSequentially(datos.tarjeta);
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
     await this.inputMes.click();
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
     await this.inputMes.pressSequentially(datos.mes);
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
     await this.inputAnio.click();
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
     await this.inputAnio.pressSequentially(datos.anio);
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
     await this.botonPurchase.click();
-    await this.page.waitForTimeout(500);
+    await bufferEntreAcciones(this.page);
   }
 
   async verificarThankYou(): Promise<void> {

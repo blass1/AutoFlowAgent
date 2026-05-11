@@ -8,6 +8,14 @@ export default defineConfig({
   testIgnore: ['**/_temp/**'],
   timeout: 180000,
   expect: { timeout: 15000 },
+  // Reporter `list` para output legible + reporter custom de AutoFlow que persiste
+  // cada corrida en `.autoflow/runs/` para que el dashboard la muestre. El custom
+  // se desactiva solo si la corrida vino de los wrappers run-test.js/run-testset.js
+  // (esos persisten su propia entrada con más contexto).
+  reporter: [
+    ['list'],
+    ['./.autoflow/scripts/lib/run-reporter.js'],
+  ],
   use: {
     headless: true,
     // actionTimeout antes era 60s — un selector roto colgaba el test 60s antes de

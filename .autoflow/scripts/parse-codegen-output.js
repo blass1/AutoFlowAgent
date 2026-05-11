@@ -169,11 +169,18 @@ function extraerEtiqueta(selectorNormalizado) {
   return partes.length > 1 ? partes[partes.length - 1] : null;
 }
 
-// URL relativa a partir de una absoluta. Si ya es relativa, la deja igual.
-function relativizarUrl(url) {
+// "Compactar" una URL para usarla como parte del id del nodo `goto`.
+// Devuelve `host+path` (ej: 'demoblaze.com/' o 'banco.com.ar/login').
+// Antes solo devolvía el path (`/`), pero eso colisionaba entre canales:
+// dos sitios distintos cuyo `goto` arranca en `/` quedaban con el mismo id
+// `goto::goto:/`. Incluir el host elimina la ambigüedad. Si la URL ya es
+// relativa (sin host), se devuelve tal cual.
+function compactarUrl(url) {
   try {
     const u = new URL(url);
-    return u.pathname + u.search + u.hash;
+    // Quitar `www.` para que `www.demoblaze.com` y `demoblaze.com` colapsen.
+    const host = u.hostname.replace(/^www\./, '');
+    return host + u.pathname + u.search + u.hash;
   } catch {
     return url;
   }
@@ -314,11 +321,11 @@ for (const linea of lineas) {
   let m = limpia.match(/^await page\.goto\(['"](.+?)['"]\)/);
   if (m) {
     indice++;
-    const urlRel = relativizarUrl(m[1]);
+    const urlCompacta = compactarUrl(m[1]);
     pushNodo({
       indice,
       accion: 'goto',
-      selector: `goto:${urlRel}`,
+      selector: `goto:${urlCompacta}`,
       selectorRaw: `goto('${m[1]}')`,
       valor: m[1],
       confiabilidad: null,

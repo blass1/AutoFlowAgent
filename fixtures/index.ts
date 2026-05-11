@@ -1,4 +1,18 @@
-import { test as base } from '@playwright/test';
+import { test as base, type Page } from '@playwright/test';
+
+/**
+ * Buffer anti-solape (500ms por default) que el agente intercala entre acciones
+ * de input/selección dentro de un método de PO cuando `session.bufferTiempo: true`.
+ * El valor se puede sobreescribir con la env var `AUTOFLOW_BUFFER_MS` (entero).
+ *
+ * Centralizar el valor en un solo lugar en lugar de tener `waitForTimeout(500)`
+ * literal en cada PO permite ajustar el buffer global del proyecto sin tocar
+ * cada Page Object. Ver `.autoflow/conventions/pom-rules.md` → "Buffer de tiempo".
+ */
+export async function bufferEntreAcciones(page: Page): Promise<void> {
+  const ms = Number.parseInt(process.env.AUTOFLOW_BUFFER_MS ?? '500', 10);
+  if (ms > 0) await page.waitForTimeout(ms);
+}
 
 /**
  * Fixtures comunes de AutoFlow.

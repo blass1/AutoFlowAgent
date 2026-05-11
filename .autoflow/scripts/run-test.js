@@ -47,9 +47,13 @@ if (headed) args.push('--headed', '--workers=1');
 if (grep) args.push(`--grep=${grep}`);
 
 const inicio = Date.now();
+// Marcamos AUTOFLOW_RUN_PERSISTED para que el reporter custom de Playwright
+// (`.autoflow/scripts/lib/run-reporter.js`) NO persista — este wrapper ya
+// persiste la entrada con más contexto (grep, etc.). Sin esto se duplica el run.
 const res = spawnSync('npx', args, {
   stdio: 'inherit',
   shell: true,
+  env: { ...process.env, AUTOFLOW_RUN_PERSISTED: '1' },
 });
 const duration = Date.now() - inicio;
 const exitCode = res.status ?? 1;

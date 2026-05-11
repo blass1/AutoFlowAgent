@@ -52,7 +52,13 @@ if (debug) {
   args.push('--trace=on');
 }
 if (headed) args.push('--headed', '--workers=1');
-const res = spawnSync('npx', args, { stdio: 'inherit', shell: true });
+// AUTOFLOW_RUN_PERSISTED desactiva el reporter custom de Playwright (lib/run-reporter.js)
+// para evitar runs duplicados — este wrapper persiste su propia entrada con más contexto.
+const res = spawnSync('npx', args, {
+  stdio: 'inherit',
+  shell: true,
+  env: { ...process.env, AUTOFLOW_RUN_PERSISTED: '1' },
+});
 const duration = Date.now() - inicio;
 const exitCode = res.status ?? 1;
 

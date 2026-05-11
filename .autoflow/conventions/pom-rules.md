@@ -330,6 +330,42 @@ Esta prioridad la usa **el grabador al grabar**, no el agente al generar el PO. 
 - camelCase.
 - Retornan `Promise<void>` o el siguiente `Page Object` si la acción provoca navegación a otra pantalla.
 - **JSDoc de una sola línea**, en español, concreto sobre qué hace el método. Sin `@param` redundantes (el tipado del parámetro ya documenta). Ejemplo bueno: `/** Loguea con usuario y contraseña; devuelve el dashboard. */`. Ejemplo a evitar: párrafos largos o re-describir lo que el nombre del método ya dice.
+
+#### Tipos de parámetros: dónde viven las interfaces
+
+Cuando un método del PO recibe un objeto compuesto (más de 2 campos) en lugar de strings sueltos — típico en checkouts, registros, formularios largos —, la **interface del parámetro vive en el archivo del PO**, no en `data/types.ts`:
+
+```typescript
+// pages/CheckoutPage.ts
+export interface DatosCompra {
+  nombre: string;
+  pais: string;
+  ciudad: string;
+  tarjeta: string;
+  mes: string;
+  anio: string;
+}
+
+export default class CheckoutPage {
+  async comprar(datos: DatosCompra): Promise<void> { /* ... */ }
+}
+```
+
+El data file del Test importa la interface del PO con `import type`:
+
+```typescript
+// data/data-compraSamsungGalaxyS6.ts
+import type { DatosCompra } from '../pages/CheckoutPage';
+
+export interface DataCompraSamsungGalaxyS6 {
+  // ...
+  datosCompra: DatosCompra;
+}
+```
+
+**Por qué acá y no en `data/types.ts`**: la interface es **propiedad del PO** — ese PO es el único que sabe qué campos necesita. Si la movés a `data/types.ts`, te queda un grab-bag que crece con cada caso y nadie sabe qué archivo la consume. Manteniéndola junto al PO, refactor del método = refactor de la interface en el mismo file.
+
+**`data/types.ts` queda solo para tipos transversales** que NO pertenecen a un PO: `User`, `Canal`, otros shapes que múltiples Tests comparten sin pasar por un PO específico.
 - **Fidelidad al recording — todos los nodos, en orden**. El método ejecuta los nodos del rango de la page **en el mismo orden y sin saltarse ninguno**, aunque parezcan redundantes. Codegen suele emitir `click` antes de `fill` (focus + máscara + validación que el front escucha); colapsar a solo `fill` rompe formularios que dependen del focus event. Ejemplo: el rango `click(usuario) → fill(usuario, '*') → click(password) → fill(password, '*') → click(Ingresar)` se traduce a un método que hace los 5 pasos, no a `inputUsuario.fill(u); inputPassword.fill(p); botonIngresar.click()`.
 - **`fill` siempre se traduce a `pressSequentially`**. Aunque el nodo lleve `accion: "fill"` en `nodos.json` (acción lógica, se mantiene así por compatibilidad con sidecars y trazas), el código emitido **siempre** usa `pressSequentially`. La razón: el front del banco tiene campos con máscara, validators on-change y autocomplete que reaccionan a cada keystroke. `fill` setea el valor de una vez y dispara un solo `input` event, lo que rompe esos campos intermitentemente. `pressSequentially` simula tipeo carácter por carácter (keydown/keyup/input por cada letra), más fiel al comportamiento del usuario real. Cuesta unos ms más por campo, pero la confiabilidad lo compensa. Ejemplo:
   ```typescript
@@ -351,16 +387,21 @@ Esta prioridad la usa **el grabador al grabar**, no el agente al generar el PO. 
 
 Cuando el QA crea un **Test**, `crear-caso.md` paso 1.6 le pregunta si activar un **buffer de 500ms**. La decisión se persiste en `session.json` como `bufferTiempo: true | false`. Si está en `true`, `generar-pom.md` paso 6 emite el wait **después de cada acción de input/selección** dentro de un método público — concretamente: `pressSequentially`, `click`, `check`, `uncheck`, `selectOption`. Ejemplo con dos inputs y un click de avanzar:
 
+El wait se emite invocando el helper `bufferEntreAcciones` que vive en `fixtures/index.ts`:
+
 ```typescript
+import { bufferEntreAcciones } from '../fixtures';
+
+// dentro del método del PO:
 await this.usuario.pressSequentially(usuario);
-await this.page.waitForTimeout(500);
+await bufferEntreAcciones(this.page);
 await this.password.pressSequentially(password);
-await this.page.waitForTimeout(500);
+await bufferEntreAcciones(this.page);
 await this.botonIngresar.click();
-await this.page.waitForTimeout(500);
+await bufferEntreAcciones(this.page);
 ```
 
-**No emitas comentarios** repitiendo "buffer anti-solape" antes de cada `waitForTimeout(500)` — el patrón ya es reconocible y el comentario inflama el archivo (un PO de checkout con 13 acciones tendría 13 comentarios idénticos = ruido visual). El waitForTimeout pelado, sin comentario, es suficiente.
+El helper hace `await page.waitForTimeout(500)` internamente y respeta la env var `AUTOFLOW_BUFFER_MS` (entero) si el QA quiere subir/bajar el valor global sin tocar cada PO. **No emitas `await this.page.waitForTimeout(500)` literal** — usá siempre el helper, así el valor queda centralizado. **Tampoco** emitas comentarios repitiendo "buffer anti-solape": el nombre del helper ya documenta el intento.
 
 Cubre tres casos típicos:
 - **input → input**: la validación on-input del primero se emite antes del siguiente focus.
