@@ -4,12 +4,17 @@
 // Conserva scripts, prompts, conventions, fixtures y configuración del proyecto.
 //
 //  Uso:
-//   node clearSession.js          (pide confirmación interactiva)
-//   node clearSession.js --yes    (sin confirmación, para CI/scripting)
+//   node .autoflow/clearSession.js          (pide confirmación interactiva)
+//   node .autoflow/clearSession.js --yes    (sin confirmación, para CI/scripting)
 
 const { readdirSync, rmSync, existsSync, statSync, writeFileSync } = require('node:fs');
-const { join } = require('node:path');
+const { join, resolve } = require('node:path');
 const readline = require('node:readline');
+
+// El script vive en `.autoflow/`, pero todos los paths abajo son relativos a la
+// raíz del proyecto (`.autoflow/user.json`, `pages/`, `tests/`, `data/`).
+// Forzamos cwd a la raíz para que funcione desde cualquier ubicación.
+process.chdir(resolve(__dirname, '..'));
 
 const skipConfirm = process.argv.includes('--yes') || process.argv.includes('-y');
 

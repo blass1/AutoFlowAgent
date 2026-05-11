@@ -434,7 +434,7 @@ La **primera vez** detecta que faltan `node_modules` y los browsers de Playwrigh
 | `data/parsers.ts` | Parsers reusables (`parseText`, `parseNumber`, `parseCurrencyAR`, `parseDate`) para nodos `capturar`/`verificar`. |
 | `utils/` | Librerías complementarias del QA (reporting custom, hooks de notificación, helpers extra). Cada archivo se autodescribe con un header (`@autoflow-util`, `@descripcion`, `@aplicarEn`, `@como-aplicar`) que el agente lee desde la opción `🔧 Utilidades` del menú para aplicarla al código del proyecto. Convención completa en [utils/README.md](utils/README.md). |
 | `playwright.config.ts` | Timeouts amplios para fronts lentos (`actionTimeout` 30s, `navigationTimeout` 60s). Excluye `tests/_temp/` del runner. |
-| `clearSession.js` | Resetea el proyecto borrando todo lo generado por el agente. |
+| `.autoflow/clearSession.js` | Resetea el proyecto borrando todo lo generado por el agente. Resuelve cwd a la raíz del repo, así corre igual desde cualquier ubicación. |
 | `docs/presentacion.html` | Presentación HTML autocontenida (32 slides) para mostrar AutoFlow al equipo en una reunión de ~1h. Navegación con flechas / barra espaciadora. |
 
 Más detalle del estado runtime y los archivos de cada grabación: [.autoflow/README.md](.autoflow/README.md).
@@ -510,8 +510,8 @@ node .autoflow/scripts/run-testset.js dolarMep --debug        # +reporter=html, 
 Para volver el repo al estado anterior a cualquier sesión (útil para probar el agente desde cero o para limpiar antes de un demo):
 
 ```bash
-node clearSession.js          # pide confirmación (escribir SI)
-node clearSession.js --yes    # sin prompt, para CI o scripts
+node .autoflow/clearSession.js          # pide confirmación (escribir SI)
+node .autoflow/clearSession.js --yes    # sin prompt, para CI o scripts
 ```
 
 Borra: `user.json`, todas las grabaciones, fingerprints, testsets, `nodos.json`, los dos grafos, `pages/*`, `tests/*`, `data/data-*.ts`. Resetea los seeds `data/index.ts` y `data/urls.ts` a su contenido inicial (re-exports + array de canales vacío). **No toca** `data/types.ts`, `data/parsers.ts`, scripts, prompts, conventions, fixtures, configs, `utils/`, `.claude/` ni `.gitkeep`.
