@@ -31,7 +31,18 @@ if (!existsSync(sessionPath)) {
 }
 
 const session = JSON.parse(readFileSync(sessionPath, 'utf8'));
-const spec = readFileSync(specPath, 'utf8');
+let spec = readFileSync(specPath, 'utf8');
+
+// Codegen emite dialog handlers multi-línea con `{ ... }`:
+//   page.once('dialog', dialog => {
+//     dialog.accept().catch(() => {});
+//   });
+// El bucle de abajo procesa línea por línea y no detectaría el `dialog.accept(...)`
+// porque cae en otra línea. Aplanamos esos bloques a una sola línea acá.
+spec = spec.replace(
+  /page\.(?:once|on)\(\s*['"]dialog['"]\s*,\s*\w+\s*=>\s*\{[\s\S]*?\}\s*\)\s*;?/g,
+  (m) => m.replace(/\s*\n\s*/g, ' '),
+);
 
 // Parte un chain de Playwright (`a().b().c()`) en sus segmentos top-level,
 // respetando paréntesis y comillas. Ej:
@@ -172,6 +183,21 @@ const nodos = [];
 const urlsVisitadas = [];
 let indice = 0;
 
+// Dialog handler pendiente — codegen emite `page.once('dialog', d => d.accept())`
+// ANTES de la acción que dispara el dialog (típicamente un click). Lo guardamos
+// acá y se lo adjuntamos como `dialogHandler` al próximo nodo que se cree.
+// Sin esto, los flujos con confirms/alerts nativos cuelgan 15s en el siguiente
+// `actionTimeout` y rompen el test.
+let dialogPendiente = null;
+
+function pushNodo(n) {
+  if (dialogPendiente) {
+    n.dialogHandler = dialogPendiente;
+    dialogPendiente = null;
+  }
+  nodos.push(n);
+}
+
 // Greedy: captura el chain entero. El sufijo de la acción (.click(), .fill(...))
 // delimita por la derecha. Tiene que arrancar con getBy*( o locator(.
 const SEL = '((?:getBy\\w+\\(|locator\\().+)';
@@ -188,7 +214,7 @@ for (const linea of lineas) {
     indice++;
     const selectorRaw = mAssert[1];
     const selector = normalizarSelector(selectorRaw);
-    nodos.push({
+    pushNodo({
       indice,
       accion: 'assert',
       matcher: 'toHaveAttribute',
@@ -211,7 +237,7 @@ for (const linea of lineas) {
     indice++;
     const selectorRaw = mAssert[1];
     const selector = normalizarSelector(selectorRaw);
-    nodos.push({
+    pushNodo({
       indice,
       accion: 'assert',
       matcher: 'toHaveClass',
@@ -234,7 +260,7 @@ for (const linea of lineas) {
     indice++;
     const selectorRaw = mAssert[1];
     const selector = normalizarSelector(selectorRaw);
-    nodos.push({
+    pushNodo({
       indice,
       accion: 'assert',
       matcher: mAssert[2],
@@ -252,7 +278,7 @@ for (const linea of lineas) {
   mAssert = limpia.match(/^await expect\(page\)\.(\w+)\(['"`](.+?)['"`]\)/);
   if (mAssert) {
     indice++;
-    nodos.push({
+    pushNodo({
       indice,
       accion: 'assert',
       matcher: mAssert[1],
@@ -265,6 +291,23 @@ for (const linea of lineas) {
     continue;
   }
 
+  // Dialog handler: codegen lo emite ANTES de la acción que dispara el dialog.
+  // Soporta accept(), accept('texto') (prompt), dismiss(). Una sola línea o multi.
+  // Lo guardamos como dialogPendiente y se adjunta al próximo nodo via pushNodo().
+  // Ejemplos:
+  //   page.once('dialog', dialog => dialog.accept());
+  //   page.once('dialog', dialog => { dialog.accept(); });
+  //   page.once('dialog', dialog => dialog.accept('respuesta'));
+  //   page.once('dialog', dialog => dialog.dismiss());
+  const mDialog = limpia.match(
+    /^page\.(?:once|on)\(['"]dialog['"]\s*,\s*\w+\s*=>\s*\{?\s*\w+\.(accept|dismiss)\(\s*(?:['"`](.*?)['"`])?\s*\)/,
+  );
+  if (mDialog) {
+    dialogPendiente = { tipo: mDialog[1] };
+    if (mDialog[2] !== undefined) dialogPendiente.valor = mDialog[2];
+    continue;
+  }
+
   if (!limpia.startsWith('await page.')) continue;
 
   // page.goto('https://...')
@@ -272,7 +315,7 @@ for (const linea of lineas) {
   if (m) {
     indice++;
     const urlRel = relativizarUrl(m[1]);
-    nodos.push({
+    pushNodo({
       indice,
       accion: 'goto',
       selector: `goto:${urlRel}`,
@@ -291,7 +334,7 @@ for (const linea of lineas) {
     indice++;
     const selectorRaw = m[1];
     const selector = normalizarSelector(selectorRaw);
-    nodos.push({
+    pushNodo({
       indice,
       accion: 'click',
       selector,
@@ -309,7 +352,7 @@ for (const linea of lineas) {
     indice++;
     const selectorRaw = m[1];
     const selector = normalizarSelector(selectorRaw);
-    nodos.push({
+    pushNodo({
       indice,
       accion: 'fill',
       selector,
@@ -334,7 +377,7 @@ for (const linea of lineas) {
     indice++;
     const selectorRaw = m[1];
     const selector = normalizarSelector(selectorRaw);
-    nodos.push({
+    pushNodo({
       indice,
       accion: 'press',
       selector,
@@ -352,7 +395,7 @@ for (const linea of lineas) {
     indice++;
     const selectorRaw = m[1];
     const selector = normalizarSelector(selectorRaw);
-    nodos.push({
+    pushNodo({
       indice,
       accion: m[2],
       selector,
@@ -370,7 +413,7 @@ for (const linea of lineas) {
     indice++;
     const selectorRaw = m[1];
     const selector = normalizarSelector(selectorRaw);
-    nodos.push({
+    pushNodo({
       indice,
       accion: 'selectOption',
       selector,
@@ -389,7 +432,7 @@ for (const linea of lineas) {
     indice++;
     const selectorRaw = m[1];
     const selector = normalizarSelector(selectorRaw);
-    nodos.push({
+    pushNodo({
       indice,
       accion: 'hover',
       selector,
@@ -407,7 +450,7 @@ for (const linea of lineas) {
     indice++;
     const selectorRaw = m[1];
     const selector = normalizarSelector(selectorRaw);
-    nodos.push({
+    pushNodo({
       indice,
       accion: 'setInputFiles',
       selector,

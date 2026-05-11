@@ -227,6 +227,19 @@ Cuando el comando es válido **y el nombre NO chocaba con un PO existente**:
    - **Constructor: copiá `selectorRaw` verbatim.** Para cada nodo del rango, leé `nodos.json[<id>].selectorRaw` y pegalo tal cual en `this.<nombreLocator> = page.<selectorRaw>`. **No simplifiques** ni reconstruyas desde el `selector` normalizado, porque podés perder modificadores (`.first()`, `.nth(N)`, `.filter(...)`, chains de `.locator(...)`, `.contentFrame()`) y apuntar a otro elemento.
    - **Método público: ejecutá todos los nodos del rango en orden, sin saltearte ninguno.** Codegen suele emitir `click` antes de cada `fill` (focus + máscara + validación que el front escucha). Si el rango tiene `click(usuario) + fill(usuario) + click(password) + fill(password) + click(Ingresar)`, el método tiene esos 5 pasos, no solo los 3 "lógicos".
    - **`fill` se traduce siempre a `pressSequentially`** (ver `pom-rules.md` → "Fidelidad al recording"). El nodo en `nodos.json` lleva `accion: "fill"` (lógico), pero en el código del PO emitís `await this.<locator>.pressSequentially(valor)`. Sin excepciones — los campos del banco tienen máscaras y validators que rompen con `fill`.
+   - **Dialog handler (`dialogHandler` en el nodo)**: si un nodo de acción lleva `dialogHandler: { tipo, valor? }`, **registrá el handler con `this.page.once(...)` INMEDIATAMENTE antes** de invocar la acción del locator. Sin esto, los `confirm()`/`alert()`/`prompt()` nativos cuelgan el test 15-30s. Mapeo:
+     - `{ tipo: 'accept' }` → `this.page.once('dialog', d => d.accept());`
+     - `{ tipo: 'accept', valor: 'X' }` → `this.page.once('dialog', d => d.accept('X'));` (caso `prompt()`).
+     - `{ tipo: 'dismiss' }` → `this.page.once('dialog', d => d.dismiss());`
+
+     Ejemplo del PO:
+     ```typescript
+     async agregarAlCarrito(): Promise<void> {
+       this.page.once('dialog', d => d.accept());
+       await this.linkAddToCart.click();
+     }
+     ```
+     **`once`, no `on`**: el handler se desuscribe tras el primer dialog para no interferir con disparos posteriores.
    - **Buffer de tiempo (anti-solape)**: leé `session.bufferTiempo`. Si es `true`, **después de cada acción de input/selección** dentro del método agregá un wait de 500ms. Las acciones que disparan el wait son: `pressSequentially`, `click`, `check`, `uncheck`, `selectOption`.
      ```typescript
      await this.page.waitForTimeout(500);
