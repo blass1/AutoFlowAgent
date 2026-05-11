@@ -1,9 +1,0 @@
-{
-  "page": "ProductPage",
-  "nodos": [
-    "ProductPage::click::getByRole:link:Add to cart",
-    "ProductPage::click::getByRole:link:Cart"
-  ],
-  "asserts": [],
-  "conecta": ["CartPage"]
-}
