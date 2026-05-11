@@ -94,7 +94,7 @@ Después de este paso, seguí al paso 3 con el `parsed.json` ya limpio (las traz
    - **a.** Calculá el id tentativo `{page}::{accion}::{selector}` para cada page candidata (las que tienen sidecar válido).
    - **b. Resolución de deprecated**: si el id tentativo existe en `nodos.json` con `deprecated: true`, resolvelo siguiendo `reemplazadoPor` y trabajá con el id live de ahí en más. Cubre el caso del grabador capturando el selector viejo después de que Auto-Health Node lo saneó.
    - **c. Matcheo**: el nodo del recording matchea con un sidecar si el id resuelto está en `sidecar.nodos[]`. Para `fill`/`press`/`selectOption`, el `valor` del nodo live en `nodos.json` debe coincidir con el del recording (`*` matchea cualquier valor). **Nodos con `name/label/text/placeholder` variable**: si el sidecar contiene un id con `*` en la parte del nombre (ej: `HomePage::click::getByRole:link:*`), el matcheo prueba **dos formas**: el id literal y la versión con `*` en el segmento del nombre. Si la versión con `*` está en `sidecar.nodos[]`, el nodo matchea aunque el name del recording sea distinto al de cualquier flujo anterior. Esto permite que "comprar Samsung" y "comprar Sony" reusen la misma HomePage cuando el agente ya detectó que el producto es variable (paso 8.a (4)).
-   - **d. Resolución de ambigüedad**: si el id matchea en más de un sidecar (raro pero posible si dos pages comparten un control idéntico), preferí la **page activa actual** (continuidad del flujo). Si la page activa no es candidata o es `null`, tomá el primer match en orden alfabético de page.
+   - **d. Resolución de ambigüedad**: si el id matchea en más de un sidecar (raro pero posible si dos pages comparten un control idéntico), preferí la **page activa actual** (continuidad del flujo). Si la page activa no es candidata o es `null`, tomá el primer match en orden alfabético de page. **Componentes compartidos** (`tipo: 'componente'`, ej: `Navbar`) se evalúan **siempre** como candidatos, sin importar la page activa — un click sobre `Cart` del navbar matchea contra `Navbar` aunque venga después de pasos en `ProductPage`. La page activa NO cambia cuando el match cae en un componente (sigue siendo la última page real visitada).
    - **e.** Si matchea: el paso queda asignado a esa page existente y la **page activa** se actualiza. Si no matchea: el paso queda como `-Nuevo-` y la page activa **no cambia** (sigue siendo la última asignada — relevante para atribuir asserts intermedios).
 4. Pages sin sidecar (POs viejos previos a esta convención) **no participan** del matcheo automático.
 
@@ -137,24 +137,29 @@ Estos son los nodos que capturé. Las pages que ya existían o ya agrupamos
 están colapsadas (✅). Los pasos bajo "Nuevo" son los que tenés que agrupar.
 La columna [n/5] es la confiabilidad del locator (5 = id/testid, 1 = CSS frágil).
 
-✅ LoginPage          (pasos 1–3, 3 nodos)
-✅ OverviewPage       (paso 4, 1 nodo)
+✅ HomePage           (pasos 1–2, 2 nodos)
+✅ LoginPage          (pasos 3–7, 5 nodos)
+✅ HomePage           (paso 8, 1 nodo)              ← rango no contiguo, mismo PO
+✅ Navbar             (paso 9, 1 nodo) [componente]
 
 — Nuevo —
-   Paso 5: Click en botón "Nueva inversión"       [4/5]
-   Paso 6: Click en botón "Fondos Fima"           [4/5]
-   Paso 7: Click en botón "Fima Premium"          [2/5]
-   Paso 8: Click en botón "Suscribir"             [4/5]
-   Paso 9: ✓ Verificar que "Confirmación" sea visible    (assert)
+   Paso 10: Click en botón "Suscribir"             [4/5]
+   Paso 11: ✓ Verificar que "Confirmación" sea visible   (assert)
 
 Para agrupar, escribime el rango y el nombre de la page:
-  • 5-6 AccesoFima        (rango contiguo)
-  • 7 ConfirmarSuscripcion (un solo paso)
-
+  • 10 ConfirmarSuscripcion          (rango de un paso)
+  • 10-11 ConfirmarSuscripcion       (rango contiguo de varios pasos)
 Reglas:
-  • Solo rangos **contiguos**. No se aceptan listas tipo 5,7.
+  • Cada comando agrupa **un rango contiguo**. No se aceptan listas tipo 5,7.
   • Tenés que arrancar siempre por el primer paso de "Nuevo".
-  • El nombre va sin sufijo "Page" — yo lo agrego.
+  • El nombre va **sin sufijo "Page"** — yo lo agrego (ej: tipeás "AccesoFima",
+    el archivo queda "AccesoFimaPage.ts"). Excepción: si tipeás "Navbar",
+    "Header", "Footer", "Sidebar" o "Topbar", lo trato como **componente
+    compartido** y queda "Navbar.ts" sin sufijo.
+  • **Una misma page puede aparecer varias veces** en el listado (ver HomePage
+    arriba en pasos 1-2 y 8): si volvés a la pantalla original más adelante,
+    es válido reusar el mismo nombre — el sidecar acumula los nodos sin
+    duplicar y el agente los reconoce como la misma page.
   • Si querés cambiar algo de una page ya agrupada, escribime "rehacer"
     (te muestro los pasos internos colapsados y desagrupás).
 ```
@@ -172,6 +177,7 @@ Antes de pedir input libre, **proponé una sugerencia** para el primer bloque de
    Si no hay señal clara, sugerí el rango con los próximos 1-3 pasos.
 2. Inferí un nombre PascalCase a partir del paso "ancla" del bloque (el click de cierre o el título del formulario). Ej: click en `Suscribir` → `ConfirmarSuscripcion`; primer fill en `Usuario` → `Login`.
 3. Validá el nombre como en el paso 5 (PascalCase, sin choques con pages existentes). Si choca, sumá un sufijo numérico (`Login2`).
+4. **Sugerencia de componente compartido**: si los pasos del rango son **clicks aislados sobre links del navbar** (`Cart`, `Log out`, `Contact`, `Home`, `About`, etc.) o sobre el header/footer global, sugerí el nombre `Navbar` (o `Header`/`Footer` según contexto). El agente lo va a marcar como `tipo: 'componente'` en el sidecar (ver `pom-rules.md` → "Componentes compartidos") y los métodos quedan llamables desde cualquier step del Test sin importar la page activa.
 
 Mostrale la sugerencia y abrí `vscode/askQuestions` single-select con estas opciones:
 - `✅ Aceptar sugerencia: {n}-{m} {Nombre}` (o `{n} {Nombre}` si es un solo paso)
@@ -198,6 +204,7 @@ Antes de generar:
 2. `m >= n` y `m` no puede pasarse del último paso del recording.
 3. El nombre debe ser PascalCase válido (sin espacios, sin acentos en ASCII estricto). Si trae espacios, normalizalos a PascalCase y mostrale al QA cómo quedó antes de generar.
 4. **Si el nombre choca con un Page Object existente** (`pages/{Nombre}Page.ts` ya existe), **NO lo rechaces** — caés al paso 5.5 (colisión) para decidir si reusar un método existente, agregar un método nuevo a esa Page o cambiar el nombre.
+5. **Detección de componente compartido**: si el nombre coincide (case-insensitive) con `Navbar`, `Header`, `Footer`, `Sidebar` o `Topbar`, marcá esta page como `tipo: 'componente'`. Esto cambia tres cosas: (a) el archivo de PO se llama `pages/{Nombre}.ts` sin el sufijo `Page` (ej: `pages/Navbar.ts`, no `pages/NavbarPage.ts`), porque conceptualmente no es una "page"; (b) el sidecar incluye `"tipo": "componente"`; (c) el paso 6.5 NO suma este componente a `conecta` de pages anteriores ni le suma destinos a su propio `conecta`. Ver `pom-rules.md` → "Componentes compartidos" para detalle. Si el QA quiso una page real con ese nombre por accidente (improbable), que la renombre.
 
 ## 5.5. Colisión con Page Object existente
 
@@ -212,7 +219,11 @@ Cuando vuelve, persistió `metodoReusado` o `metodoNuevo` en `{numero}-grupos.js
 Cuando el comando es válido **y el nombre NO chocaba con un PO existente**:
 
 1. **Leé `.autoflow/conventions/pom-rules.md`** primero (sí, todas las veces).
-2. Generá `pages/{NombrePage}.ts` (PascalCase, mismo nombre que la clase, con sufijo `Page`) siguiendo las reglas. Ej: clase `AccesoFimaPage` → archivo `pages/AccesoFimaPage.ts`. **El JSDoc de la clase queda en una línea** (descripción corta de la pantalla en español, sin listar acciones). Reglas críticas para que el test pase en primera corrida:
+2. Generá el archivo del PO siguiendo las reglas. Naming:
+   - **Pages** (`tipo: 'page'`, default): `pages/{Nombre}Page.ts` con clase `{Nombre}Page`. Ej: `pages/AccesoFimaPage.ts`.
+   - **Componentes compartidos** (`tipo: 'componente'`, ver paso 5 validación 5): `pages/{Nombre}.ts` **sin** sufijo `Page` y clase `{Nombre}`. Ej: `pages/Navbar.ts` con `class Navbar`. La distinción de naming es semántica — leer `import Navbar from '../pages/Navbar'` deja claro que no es una page.
+
+   **El JSDoc de la clase queda en una línea** (descripción corta de la pantalla o del componente, en español, sin listar acciones). Reglas críticas para que el test pase en primera corrida:
    - **Constructor: copiá `selectorRaw` verbatim.** Para cada nodo del rango, leé `nodos.json[<id>].selectorRaw` y pegalo tal cual en `this.<nombreLocator> = page.<selectorRaw>`. **No simplifiques** ni reconstruyas desde el `selector` normalizado, porque podés perder modificadores (`.first()`, `.nth(N)`, `.filter(...)`, chains de `.locator(...)`, `.contentFrame()`) y apuntar a otro elemento.
    - **Método público: ejecutá todos los nodos del rango en orden, sin saltearte ninguno.** Codegen suele emitir `click` antes de cada `fill` (focus + máscara + validación que el front escucha). Si el rango tiene `click(usuario) + fill(usuario) + click(password) + fill(password) + click(Ingresar)`, el método tiene esos 5 pasos, no solo los 3 "lógicos".
    - **`fill` se traduce siempre a `pressSequentially`** (ver `pom-rules.md` → "Fidelidad al recording"). El nodo en `nodos.json` lleva `accion: "fill"` (lógico), pero en el código del PO emitís `await this.<locator>.pressSequentially(valor)`. Sin excepciones — los campos del banco tienen máscaras y validators que rompen con `fill`.
@@ -254,7 +265,9 @@ Cuando el comando es válido **y el nombre NO chocaba con un PO existente**:
 
 Después de cualquier iteración del paso 6 (sea page nueva o no), revisá la **secuencia de pages** del recording (incluyendo las existentes que matchearon en el paso 3 y las que aparecen varias veces como rangos no contiguos). Ej: el flujo grabado fue `LoginPage → CelularesPage → CarritoPage`. Si una page aparece dos veces (`HomePage → LoginPage → HomePage`), tomá pares contiguos como están — `HomePage → LoginPage` y `LoginPage → HomePage` son dos conexiones distintas.
 
-Para cada par contiguo `A → B` en esa secuencia:
+**Componentes compartidos** (`tipo: 'componente'`): **excluilos de la secuencia** antes de armar los pares. El navbar no es un destino de navegación — clickear `Cart` desde ProductPage no significa que `ProductPage` "navega a Navbar". Si la secuencia bruta del recording fue `HomePage → Navbar → CartPage`, los pares se calculan ignorando Navbar: queda `HomePage → CartPage`. Análogamente, los componentes nunca tienen entradas en su propio `conecta` (queda `[]` siempre).
+
+Para cada par contiguo `A → B` en la secuencia filtrada:
 
 1. Leé `.autoflow/fingerprints/{A}.json`.
 2. Si `B` no está en `A.conecta`, sumalo (sin duplicar).
@@ -447,7 +460,7 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
    - **Imports fijos al tope**: `import { test, expect } from '../fixtures';` + `import { data{PascalSlug} } from '../data';` + un `import` por cada PO usado en el Test (incluí los Page Objects existentes que se reusaron por colisión).
    - **Un solo `test.describe` por archivo**, con el formato exacto del nombre.
    - **Destructurá `data{PascalSlug}`** al inicio del `test()`. Pasá los campos primitivos a los métodos del PO (`usuarioPrincipal.user`, `usuarioPrincipal.pass`), no el objeto `User` entero.
-   - **Bloque de instancias arriba**: después del destructuring de data, declarar **todas** las instancias de Page Objects que el Test usa, una por línea, sin separación con líneas en blanco — bloque visualmente prolijo. Naming: `LoginPage` → `loginPage`, `AccesoFimaPage` → `accesoFimaPage` (clase en camelCase con primera letra minúscula). Aunque una page se use en un solo step, igual va arriba con las demás.
+   - **Bloque de instancias arriba**: después del destructuring de data, declarar **todas** las instancias de Page Objects y componentes compartidos que el Test usa, una por línea, sin separación con líneas en blanco — bloque visualmente prolijo. Naming: `LoginPage` → `loginPage`, `AccesoFimaPage` → `accesoFimaPage`, `Navbar` → `navbar` (clase en camelCase con primera letra minúscula). Aunque una page se use en un solo step, igual va arriba con las demás. **Componentes compartidos** se instancian igual que las pages — ej: `const navbar = new Navbar(page);` — y se invocan desde steps independientes (`await test.step('Ir al carrito', async () => navbar.irAlCarrito());`) sin importar la page activa al momento del paso.
    - **Sin chains**: los métodos del PO retornan `Promise<void>`. No retornan otra page. Cada `test.step` llama al método con `await {paginaCamelCase}.{metodo}(args)`, **sin** asignar a una `const`. La transición entre pages vive solo en el sidecar `conecta[]` del fingerprint, no en el código TS.
    - **Asserts opcionales**: si la próxima page tiene un método `estaVisible()`, llamalo en su propio step (`'Verificar que cargó el overview'`). Si no lo tiene, no inventes asserts genéricos.
 

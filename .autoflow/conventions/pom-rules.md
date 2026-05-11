@@ -245,6 +245,7 @@ Shape del sidecar:
 ```json
 {
   "page": "LoginPage",
+  "tipo": "page",
   "nodos": [
     "LoginPage::fill::getByLabel:Usuario",
     "LoginPage::fill::getByLabel:Contraseña",
@@ -257,9 +258,45 @@ Shape del sidecar:
 }
 ```
 
+- **page**: nombre PascalCase del PO (sin `.ts` ni el sufijo `Page`/`Navbar` truncado).
+- **tipo**: `'page'` (default, omitible) o `'componente'`. Ver sección "Componentes compartidos" abajo.
 - **nodos**: **vocabulario** (set) de ids de **acciones del usuario** (sin asserts) que el agente alguna vez vio asignados a esta page. Es el contrato del matcheo en `generar-pom.md` paso 3. La definición de cada nodo (accion, selector, valor, confiabilidad) vive en `.autoflow/nodos.json`. **El orden no es semántico** — se mantiene por estabilidad visual al hacer diff, pero el matcheo no lo respeta.
 - **asserts**: lista de ids de nodos `assert` que se vieron alguna vez en esta page. Se enriquece con cada grabación (sin duplicar). **No participa del matcheo** — los asserts son opcionales y pueden variar entre grabaciones del mismo flujo. Sirven para análisis y para el grafo de nodos.
-- **conecta**: array de nombres de pages (PascalCase, sin `.ts`) a las que esta page lleva. Una page puede conectar a varias. Si la page es terminal, va vacío `[]`.
+- **conecta**: array de nombres de pages (PascalCase, sin `.ts`) a las que esta page lleva. Una page puede conectar a varias. Si la page es terminal, va vacío `[]`. **Componentes compartidos** (`tipo: 'componente'`) llevan `conecta: []` siempre — no son destinos de navegación.
+
+#### Componentes compartidos (Navbar, Header, Footer)
+
+Algunas "pantallas" no son pantallas en realidad — son **componentes globales** que viven en todo el sitio o en un sub-conjunto grande de pages. Ejemplos típicos: el navbar con `Cart`/`Log out`/`Contact`, un header con búsqueda global, un footer con enlaces. Se diferencian de las pages reales en que:
+
+- **No tienen ciclo de vida**: no aparecen al navegar a una URL, ya estaban ahí.
+- **Sus métodos son llamables desde cualquier parte del Test**, sin que la "page activa" sea relevante.
+- **No deberían pertenecer a otra page**. Si el QA agrupa el `click Cart` del navbar dentro de `ProductPage`, queda erróneo: ese mismo click podría dispararse desde Home, Checkout o cualquier otra page logueada, y duplicaría el método en cada PO.
+
+Para evitarlo, marcalos como `tipo: 'componente'` en el sidecar. Convención de naming: el QA los nombra con sufijos descriptivos que el agente reconoce automáticamente: `Navbar`, `Header`, `Footer`, `Sidebar`, `Topbar`. Si el QA tipea uno de esos nombres en el paso 5 de `generar-pom.md`, el agente:
+
+1. Setea `tipo: 'componente'` en el sidecar.
+2. Mantiene `conecta: []` (no se enriquece en el paso 6.5).
+3. En el matcheo del paso 3, los componentes son **siempre candidatos** para cualquier nodo del recording (no requieren ser la "page activa"). Así el `click Cart` matchea contra `Navbar` aunque el paso anterior haya sido en ProductPage.
+4. En el spec generado, el componente se instancia como cualquier otro PO en el bloque de instancias (`const navbar = new Navbar(page);`) y se invoca desde steps independientes (`await test.step('Ir al carrito', async () => navbar.irAlCarrito());`).
+
+**Ejemplo de sidecar de componente**:
+```json
+{
+  "page": "Navbar",
+  "tipo": "componente",
+  "nodos": [
+    "Navbar::click::getByRole:link:Cart",
+    "Navbar::click::getByRole:link:Log out",
+    "Navbar::click::getByRole:link:Contact"
+  ],
+  "asserts": [
+    "Navbar::assert::locator:#nameofuser"
+  ],
+  "conecta": []
+}
+```
+
+> **Cuándo NO usar `tipo: 'componente'`**: si el componente solo aparece en una page (ej: un sidebar específico de la pantalla de perfil), tratalo como parte de esa page. La distinción importa solo cuando el componente es global o casi-global.
 
 Reglas:
 

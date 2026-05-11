@@ -223,7 +223,7 @@ Cada acción del recording (click, fill, goto, assert, hover, etc.) es un **Nodo
 
 Tres usos del modelo:
 
-1. **Reconocimiento de flujos repetidos.** Cuando una grabación nueva arranca con la misma secuencia de ids que un sidecar existente (`.autoflow/fingerprints/{Page}.json`), el agente la marca con ✅ y reusa el Page Object. Solo lo nuevo va a "Nuevo" para agrupar.
+1. **Reconocimiento de flujos repetidos.** Cuando una grabación nueva tiene nodos cuyos ids ya están en algún sidecar (`.autoflow/fingerprints/{Page}.json`), el agente los matchea por **vocabulario** — el sidecar es un set de ids posibles, no una secuencia. Esto permite que dos flujos parecidos (compra Samsung vs Sony) reusen las mismas pages aunque diverjan en algún paso del medio. Componentes globales (navbar, header, footer) se marcan con `tipo: 'componente'` y son candidatos a matchear desde cualquier punto del flujo.
 2. **Análisis de caminos.** Cada grabación deja una `{numero}-path.json` con la secuencia completa de ids visitados (acciones + asserts). Sirve para responder cross-recording "qué tests pasan por este nodo".
 3. **Confiabilidad visible.** Escala 1-5 calculada del tipo de locator: 5 = `getByTestId`, 4 = `getByRole+name`, 3 = `getByLabel`, 2 = `getByPlaceholder`/`getByText`/`locator('#id')` simple, 1 = otros locator (clases, CSS posicional, XPath). `#id` queda en 2 (no en 1) porque en la práctica los devs cambian texto/i18n más seguido que ids — castigarlo como CSS crudo hace que Auto-Health Node sobre-dispare. El agente la muestra al QA durante la agrupación y el grafo la pinta.
 
@@ -414,7 +414,7 @@ La **primera vez** detecta que faltan `node_modules` y los browsers de Playwrigh
 | `.autoflow/prompts/` | Sub-prompts que el agente carga según la acción. |
 | `.autoflow/conventions/pom-rules.md` | Reglas que el agente sigue al generar POMs y tests. |
 | `.autoflow/recordings/` | Estado runtime por grabación (`session`, `parsed`, `grupos`, `path`, `spec`). |
-| `.autoflow/fingerprints/` | Sidecar por page con `nodos[]`, `asserts[]` y `conecta[]`. |
+| `.autoflow/fingerprints/` | Sidecar por page con `tipo`, `nodos[]`, `asserts[]` y `conecta[]`. `tipo: 'componente'` distingue navbars/headers globales de pages reales. |
 | `.autoflow/testsets/` | Definición de cada test set como JSON. |
 | `.autoflow/alm-exports/` | xlsx exportados desde ALM. El QA suelta el archivo acá para arrancar un caso con datos prellenados. |
 | `.autoflow/auth/` | StorageState (cookies + localStorage) por (canal, usuario) para que los casos arranquen logueados. **Gitignored** — contiene tokens de sesión. |
