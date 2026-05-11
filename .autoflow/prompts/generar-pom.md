@@ -93,7 +93,7 @@ Después de este paso, seguí al paso 3 con el `parsed.json` ya limpio (las traz
 3. **Para cada nodo de acción del recording** (en orden de izquierda a derecha, saltando los `assert` — esos los atribuís en el paso 5):
    - **a.** Calculá el id tentativo `{page}::{accion}::{selector}` para cada page candidata (las que tienen sidecar válido).
    - **b. Resolución de deprecated**: si el id tentativo existe en `nodos.json` con `deprecated: true`, resolvelo siguiendo `reemplazadoPor` y trabajá con el id live de ahí en más. Cubre el caso del grabador capturando el selector viejo después de que Auto-Health Node lo saneó.
-   - **c. Matcheo**: el nodo del recording matchea con un sidecar si el id resuelto está en `sidecar.nodos[]`. Para `fill`/`press`/`selectOption`, el `valor` del nodo live en `nodos.json` debe coincidir con el del recording (`*` matchea cualquier valor).
+   - **c. Matcheo**: el nodo del recording matchea con un sidecar si el id resuelto está en `sidecar.nodos[]`. Para `fill`/`press`/`selectOption`, el `valor` del nodo live en `nodos.json` debe coincidir con el del recording (`*` matchea cualquier valor). **Nodos con `name/label/text/placeholder` variable**: si el sidecar contiene un id con `*` en la parte del nombre (ej: `HomePage::click::getByRole:link:*`), el matcheo prueba **dos formas**: el id literal y la versión con `*` en el segmento del nombre. Si la versión con `*` está en `sidecar.nodos[]`, el nodo matchea aunque el name del recording sea distinto al de cualquier flujo anterior. Esto permite que "comprar Samsung" y "comprar Sony" reusen la misma HomePage cuando el agente ya detectó que el producto es variable (paso 8.a (4)).
    - **d. Resolución de ambigüedad**: si el id matchea en más de un sidecar (raro pero posible si dos pages comparten un control idéntico), preferí la **page activa actual** (continuidad del flujo). Si la page activa no es candidata o es `null`, tomá el primer match en orden alfabético de page.
    - **e.** Si matchea: el paso queda asignado a esa page existente y la **page activa** se actualiza. Si no matchea: el paso queda como `-Nuevo-` y la page activa **no cambia** (sigue siendo la última asignada — relevante para atribuir asserts intermedios).
 4. Pages sin sidecar (POs viejos previos a esta convención) **no participan** del matcheo automático.
@@ -351,6 +351,34 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
    **(3) Re-exportar desde `data/index.ts`**
    - Sumá `export * from './data-{slug}';` si todavía no está.
 
+   **(4) Fusionar nodos por valor variable detectado** — OBLIGATORIO antes de escribir el spec.
+
+   > **Por qué este paso existe**: codegen captura el `name` de `getByRole/getByText/getByLabel` literal. Si el QA grabó "comprar Samsung galaxy s6", el nodo queda como `HomePage::click::getByRole:link:Samsung galaxy s6` y la HomePage queda "atada" al producto Samsung. Cuando el QA grabe otro caso comprando "Sony vaio i5", el matcheo por vocabulario (paso 3) NO va a reconocer ese click como parte de HomePage — va a crear un nodo distinto. Para evitar esto, antes de escribir el spec **fusionamos** los nodos cuyo `name` provino de un valor del data file (= dato variable) en un único nodo con `name: '*'`. El método del PO pasa a tomar el name como parámetro.
+
+   Recorré cada valor string del `data{PascalSlug}` (incluyendo campos anidados de `User` y otros objetos):
+   - Ignorá valores triviales: longitud ≤ 2, "true"/"false", URLs, valores que parezcan UUIDs/ids numéricos.
+   - Para cada valor restante, buscá en los nodos del Test (los que estás por persistir en `nodos.json`) si algún `selectorRaw` contiene ese valor como `name`/`label`/`text`/`placeholder`. Match exacto (case-sensitive).
+
+   Si encontrás match → es un **candidato a fusión**:
+   1. **Confirmá con el QA** vía `vscode/askQuestions` single-select: `"⚠️ Detecté que el nodo `{idActual}` usa el valor `\"{valor}\"` que viene del data file (`data{PascalSlug}.{campo}`). ¿Marcarlo como variable?"`:
+      - `✅ Sí, parametrizar` (recomendado si el QA piensa que el caso se podría correr con otros valores).
+      - `❌ No, mantenelo literal` (recomendado si el texto es parte fija de la UI por casualidad — ej: el nombre del banco).
+   2. Si elige Sí:
+      - **`nodos.json`**: reemplazá el id `{Page}::{accion}::getByRole:link:Samsung galaxy s6` por `{Page}::{accion}::getByRole:link:*`. Si el id `*` ya existía, fusioná las dos definiciones (el nuevo no se duplica).
+      - **`selectorRaw`** del nodo persistido: queda `getByRole('link', { name: '*' })` (sí, con literal `*` — el método del PO lo parametriza al construir el locator dinámicamente, ver siguiente bullet).
+      - **Sidecar de la Page**: actualizá el id en `nodos[]` (cambiar viejo por nuevo `*`). Si el viejo no estaba (caso recién agregado), no hace falta.
+      - **PO** (`pages/{Page}.ts`): el método público pasa a tomar el name como parámetro. En lugar de un locator `private readonly`, el locator es una **factory function**: `private readonly {nombreLocator}: (valor: string) => Locator;` con `this.{nombreLocator} = (v) => page.getByRole('link', { name: v });`. El método del PO acepta el parámetro y lo pasa al factory.
+      - **Path/traza**: ya estaba construida con el id viejo; recalculala apuntando al id nuevo (corré `generar-traza.js` después de la fusión).
+   3. Si elige No: no toques nada. El nodo queda literal.
+
+   **Ejemplo concreto** — caso Demoblaze "Compra de Samsung Galaxy S6":
+   - Data file tiene `productoBuscado: 'Samsung galaxy s6'`.
+   - Nodo detectado: `HomePage::click::getByRole:link:Samsung galaxy s6`.
+   - Tras fusión confirmada → nodo pasa a `HomePage::click::getByRole:link:*` con `selectorRaw: getByRole('link', { name: '*' })`.
+   - `HomePage.ts`: `linkProducto: (nombre: string) => Locator` (factory). Método: `async elegirProducto(nombre: string) { await this.linkProducto(nombre).click(); ... }`.
+   - Spec: `await homePage.elegirProducto(productoBuscado);`.
+   - Próximo recording con `Sony vaio i5` → el matcheo paso 3 ve `click getByRole:link:Sony vaio i5`, calcula el id tentativo, no lo encuentra como literal, pero **sí encuentra el id `*`** del vocabulario de HomePage → matchea (el `*` se trata igual que en `fill` y `selectOption`).
+
    **Checklist pre-escritura** (mental, no se lo muestres al QA): antes de llamar a `edit` para escribir el spec, releé el bloque que vas a escribir y confirmá que NO contiene comillas con datos de input — solo destructurings desde `data{PascalSlug}`. Si encontrás un literal ahí, frená y volvé al paso 8.a.2.
 
    ### 8.b. Escribir el spec — `test.describe` + `test.step`
@@ -564,5 +592,44 @@ Reusé:
 ```
 
 Abrí `vscode/askQuestions` single-select: `"¿Qué hacemos?"`:
-- `▶️ Correrlo ahora` → dispará la VSCode task **`autoflow:run-test-headed`** con el path del spec del **Test Set**. Corre con navegador visible (`--headed --workers=1`) para que el QA vea la prueba que acabamos de grabar ejecutándose en pantalla.
+- `🚦 Smoke test ahora (recomendado)` → corré el Test recién generado headless para validar que los selectores capturados realmente funcionan en el sitio. Usá `runCommands`:
+  ```
+  node .autoflow/scripts/run-test.js tests/{slug}-{id}.spec.ts --grep=\[testId:{numero}\]
+  ```
+  Si el smoke pasa → mostrá `✅ El Test pasó. Listo para commitear.` y abrí single-select con `▶️ Correrlo headed para verlo en pantalla` / `🏠 Volver al menú`.
+  Si el smoke **falla** → seguí al **bloque 11.1** (Auto-reparar tras smoke fallido).
+- `▶️ Correrlo headed para verlo en pantalla` → dispará la VSCode task **`autoflow:run-test-headed`** con el path del spec. Corre con navegador visible (`--headed --workers=1`) para que el QA vea la prueba ejecutándose.
 - `🏠 Volver al menú`
+
+### 11.1. Auto-reparar tras smoke fallido
+
+> **Por qué este bloque existe**: el agente NO puede saber si los selectores capturados por codegen realmente funcionan — solo que tienen el shape correcto. Casos típicos detectados acá: assert con selector inventado por el QA durante la grabación, locator que matchea cuando se grabó pero no en producción (timing), confirm dialog nativo no propagado al PO, etc.
+
+Cuando el smoke test falla, NO te quedes con el resumen genérico. Procesá el output de Playwright para ofrecer una reparación dirigida:
+
+1. **Parseá el `AUTOFLOW_RESULT`** de stdout para confirmar `status: 'failed'` y leé los últimos ~40 líneas de stderr/stdout para extraer:
+   - El **selector concreto** que falló (típico patrón `Locator: <selectorRaw>` o `waiting for <selectorRaw>`).
+   - El **archivo y línea** del PO donde está ese locator (`pages/{Nombre}Page.ts:NN`).
+   - El **mensaje del matcher** (`element(s) not found`, `expected to be visible`, `timeout exceeded`, etc.).
+
+2. **Cruzá el selectorRaw fallido con `nodos.json`** para identificar el id del nodo: buscá el nodo cuyo `selectorRaw` coincida exactamente. Si encontrás más de uno, preferí el que pertenezca a una page que aparece en la traza (`{numero}-path.json`).
+
+3. **Mostrale al QA** el contexto en una sola pasada:
+   ```
+   ❌ El smoke test falló en el step "{stepName}".
+
+   Locator que rompió:  {selectorRaw}
+   Page object:         {Nombre}Page (línea {linea})
+   Razón:               {mensaje del matcher}
+   Nodo afectado:       {id del nodo}
+   ```
+
+4. **Single-select** `vscode/askQuestions`: `"¿Qué hacemos con este nodo?"`:
+   - `🪄 Reparar con Auto-Health Node` → cargá `auto-health-node.md` con contexto `{ nodoId: <id>, motivo: 'smoke-fallido', testIdContext: <numero> }`. Auto-Health intenta navegar el flujo hasta el paso anterior, capturar el DOM, y proponer un locator más confiable.
+   - `✏️ Pegar locator a mano` → cargá `actualizar-nodos.md` con el mismo contexto, modo "pegar a mano".
+   - `🔄 Re-correr el smoke` (por si fue flaky — UI lenta, dialog que el QA no aceptó a tiempo, etc.). Si vuelve a fallar, no ofrezcas esta opción una segunda vez.
+   - `🏠 Dejar como está y volver al menú` → para casos donde el QA decide investigar más tarde. Mostrá un warning corto: `⚠️ El Test queda commiteable pero rojo. Vas a tener que arreglarlo antes de que entre a CI.`
+
+5. **Después de reparar** (Auto-Health o pegado a mano): repetí automáticamente el smoke test (paso 1 de 11.1). Si pasa, mostrá `✅ Reparado. El Test pasa.`. Si vuelve a fallar, ofrecé el mismo single-select pero con la opción `🔄 Re-correr` deshabilitada y `↪️ Reparar otro nodo distinto (el que falla ahora)` agregada al inicio.
+
+> **Por qué no proponer "Rehacer la grabación"**: regrabar es caro y suele introducir más drift. Auto-Health Node con DOM real es casi siempre la mejor primera apuesta. Si el QA elige regrabar, que vuelva al menú principal explícitamente.
