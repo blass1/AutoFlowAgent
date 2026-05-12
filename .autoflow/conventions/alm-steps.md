@@ -65,6 +65,71 @@ Por cada `test(...)` extraé:
 - **Imperativo, segunda persona implícita**: "Ingresar", "Presionar", "Seleccionar". Nunca "El usuario ingresa…".
 - **No solapes acciones en un mismo step.** Conectores como `" y "`, `" además "`, `" luego "` entre verbos son señal de que tenés 2 steps disfrazados de 1.
 
+### 5. Asserts de visibilidad — depende del contexto
+
+Los `expect(elemento).toBeVisible()` y `expect(elemento).toBeHidden()` **no son automáticamente steps ni automáticamente ruido**. Depende de **dónde aparecen** en el spec / POM:
+
+#### A. Assert al final de un método con acciones → **fold en el `expected`** (no es step)
+
+Codegen suele cerrar un método con un `toBeVisible` para verificar que la acción surtió efecto (la página cargó, el modal apareció, etc.). Para el QA de ALM ese assert no es un paso independiente — es la **confirmación** de la acción anterior.
+
+```ts
+// pages/LoginPage.ts
+async ingresar(user, pass) {
+  await this.username.fill(user);
+  await this.password.fill(pass);
+  await this.submit.click();
+  await expect(this.welcomeMessage).toBeVisible();  // ← scoping del click, fold en expected
+}
+```
+
+→ Step ALM: *"Presionar el botón Ingresar"* con `expected: "Se muestra el mensaje de bienvenida del usuario"`.
+
+#### B. Assert "solo" (método del PO que solo verifica, sin acciones) → **SÍ es step**
+
+Cuando el método del PO no hace nada salvo verificar visibilidad, es una **validación de negocio explícita** que el QA quiere ver en ALM:
+
+```ts
+// pages/HomePage.ts
+async verificarBonosVisible() {
+  await expect(this.textBonos).toBeVisible();
+}
+```
+
+```ts
+// tests/...spec.ts
+await test.step('Validar que el panel de bonos esté visible', async () => {
+  await homePage.verificarBonosVisible();
+});
+```
+
+→ Step ALM: *"Validar que el panel 'Bonos' sea visible en pantalla"* con `expected: "El panel 'Bonos' se muestra correctamente."`.
+
+**Cómo distinguís** (en orden):
+
+1. **Mirar el cuerpo del método del PO** que el spec invoca:
+   - Tiene `click` / `fill` / `press` / `select` etc. **+** un `expect(...).toBeVisible()` al final → caso A (fold).
+   - Tiene **solo** `expect(...)` (uno o varios), sin acciones → caso B (cada expect = step).
+2. **Si el spec tiene un `expect(...)` inline** (sin envolver en método del PO):
+   - Dentro del mismo `test.step` que la acción anterior → caso A (fold).
+   - En su propio `test.step` o sin acción previa cercana → caso B (step).
+
+#### C. Excepción: nodos `verificar` manuales → siempre step
+
+Los nodos `verificar` insertados por el QA vía "Insertar Nodo de captura/verificación" en `editar-caso.md` son decisiones conscientes, no ruido de codegen. **Siempre van como step**, sin importar el contexto. Se reconocen porque el método del PO suele llamarse `verificarX()` y usa el sistema de comparación de valores capturados.
+
+#### Otros asserts: SÍ son steps (independientemente del contexto)
+
+| Matcher | Step ALM |
+|---|---|
+| `toHaveText` / `toContainText` | "Validar que el {elemento} muestre {texto}" |
+| `toHaveValue` | "Validar que el campo contenga el valor X" |
+| `toBeChecked` / `toBeDisabled` / `toBeEnabled` | "Validar estado del control" |
+| `toHaveCount` | "Validar cantidad de elementos en la lista" |
+| `toHaveURL` / `toHaveTitle` | "Validar URL / título de la página" |
+
+Estos verifican comportamiento de negocio explícito (texto correcto, estado de control, navegación) — son siempre relevantes para el QA manual.
+
 ## 🗂️ Vocabulario base (heredado del export viejo)
 
 Mapeo de selectores de Playwright a sustantivos en castellano. Mantenelo consistente entre Tests para que un QA reconozca el patrón al leer ALM:

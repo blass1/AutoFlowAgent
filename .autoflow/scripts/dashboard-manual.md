@@ -341,7 +341,11 @@ El sub-menú tiene **3 opciones**, cada una resuelve un problema distinto.
    - Se descartan `wait`, `expect`, `locator.first()` puramente técnicos.
    - Cada acción observable = 1 step (sin solapar).
    - Cada step lleva su `expected` observable, una sola línea.
-5. Te muestra un resumen con los primeros 3 steps + lista de POMs + datos de prueba detectados. Confirmás o pedís ajustes.
+5. Te muestra el resumen **completo**: todos los steps humanizados (no una muestra), lista de POMs leídos, precondiciones detectadas y datos de prueba. Después te ofrece 4 opciones:
+   - ✅ Si está correcto, exportá → seguí al paso 6.
+   - 🔄 Regenera los pasos nuevamente → descartá esta pasada y volvé a humanizar desde cero.
+   - ✏️ Ajustemos algunos pasos → text input para decir qué pasos cambiar; el agente regenera solo los que pediste y conserva el resto.
+   - ❌ Cancelar → vuelve al menú sin escribir nada.
 6. Emite `.autoflow/alm/exports/{slug}-testId-{N}-{ts}.json` con shape:
    ```json
    {

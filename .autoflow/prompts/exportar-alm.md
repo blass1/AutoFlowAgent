@@ -51,7 +51,7 @@ Seguí el proceso de [`alm-steps.md`](../conventions/alm-steps.md) **en orden**:
 
 ## 5. Confirmación con el QA
 
-Antes de escribir archivos, mostrá un resumen:
+Antes de escribir archivos, mostrá el **resumen completo del Test humanizado** con **todos los steps**, no una muestra. El QA tiene que poder revisarlo entero antes de aceptar — los archivos `.json` / `.xlsx` recién se generan después del `✅`.
 
 ```
 📋 Test humanizado: "{título ALM}"
@@ -68,19 +68,28 @@ Datos de prueba:
   • {dato 1}: {valor o "(parametrizado)"}
   • ...
 
-Primeros 3 steps:
+Steps ({N}):
   1. {name}
      → {description}
      ✅ {expected}
-  2. ...
-  3. ...
 
-(Los demás van completos al archivo.)
+  2. {name}
+     → {description}
+     ✅ {expected}
+
+  ...
+
+  {N}. {name}
+     → {description}
+     ✅ {expected}
 ```
 
-`vscode/askQuestions` single-select: `"¿Está bien lo humanizado?"`:
-- `✅ Sí, exportá` → seguí al paso 6.
-- `✏️ Ajustar algo` → text input para que el QA diga qué cambiar (ej: "el paso 5 quedó solapado, separalo"); volvé al paso 4 incorporando ese ajuste.
+> **No truncar** — emití los `N` steps completos en el chat aunque el mensaje quede largo. Es el único punto donde el QA revisa el contenido antes de que se materialice.
+
+`vscode/askQuestions` single-select: `"¿Cómo está el caso humanizado?"`:
+- `✅ Si está correcto, exportá` → seguí al paso 6.
+- `🔄 Regenera los pasos nuevamente` → descartá la humanización actual y volvé al paso 4 desde cero (releé la convención, releé POM + spec, volvé a generar). Útil cuando el QA quiere otra pasada completa sin instrucciones específicas.
+- `✏️ Ajustemos algunos pasos` → text input: `"¿Qué pasos ajustamos y cómo?"`. Tomá el feedback del QA y volvé al paso 4 **conservando los steps que el QA no mencionó** — solo regenerás los que pidió cambiar. Después volvé a mostrar el resumen completo (paso 5) para que el QA confirme el resultado.
 - `❌ Cancelar` → volvé al menú principal sin escribir nada.
 
 ## 6. Emitir el JSON
