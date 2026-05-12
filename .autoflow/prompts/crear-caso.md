@@ -24,12 +24,15 @@ tools: ['vscode/askQuestions', 'edit', 'read', 'runCommands', 'runTasks']
 
 Esta opción usa la integración binaria `fetch_test_v1.0.0.exe` para traer el `test_name` + steps registrados del test directamente de ALM por testid.
 
-**Verificación previa**: chequeá que exista el ejecutable:
-```
-.autoflow/alm/integrations/fetch_test_v1.0.0.exe
+**Verificación previa**: chequeá que exista el ejecutable con un comando **determinístico** vía `runCommands`. **No uses `file_search` / `codebase` / `search`** — esos tools no indexan archivos binarios (`.exe`, `.dll`, etc.) y devuelven falso negativo aunque el archivo esté ahí. Mismo patrón que `setup-entorno.md` usa para chequear `node_modules`:
+
+```bash
+node -e "console.log(require('fs').existsSync('.autoflow/alm/integrations/fetch_test_v1.0.0.exe') ? 'OK' : 'MISSING')"
 ```
 
-Si **no existe**, avisale al QA y volvé a abrir la pregunta del paso 0:
+Leé el output con `terminalLastCommand`. Solo seguí el branch de "no existe" si el output contiene literalmente `MISSING`. Cualquier otro output (incluyendo `OK`, errores raros, output vacío) tratalo como **existente** y seguí al fetch. Ante la duda, asumí instalado — el peor caso es que el `runCommands` posterior del exe falle, y ahí caés al manejo de errores normal.
+
+Si **`MISSING`**, avisale al QA y volvé a abrir la pregunta del paso 0:
 ```
 ⚠️ No tenés instalada la integración con ALM (.autoflow/alm/integrations/fetch_test_v1.0.0.exe).
 Si tu equipo te la pasó, pegala en esa carpeta. Si no, elegí otra opción.
