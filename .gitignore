@@ -11,6 +11,11 @@ playwright-report/
 test-results/
 blob-report/
 
+# AutoFlow runs: carpeta por corrida con artifacts (screenshots, traces, videos).
+# Formato DD_MM_YYYY_HH-MM-SS, lo crean run-test.js / run-testset.js antes de
+# invocar Playwright vía AUTOFLOW_RUN_DIR (ver playwright.config.ts).
+runs/
+
 # Specs temporales generados por el agente (page.pause(), prueba de auth, etc.)
 tests/_temp/
 

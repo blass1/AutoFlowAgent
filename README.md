@@ -48,42 +48,43 @@ flowchart LR
 
 ## Flujos del QA hoy
 
-El menú es de **2 niveles**: 5 categorías arriba, las acciones puntuales adentro de cada una. Esto es lo que el QA puede hacer hoy desde el chat:
+El menú es **plano de 9 opciones top-level**. Solo `📄 ALM-HP` y `🛠️ Mantenimiento` abren un sub-menú; el resto va directo al sub-prompt. `📦 Crear o Modificar un Test-Set` hace una pregunta inline (crear vs modificar) antes de routear. Esto es lo que el QA puede hacer hoy desde el chat:
 
 ```mermaid
 flowchart LR
     QA([QA])
-    Menu{Menú principal · nivel 1}
+    Menu{Menú principal · top-level}
 
     QA --> Menu
 
-    Menu --> Dash[🖥️ Dashboard]
-    Menu --> Tests[🧪 Tests]
-    Menu --> TS[📦 Test Sets]
-    Menu --> ALM[📄 ALM]
+    Menu --> Crear[✨ Crear un Nuevo Test]
+    Menu --> Editar[✏️ Modificar o Extender Test]
+    Menu --> AHN[🪄 Mejorar un Test<br/>Auto-Health Node]
+    Menu --> TS[📦 Crear o Modificar Test-Set]
+    Menu --> Correr[▶️ Ejecutar Test individual]
+    Menu --> CorrerTS[🎯 Ejecutar Test-Set grupal]
+    Menu --> ALM[📄 ALM-HP]
+    Menu --> Dash[🖥️ Abrir Dashboard]
     Menu --> Mant[🛠️ Mantenimiento]
 
-    Tests --> Crear[✨ Crear]
-    Tests --> Editar[✏️ Editar]
-    Tests --> Correr[▶️ Correr]
-
-    TS --> CrearTS[📦 Crear]
-    TS --> EditarTS[🔧 Editar]
-    TS --> CorrerTS[🚀 Correr]
+    TS --> CrearTS[➕ Crear nuevo]
+    TS --> EditarTS[🔧 Modificar existente]
 
     ALM --> ALMImp[📥 Importar .xlsx<br/>y crear Test]
     ALM --> ALMExp[📤 Exportar Test<br/>a ALM]
 
-    Mant --> AHN[🪄 Auto-Health Node]
+    Mant --> ValT[🧬 Validar / Regenerar trazas]
     Mant --> Cob[📊 Cobertura]
     Mant --> Auth[🔐 Login reusable<br/><i>experimental</i>]
     Mant --> Utils[🔧 Utilidades]
 
     Crear --> CrearOrigen{Origen de datos}
-    CrearOrigen --> CrearManual[✍️ Cargar a mano]
+    CrearOrigen --> CrearTID[🆔 Test ID ALM<br/>fetch_test_*.exe]
     CrearOrigen --> CrearALMImp[📄 Importar ALM .xlsx]
+    CrearOrigen --> CrearManual[✍️ Cargar a mano]
     CrearManual --> CrearLogin{¿Arranca logueado?<br/>· buffer anti-solape?}
     CrearALMImp --> CrearLogin
+    CrearTID --> CrearLogin
     CrearLogin --> CrearGrabar[Grabar flujo en codegen]
     CrearGrabar --> CrearConfirm[Confirmar terminó<br/>+ limpieza pre-agrupado]
     CrearConfirm --> CrearPOM[Agrupar pasos en pages<br/>· matcheo por vocabulario<br/>· colisión = reusar/extender<br/>· generar POM + sidecar + spec]
@@ -267,15 +268,19 @@ El front del banco es lento, así que los defaults van más holgados que los de 
 
 ## Las acciones del menú
 
-El menú es de **2 niveles**. Nivel 1: 5 categorías. Nivel 2: las acciones puntuales de cada una + `Volver`.
+El menú es **plano de 9 opciones top-level**. Solo `📄 ALM-HP` y `🛠️ Mantenimiento` abren un sub-menú; el resto va directo al sub-prompt. `📦 Crear o Modificar un Test-Set` hace una pregunta inline (crear vs modificar) antes de routear.
 
-| Categoría (nivel 1) | Acciones (nivel 2) |
-| --- | --- |
-| `🖥️ Abrir dashboard` | (acción directa, sin sub-menú) |
-| `🧪 Tests` | Crear · Editar · Correr |
-| `📦 Test Sets` | Crear · Editar · Correr |
-| `📄 ALM` | Importar .xlsx y crear · Exportar a ALM |
-| `🛠️ Mantenimiento` | Auto-Health Node · Validar/Regenerar trazas · Cobertura de Nodos · Login reusable · Utilidades |
+| Top-level | ¿Abre sub-menú? | Contenido |
+| --- | --- | --- |
+| `✨ Crear un Nuevo Test Automatizado` | no | → `crear-caso.md` |
+| `✏️ Modificar o Extender un Test existente` | no | → `editar-caso.md` |
+| `🪄 Mejorar un Test (Auto-Health Node)` | no | → `auto-health-node.md` |
+| `📦 Crear o Modificar un Test-Set` | sub-flujo inline | `➕ Crear nuevo` (`crear-test-set.md`) · `🔧 Modificar existente` (`editar-test-set.md`) |
+| `▶️ Ejecutar un Test (Individual)` | no | → `correr-caso.md` |
+| `🎯 Ejecutar un Test-Set (Grupal)` | no | → `correr-test-set.md` |
+| `📄 Application Lifecycle Management (ALM-HP)` | sí | Importar .xlsx · Exportar Test a ALM |
+| `🖥️ Abrir Dashboard del proyecto actual` | no — acción directa | corre `dashboard.js --open` |
+| `🛠️ Mantenimiento` | sí | Validar/Regenerar trazas · Cobertura · Login reusable · Utilidades |
 
 Detalle de cada acción:
 
@@ -299,7 +304,7 @@ Detalle de cada acción:
 Sub-prompts adicionales que el agente carga sin que el QA los pida:
 - `setup-entorno.md` — al activar el modo, verifica `node_modules` y browsers de Playwright + detecta sesiones zombi.
 - `onboarding.md` — primer uso, pide identidad del QA y la guarda en `.autoflow/user.json`.
-- `menu-principal.md` — menú de 2 niveles (5 categorías × N acciones cada una).
+- `menu-principal.md` — menú top-level plano de 9 opciones; ALM-HP y Mantenimiento conservan sub-menú.
 - `generar-pom.md` — post-grabación, limpieza pre-agrupado, matcheo por vocabulario contra sidecars conocidos (sidecar como set de ids, no como secuencia de flujo), agrupación interactiva, generación de POMs/sidecar/spec, regrafos al final. Delega en `pom-colision.md` (colisión de nombres) y `pom-append-grabado.md` (modo añadir pasos).
 - `pom-colision.md` — sub-flow de `generar-pom.md`. Maneja la colisión cuando el QA elige un nombre de Page Object que ya existe (reusar método, agregar método nuevo, o cambiar nombre).
 - `pom-append-grabado.md` — sub-flow de `generar-pom.md`. Mergea pasos recién grabados al final de un Test existente reusando POs ya conocidos. Distinto de `append-manual.md` (este último arranca de HTML pegado, sin grabar).
@@ -427,6 +432,8 @@ La **primera vez** detecta que faltan `node_modules` y los browsers de Playwrigh
 | `.autoflow/user.json` | Identidad del QA (no se commitea). |
 | `.vscode/tasks.json` | Tasks que dispara el agente (`autoflow:start-recording`, `autoflow:run-test*`, `autoflow:run-testset*`). |
 | `.autoflow/consolegraph/` | Banner ASCII de arranque que el agente muestra como primer mensaje. |
+| `.autoflow/runs/` | Historial JSON de cada corrida (metadata: status, duración, testIds, `artifactsDir`). Lo lee el dashboard. **Gitignored**. |
+| `runs/` | Carpeta por corrida en la **raíz del repo** con artifacts de Playwright (screenshots de fallo, traces, videos, attachments). Cada subcarpeta tiene formato `DD_MM_YYYY_HH-MM-SS` y la crean `run-test.js` / `run-testset.js` antes de invocar Playwright (`AUTOFLOW_RUN_DIR` → `playwright.config.ts` `outputDir`). **Gitignored**. |
 | `pages/` | Page Objects (los puebla el agente). |
 | `tests/` | Specs Playwright (los puebla el agente). |
 | `fixtures/index.ts` | Fixtures tipadas (`test.extend`). Sin clase base. Incluye fixture `humanize` + helper `bufferEntreAcciones(page)` que los POs invocan para el wait anti-solape (centraliza el valor del buffer en un solo lugar; respeta env `AUTOFLOW_BUFFER_MS` para override global). |

@@ -82,6 +82,9 @@ class AutoFlowRunReporter {
       total,
       passed,
       failed,
+      // Si el run vino sin wrapper, AUTOFLOW_RUN_DIR no está seteado y los artifacts
+      // quedaron en el outputDir por default de Playwright (`test-results/`).
+      artifactsDir: process.env.AUTOFLOW_RUN_DIR ?? 'test-results',
     };
 
     try {

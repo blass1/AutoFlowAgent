@@ -10,6 +10,7 @@
 const { spawnSync } = require('node:child_process');
 const { existsSync, mkdirSync, writeFileSync } = require('node:fs');
 const { join, basename } = require('node:path');
+const { formatRunTimestamp } = require('./lib/run-timestamp');
 
 const archivo = process.argv[2];
 const headed = process.argv.includes('--headed');
@@ -46,14 +47,21 @@ if (headed) args.push('--headed', '--workers=1');
 // JSON.stringify acá agregaba comillas dobles + escapes que cmd/PowerShell rompía.
 if (grep) args.push(`--grep=${grep}`);
 
+// Carpeta de artifacts por corrida: `runs/{DD_MM_YYYY_HH-MM-SS}/`. Playwright
+// vuelca screenshots/traces/videos ahí vía `outputDir` (ver playwright.config.ts).
+// La creamos antes del spawn para que exista cuando Playwright intente escribir.
+const runTimestamp = formatRunTimestamp();
+const artifactsDir = `runs/${runTimestamp}`;
+mkdirSync(artifactsDir, { recursive: true });
+
 const inicio = Date.now();
-// Marcamos AUTOFLOW_RUN_PERSISTED para que el reporter custom de Playwright
-// (`.autoflow/scripts/lib/run-reporter.js`) NO persista — este wrapper ya
-// persiste la entrada con más contexto (grep, etc.). Sin esto se duplica el run.
+// AUTOFLOW_RUN_PERSISTED desactiva el reporter custom para evitar runs duplicados
+// (este wrapper ya persiste la entrada con más contexto: grep, testIds, etc.).
+// AUTOFLOW_RUN_DIR le dice a playwright.config.ts dónde volcar los artifacts.
 const res = spawnSync('npx', args, {
   stdio: 'inherit',
   shell: true,
-  env: { ...process.env, AUTOFLOW_RUN_PERSISTED: '1' },
+  env: { ...process.env, AUTOFLOW_RUN_PERSISTED: '1', AUTOFLOW_RUN_DIR: artifactsDir },
 });
 const duration = Date.now() - inicio;
 const exitCode = res.status ?? 1;
@@ -64,6 +72,7 @@ const resultado = {
   exitCode,
   archivo,
   grep,
+  artifactsDir,
 };
 
 // Persistir el run para el dashboard. Ids extraídos del grep si tiene forma `\[testId:NNN\]`.
@@ -85,6 +94,7 @@ const run = {
   status: resultado.status,
   exitCode,
   duration,
+  artifactsDir,
 };
 const runsDir = '.autoflow/runs';
 try {

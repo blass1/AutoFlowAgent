@@ -1,6 +1,6 @@
 ---
 mode: agent
-description: Menú principal del agente AutoFlow. Dos niveles — el primero es la categoría, el segundo es la acción puntual.
+description: Menú principal del agente AutoFlow. Top-level plano con 9 opciones; ALM-HP y Mantenimiento conservan sub-menú interno.
 tools: ['vscode/askQuestions', 'edit', 'read', 'runCommands', 'runTasks']
 ---
 
@@ -22,102 +22,92 @@ Te ayudo a:
 
 Adaptá la redacción si querés, pero respetá el espíritu: corto, en castellano rioplatense, sin marketing-speak. **Esta intro va una sola vez por sesión** — si el QA vuelve al menú después de terminar un sub-prompt, mostrá solo `"¿Qué hacemos ahora?"` sin repetir la presentación.
 
-## Nivel 1 — Categoría
+## Top-level — 9 opciones planas
 
-Usá `#tool:vscode/askQuestions` single-select: `"¿Qué querés hacer?"` con estas opciones (en este orden). **Cada label trae un guion + descripción corta** para que el QA vea el contenido sin abrir el sub-menú:
+Usá `#tool:vscode/askQuestions` single-select: `"¿Qué querés hacer?"` con estas opciones (en este orden). **Sin descripciones inline** — los labels van limpios:
 
-- `🖥️ Abrir dashboard del proyecto — vista navegable de Tests, pasos y ejecuciones`
-- `🧪 Tests — crear, editar y correr casos puntuales`
-- `📦 Test Sets — agrupar Tests y correr regresiones completas`
-- `📄 ALM — ida y vuelta con tu sistema de gestión de pruebas`
-- `🛠️ Mantenimiento — sanear locators, validar estado, login reusable, utilidades`
+- `✨ Crear un Nuevo Test Automatizado`
+- `✏️ Modificar o Extender un Test existente`
+- `🪄 Mejorar un Test (Auto-Health Node)`
+- `📦 Crear o Modificar un Test-Set`
+- `▶️ Ejecutar un Test (Individual)`
+- `🎯 Ejecutar un Test-Set (Grupal)`
+- `📄 Application Lifecycle Management (ALM-HP)`
+- `🖥️ Abrir Dashboard del proyecto actual`
+- `🛠️ Mantenimiento`
 
-### Routing del nivel 1
+### Routing top-level
 
 | Opción | Acción |
 | --- | --- |
-| `🖥️ Abrir dashboard del proyecto` | corré `node .autoflow/scripts/dashboard.js --open` con `runCommands` (genera `.autoflow/dashboard.html` y lo abre en el browser). Después releé este menú. **No** abrís sub-menú — es acción directa. |
-| `🧪 Tests` | abrí el **Sub-menú: Tests** (más abajo). |
-| `📦 Test Sets` | abrí el **Sub-menú: Test Sets**. |
-| `📄 ALM` | abrí el **Sub-menú: ALM**. |
+| `✨ Crear un Nuevo Test Automatizado` | cargá `.autoflow/prompts/crear-caso.md`. |
+| `✏️ Modificar o Extender un Test existente` | cargá `.autoflow/prompts/editar-caso.md`. |
+| `🪄 Mejorar un Test (Auto-Health Node)` | cargá `.autoflow/prompts/auto-health-node.md`. |
+| `📦 Crear o Modificar un Test-Set` | abrí el **Sub-flujo: Test-Set** (más abajo). |
+| `▶️ Ejecutar un Test (Individual)` | cargá `.autoflow/prompts/correr-caso.md`. |
+| `🎯 Ejecutar un Test-Set (Grupal)` | cargá `.autoflow/prompts/correr-test-set.md`. |
+| `📄 Application Lifecycle Management (ALM-HP)` | abrí el **Sub-menú: ALM-HP**. |
+| `🖥️ Abrir Dashboard del proyecto actual` | corré `node .autoflow/scripts/dashboard.js --open` con `runCommands` (genera `.autoflow/dashboard.html` y lo abre en el browser). Después reabrí este menú. **Acción directa, sin sub-menú.** |
 | `🛠️ Mantenimiento` | abrí el **Sub-menú: Mantenimiento**. |
 
-## Sub-menú: Tests
+## Sub-flujo: Test-Set (crear o modificar)
 
-`vscode/askQuestions` single-select: `"¿Qué hacés con los **Tests**?"`:
+Cuando el QA elige `📦 Crear o Modificar un Test-Set`, abrí `vscode/askQuestions` single-select: `"¿Crear uno nuevo o modificar uno existente?"`:
 
-- `✨ Crear un **Test** — grabar un caso nuevo desde cero`
-- `✏️ Editar un **Test** — regrabar, código, añadir pasos, bifurcar, nodo especial...`
-- `▶️ Correr un **Test** — ejecutar uno puntual con --grep al testId`
+- `➕ Crear un Test-Set nuevo`
+- `🔧 Modificar un Test-Set existente`
 - `↩️ Volver al menú principal`
 
-### Routing — Tests
+### Routing — Test-Set
 
 | Opción | Sub-prompt a cargar |
 | --- | --- |
-| `✨ Crear un **Test**` | `.autoflow/prompts/crear-caso.md` |
-| `✏️ Editar un **Test**` | `.autoflow/prompts/editar-caso.md` |
-| `▶️ Correr un **Test**` | `.autoflow/prompts/correr-caso.md` |
-| `↩️ Volver al menú principal` | reabrí el menú principal (nivel 1) |
+| `➕ Crear un Test-Set nuevo` | `.autoflow/prompts/crear-test-set.md` |
+| `🔧 Modificar un Test-Set existente` | `.autoflow/prompts/editar-test-set.md` |
+| `↩️ Volver al menú principal` | reabrí el top-level |
 
-## Sub-menú: Test Sets
+## Sub-menú: ALM-HP
 
-`vscode/askQuestions` single-select: `"¿Qué hacés con los **Test Sets**?"`:
+`vscode/askQuestions` single-select: `"¿Qué hacés con ALM-HP?"`:
 
-- `📦 Crear un **Test Set** — agrupar Tests existentes en un set nuevo`
-- `🔧 Editar un **Test Set** — mover Tests, renombrar, cambiar id, eliminar`
-- `🚀 Correr un **Test Set** — regresión completa headed o headless`
+- `📥 Importar .xlsx y crear un Test`
+- `📤 Exportar Test automatizado a ALM`
 - `↩️ Volver al menú principal`
 
-### Routing — Test Sets
-
-| Opción | Sub-prompt a cargar |
-| --- | --- |
-| `📦 Crear un **Test Set**` | `.autoflow/prompts/crear-test-set.md` |
-| `🔧 Editar un **Test Set**` | `.autoflow/prompts/editar-test-set.md` |
-| `🚀 Correr un **Test Set**` | `.autoflow/prompts/correr-test-set.md` |
-| `↩️ Volver al menú principal` | reabrí el menú principal (nivel 1) |
-
-## Sub-menú: ALM
-
-`vscode/askQuestions` single-select: `"¿Qué hacés con **ALM**?"`:
-
-- `📥 Importar .xlsx y crear un **Test** — leer testId/nombre/enfoque del Export ALM`
-- `📤 Exportar **Test** automatizado a **ALM** — generar xlsx/csv/json humanizado`
-- `↩️ Volver al menú principal`
-
-### Routing — ALM
+### Routing — ALM-HP
 
 | Opción | Acción |
 | --- | --- |
-| `📥 Importar .xlsx y crear un **Test**` | cargá `.autoflow/prompts/crear-caso.md` **pasando contexto** `{ origen: "alm-xlsx" }` (o `"alm"`, alias legado). El sub-prompt salta la pregunta del paso 0 y va directo al paso 0.b (importar desde Export ALM .xlsx). El resto del flujo (canal, login, grabación, agrupación) es idéntico al normal. |
-| `📤 Exportar **Test** automatizado a **ALM**` | `.autoflow/prompts/exportar-alm.md` |
-| `↩️ Volver al menú principal` | reabrí el menú principal (nivel 1) |
+| `📥 Importar .xlsx y crear un Test` | cargá `.autoflow/prompts/crear-caso.md` **pasando contexto** `{ origen: "alm-xlsx" }` (o `"alm"`, alias legado). El sub-prompt salta la pregunta del paso 0 y va directo al paso 0.b (importar desde Export ALM .xlsx). El resto del flujo (canal, login, grabación, agrupación) es idéntico al normal. |
+| `📤 Exportar Test automatizado a ALM` | `.autoflow/prompts/exportar-alm.md` |
+| `↩️ Volver al menú principal` | reabrí el top-level |
+
+> **Nota**: la opción `🆔 Importar caso de ALM con el número de Test ID` (integración por testid) **no vive en este sub-menú** — es la primera opción del paso 0 de `crear-caso.md` cuando se invoca sin contexto. Si querés un atajo directo desde el menú, se puede agregar acá pasando `{ origen: "alm-testid" }`.
 
 ## Sub-menú: Mantenimiento
 
 `vscode/askQuestions` single-select: `"¿Qué tarea de mantenimiento?"`:
 
-- `🪄 Auto-Health Node — sanear locators débiles antes de que rompan`
-- `🧬 Validar / Regenerar trazas — audit del estado de los path.json`
-- `📊 Cobertura de **Nodos** — qué del producto está testeado de verdad`
-- `🔐 Login reusable (experimental) — grabar un login una sola vez por canal+usuario`
-- `🔧 Utilidades — aplicar librerías complementarias de utils/`
+- `🧬 Validar / Regenerar trazas`
+- `📊 Cobertura de Nodos`
+- `🔐 Login reusable (experimental)`
+- `🔧 Utilidades`
 - `↩️ Volver al menú principal`
+
+> **Auto-Health Node** salió de este sub-menú — ahora está en el top-level como `🪄 Mejorar un Test (Auto-Health Node)`.
 
 ### Routing — Mantenimiento
 
 | Opción | Acción |
 | --- | --- |
-| `🪄 Auto-Health Node — sanear locators débiles` | `.autoflow/prompts/auto-health-node.md` |
 | `🧬 Validar / Regenerar trazas` | `.autoflow/prompts/validar-trazas.md` |
-| `📊 Cobertura de **Nodos**` | corré `node .autoflow/scripts/cobertura.js` con `runCommands`, después abrí `.autoflow/grafos/cobertura.html` (`start ` en Windows, `open ` en macOS, `xdg-open ` en Linux). Mostrale al QA un resumen de 3 líneas con totales (cubiertos / no cubiertos / % cobertura). Después releé el sub-menú. |
+| `📊 Cobertura de Nodos` | corré `node .autoflow/scripts/cobertura.js` con `runCommands`, después abrí `.autoflow/grafos/cobertura.html` (`start ` en Windows, `open ` en macOS, `xdg-open ` en Linux). Mostrale al QA un resumen de 3 líneas con totales (cubiertos / no cubiertos / % cobertura). Después releé el sub-menú. |
 | `🔐 Login reusable (experimental)` | `.autoflow/prompts/setup-auth.md` |
 | `🔧 Utilidades` | `.autoflow/prompts/utilidades.md` |
-| `↩️ Volver al menú principal` | reabrí el menú principal (nivel 1) |
+| `↩️ Volver al menú principal` | reabrí el top-level |
 
 ## Reglas
 
-- **Cuando un sub-prompt termina** y el QA elige "Volver al menú", siempre volvé al **nivel 1** del menú principal, no al sub-menú desde el que vino. Le da al QA un punto de pivote estable.
-- **`Volver al menú principal`** dentro de un sub-menú simplemente reabre el `askQuestions` del nivel 1 — sin re-mostrar la intro de presentación (esa va una sola vez por sesión).
-- **No anidás más niveles** que estos dos. Si una funcionalidad necesita más profundidad, la maneja el sub-prompt internamente, no el menú.
+- **Cuando un sub-prompt termina** y el QA elige "Volver al menú", siempre volvé al **top-level** del menú principal, no al sub-menú desde el que vino. Le da al QA un punto de pivote estable.
+- **`Volver al menú principal`** dentro de un sub-menú simplemente reabre el `askQuestions` del top-level — sin re-mostrar la intro de presentación (esa va una sola vez por sesión).
+- **No anidás más niveles** que el top-level + 1 sub-menú. Si una funcionalidad necesita más profundidad, la maneja el sub-prompt internamente, no el menú.

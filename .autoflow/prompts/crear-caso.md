@@ -10,7 +10,7 @@ tools: ['vscode/askQuestions', 'edit', 'read', 'runCommands', 'runTasks']
 
 **Si el prompt fue invocado con contexto `origen: "alm-testid"`**: salteá la pregunta y andá directo al **paso 0.a** (import por Test ID).
 
-**Si el prompt fue invocado con contexto `origen: "alm"` o `origen: "alm-xlsx"`** (típicamente desde el sub-menú `📄 ALM → Importar .xlsx y crear un Test` del menú principal — `"alm"` se mantiene como alias de `"alm-xlsx"` por compatibilidad con invocaciones viejas): salteá la pregunta y andá directo al **paso 0.b** (import xlsx).
+**Si el prompt fue invocado con contexto `origen: "alm"` o `origen: "alm-xlsx"`** (típicamente desde el sub-menú `📄 ALM-HP → 📥 Importar .xlsx y crear un Test` del menú principal — `"alm"` se mantiene como alias de `"alm-xlsx"` por compatibilidad con invocaciones viejas): salteá la pregunta y andá directo al **paso 0.b** (import xlsx).
 
 **Si el prompt fue invocado con contexto `origen: "manual"`**: salteá la pregunta y andá directo al **paso 0.c** (carga manual).
 

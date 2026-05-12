@@ -8,6 +8,12 @@ export default defineConfig({
   testIgnore: ['**/_temp/**'],
   timeout: 180000,
   expect: { timeout: 15000 },
+  // Carpeta de artifacts (screenshots, traces, videos, attachments). Si los wrappers
+  // run-test.js/run-testset.js setean AUTOFLOW_RUN_DIR=runs/{DD_MM_YYYY_HH-MM-SS},
+  // Playwright vuelca todo ahí — así cada corrida queda en su propia carpeta y los
+  // artifacts no se sobreescriben entre runs. Fallback a `test-results/` (default
+  // de Playwright) cuando se invoca `npx playwright test ...` directo sin wrapper.
+  outputDir: process.env.AUTOFLOW_RUN_DIR ?? 'test-results',
   // Reporter `list` para output legible + reporter custom de AutoFlow que persiste
   // cada corrida en `.autoflow/runs/` para que el dashboard la muestre. El custom
   // se desactiva solo si la corrida vino de los wrappers run-test.js/run-testset.js
@@ -25,6 +31,10 @@ export default defineConfig({
     // navigationTimeout queda en 60s: el banco tiene cargas iniciales pesadas y
     // bajarlo causa falsos positivos.
     navigationTimeout: 60000,
+    // Screenshots automáticos al fallar un test. Quedan en `outputDir` (ver arriba),
+    // por defecto `runs/{ts}/` cuando se invoca vía wrappers. Investigación de fallos
+    // sin pedirle al QA que arme nada manual.
+    screenshot: 'only-on-failure',
     ...devices['Desktop Chrome'],
   },
 });

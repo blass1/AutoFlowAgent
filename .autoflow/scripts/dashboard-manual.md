@@ -27,17 +27,21 @@ A partir de ahí cada sesión arranca directo en el menú principal.
 
 ## 🧭 El menú
 
-Dos niveles. Nivel 1 son las 5 categorías. Nivel 2 son las acciones puntuales de cada una más un `↩️ Volver`.
+Top-level plano con 9 opciones. Solo `📄 ALM-HP` y `🛠️ Mantenimiento` abren un sub-menú; el resto va directo al sub-flujo. `📦 Crear o Modificar un Test-Set` te pregunta inline si querés crear uno nuevo o modificar uno existente.
 
-| Categoría | Acciones |
-|---|---|
-| `🖥️ Abrir dashboard` | (acción directa, sin sub-menú) |
-| `🧪 Tests` | Crear · Editar · Correr |
-| `📦 Test Sets` | Crear · Editar · Correr |
-| `📄 ALM` | Importar .xlsx · Exportar Test a ALM |
-| `🛠️ Mantenimiento` | Auto-Health Node · Validar/Regenerar trazas · Cobertura · Login reusable · Utilidades |
+| Opción | ¿Sub-menú? | Qué hace |
+|---|---|---|
+| `✨ Crear un Nuevo Test Automatizado` | no | grabar un caso de prueba nuevo desde cero |
+| `✏️ Modificar o Extender un Test existente` | no | regrabar, editar código, añadir pasos, bifurcar, insertar nodo... |
+| `🪄 Mejorar un Test (Auto-Health Node)` | no | sanear locators débiles capturando el DOM real |
+| `📦 Crear o Modificar un Test-Set` | pregunta inline | crear nuevo · modificar existente |
+| `▶️ Ejecutar un Test (Individual)` | no | un spec puntual con `--grep=\[testId:N\]` |
+| `🎯 Ejecutar un Test-Set (Grupal)` | no | regresión completa headed o headless |
+| `📄 Application Lifecycle Management (ALM-HP)` | sí | importar xlsx · exportar a ALM |
+| `🖥️ Abrir Dashboard del proyecto actual` | acción directa | abre `.autoflow/dashboard.html` en el browser |
+| `🛠️ Mantenimiento` | sí | validar trazas · cobertura · login reusable · utilidades |
 
-Tras completar una acción, siempre volvés al **nivel 1** (no al sub-menú desde el que viniste). Punto de pivote estable.
+Tras completar una acción, siempre volvés al **top-level** (no al sub-menú desde el que viniste). Punto de pivote estable.
 
 ---
 
@@ -47,7 +51,7 @@ Tras completar una acción, siempre volvés al **nivel 1** (no al sub-menú desd
 
 ### Pasos
 
-1. **Menú → 🧪 Tests → ✨ Crear**.
+1. **Menú → ✨ Crear un Nuevo Test Automatizado**.
 
 2. **¿Cómo cargás los datos?**
    - `📄 Importar desde Export ALM (.xlsx)` — si ya tenés el caso en ALM, dejás el `.xlsx` en `.autoflow/alm-exports/` y el agente lee testId, nombre y enfoque automáticamente.
@@ -118,7 +122,7 @@ Tras completar una acción, siempre volvés al **nivel 1** (no al sub-menú desd
 
 ### Pasos
 
-1. **Menú → 🧪 Tests → ▶️ Correr**.
+1. **Menú → ▶️ Ejecutar un Test (Individual)**.
 2. Elegís el **Test Set** que contiene el Test.
 3. Elegís el **Test** dentro del set.
 4. Confirmás y el agente dispara la corrida con `--headed` (browser visible) y `--grep=\[testId:N\]` (filtra al Test elegido — el spec contiene todos los Tests del set, sin el grep correrías todos).
@@ -147,7 +151,7 @@ Tras completar una acción, siempre volvés al **nivel 1** (no al sub-menú desd
 
 ### Cómo entrar
 
-**Menú → 🧪 Tests → ✏️ Editar**. Elegís Test Set → Test → la acción de abajo.
+**Menú → ✏️ Modificar o Extender un Test existente**. Elegís Test Set → Test → la acción de abajo.
 
 ### 🔄 Regrabar desde cero
 
@@ -265,7 +269,7 @@ Hay dos tipos de Nodo especial:
 **Cuándo**: querés agrupar Tests para correr regresiones completas.
 
 **Pasos**:
-1. **Menú → 📦 Test Sets → 📦 Crear**.
+1. **Menú → 📦 Crear o Modificar un Test-Set → ➕ Crear un Test-Set nuevo**.
 2. Carrousel: nombre del set (ej: "Regresión de Plazos Fijos"), id (ej: `12345`), descripción.
 3. Multi-select: elegís Tests existentes para mover al set (cada Test vive en un solo Test Set; al moverlo se borra del spec original). O `📭 Crear vacío` para arrancar sin Tests.
 4. Confirmás. El agente crea:
@@ -287,7 +291,7 @@ Single-select de acciones disponibles:
 **Cuándo**: querés correr toda la regresión.
 
 **Pasos**:
-1. **Menú → 📦 Test Sets → 🚀 Correr**. Elegís el set.
+1. **Menú → 🎯 Ejecutar un Test-Set (Grupal)**. Elegís el set.
 2. Validación pre-corrida: `validar-coherencia.js` chequea specs faltantes, sidecars con ids inexistentes, POs sin sidecar. Si hay errores te frena antes de gastar tiempo.
 3. **Headed o headless?**
    - `🎬 Headed (ver el browser, secuencial)` — recomendado para validar visualmente. Workers=1.
@@ -313,7 +317,7 @@ Single-select de acciones disponibles:
 
 **Pasos**:
 1. Exportá el caso desde ALM y dejá el `.xlsx` en `.autoflow/alm-exports/`.
-2. **Menú → 📄 ALM → 📥 Importar .xlsx y crear Test**.
+2. **Menú → 📄 Application Lifecycle Management (ALM-HP) → 📥 Importar .xlsx y crear un Test**.
 3. Te pide el nombre del archivo (o ruta completa). El script lee:
    - A2 → testId
    - C2 → nombre del caso
@@ -325,7 +329,7 @@ Single-select de acciones disponibles:
 **Cuándo**: tenés un Test ya grabado y querés generar un archivo para subir a ALM (xlsx por defecto).
 
 **Pasos**:
-1. **Menú → 📄 ALM → 📤 Exportar Test a ALM**.
+1. **Menú → 📄 Application Lifecycle Management (ALM-HP) → 📤 Exportar Test automatizado a ALM**.
 2. Elegís Test Set → Test → formato (`xlsx` recomendado, `csv` o `json` también).
 3. El script genera un archivo en `.autoflow/alm-exports/{slug}-testId-{N}-{ts}.{ext}` con un row por cada Nodo de la traza:
 
@@ -350,7 +354,7 @@ Single-select de acciones disponibles:
 **Cuándo**: querés sanear locators frágiles **antes** de que rompan en CI.
 
 **Pasos**:
-1. **Menú → 🛠️ Mantenimiento → 🪄 Auto-Health Node**.
+1. **Menú → 🪄 Mejorar un Test (Auto-Health Node)** *(ahora en el top-level, ya no dentro de Mantenimiento)*.
 2. El agente lista los Nodos con confiabilidad ≤3 ordenados por fragilidad + cantidad de Tests que los usan (los más frágiles y más usados arriba).
 3. Elegís uno.
 4. El agente identifica en qué Test se usa, genera un spec efímero en `tests/_temp/` que ejecuta el flujo hasta el paso anterior, y captura el DOM del elemento (elemento + 7 ancestros, fallback a body completo si el locator está completamente roto).
@@ -458,7 +462,7 @@ El dashboard es **estático** — se actualiza solo cuando lo regenerás. Cada v
 | El agente dice "no encuentro el archivo del recording" pero vos lo ves en la carpeta | Race condition de filesystem. El agente reintenta 3 veces antes de declarar fallo. Si igual falla, te muestra el listado real y te ofrece confirmar manualmente con `✅ Confirmo que está, seguí`. |
 | El dashboard muestra Tests sin pasos | La traza no se generó. Andá a `🛠️ Mantenimiento → 🧬 Validar / Regenerar trazas`. Si los inputs siguen, el script la regenera. |
 | Un Test pasaba y empezó a fallar — el front cambió un selector | Correr el Test → menú post-fallo elegí `🧩 Actualizar Nodos sospechosos`. Tildás los que creés que cambiaron y elegís `🪄 Capturar DOM y proponer` (recomendado) o `✍️ Pegar locator a mano`. |
-| Querés mejorar locators frágiles antes de que rompan | `🛠️ Mantenimiento → 🪄 Auto-Health Node`. |
+| Querés mejorar locators frágiles antes de que rompan | `🪄 Mejorar un Test (Auto-Health Node)` (top-level del menú). |
 | El login con OTP se hace eterno cada vez que grabás | `🛠️ Mantenimiento → 🔐 Login reusable`. Lo grabás una vez y los siguientes Tests del mismo canal arrancan ya logueados. |
 | El Test cuelga 30s y falla con timeout sin explicación | Probable que tu PO use `waitForLoadState('networkidle')` en un site con long-polling/analytics persistente. Cambialo a `'domcontentloaded'` (que es el default actual). Para Tests viejos podés migrar a mano. |
 | Hay grabaciones zombi (sesiones marcadas activas pero el browser cerrado) | Al activar el chat mode, `setup-entorno.md` las detecta automáticamente (>30 min con `activa: true`) y te ofrece retomarlas, cerrarlas, o dejarlas como están. |
