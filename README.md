@@ -70,8 +70,9 @@ flowchart LR
     TS --> CrearTS[➕ Crear nuevo]
     TS --> EditarTS[🔧 Modificar existente]
 
-    ALM --> ALMImp[📥 Importar .xlsx<br/>y crear Test]
-    ALM --> ALMExp[📤 Exportar Test<br/>a ALM]
+    ALM --> ALMAnalyze[🔍 Importar + Analizar<br/>Test de ALM]
+    ALM --> ALMExp[📤 Humanizar + Exportar<br/>Test a ALM]
+    ALM --> ALMImp[📄 Importar .XSLX<br/>y crear Test]
 
     Mant --> ValT[🧬 Validar / Regenerar trazas]
     Mant --> Cob[📊 Cobertura]
@@ -116,7 +117,8 @@ flowchart LR
     Auth --> AuthGrabar[Grabar storageState<br/>por canal+usuario]
     Auth --> AuthReuso[Reusable al crear Test<br/>en ese canal]
 
-    ALMExp --> ALMExpFlow[xlsx / csv / json<br/>1 row por test.step<br/>Step Name · Description · Expected]
+    ALMAnalyze --> ALMAnalyzeFlow[fetch_test_*.exe --name testid<br/>guarda originalTests/<br/>checks: solapados · <8 pasos]
+    ALMExp --> ALMExpFlow[carga conventions/alm-steps.md<br/>lee POM+spec, humaniza<br/>emite JSON + xlsx en alm/exports/]
 
     Utils --> UtilsFlow[Lee utils/<br/>· parsea @autoflow-util<br/>· preview de cambios<br/>· aplica con confirmación]
 
@@ -278,7 +280,7 @@ El menú es **plano de 9 opciones top-level**. Solo `📄 ALM-HP` y `🛠️ Man
 | `📦 Crear o Modificar un Test-Set` | sub-flujo inline | `➕ Crear nuevo` (`crear-test-set.md`) · `🔧 Modificar existente` (`editar-test-set.md`) |
 | `▶️ Ejecutar un Test (Individual)` | no | → `correr-caso.md` |
 | `🎯 Ejecutar un Test-Set (Grupal)` | no | → `correr-test-set.md` |
-| `📄 Application Lifecycle Management (ALM-HP)` | sí | Importar .xlsx · Exportar Test a ALM |
+| `📄 Application Lifecycle Management (ALM-HP)` | sí | 🔍 Importar + Analizar Test de ALM · 📤 Humanizar + Exportar Test a ALM · 📄 Importar .XSLX + crear Test |
 | `🖥️ Abrir Dashboard del proyecto actual` | no — acción directa | corre `dashboard.js --open` |
 | `🛠️ Mantenimiento` | sí | Validar/Regenerar trazas · Cobertura · Login reusable · Utilidades |
 
@@ -296,8 +298,9 @@ Detalle de cada acción:
 | 📊 Cobertura de Nodos | (corre `cobertura.js`) | Agrega todas las trazas y emite un reporte HTML con qué nodos están cubiertos, por qué Tests, y qué pages tienen 0 cobertura. |
 | 🪄 Auto-Health Node | `auto-health-node.md` | Lista los Nodos con confiabilidad ≤3 ordenados por fragilidad + cantidad de Tests que los usan. Para el elegido, navega el flujo hasta el paso anterior, captura el DOM (elemento + 7 ancestros, fallback a body completo) y propone un locator más confiable razonando sobre el HTML. Solo aplica si la confiabilidad mejora. |
 | 🧬 Validar / Regenerar trazas | `validar-trazas.md` | Audita las trazas de todos los Tests grabados. Reporta cuáles están OK, cuáles regeneró desde inputs disponibles (`parsed.json` + `grupos.json`), cuáles fallan, y cuáles son irrecuperables (sin inputs, hay que regrabar). Soluciona el caso típico de "el dashboard muestra Tests sin pasos" porque la traza nunca se generó. |
-| 📥 Importar .xlsx y crear Test | `crear-caso.md` con `origen: "alm"` | Atajo a la rama de Export ALM de `crear-caso.md` saltando la pregunta inicial. Lee A2 (testId), C2 (nombre), G2 (enfoque) del xlsx que dejaste en `.autoflow/alm-exports/`. |
-| 📤 Exportar Test a ALM | `exportar-alm.md` | Exporta un Test a un archivo importable por ALM (xlsx por defecto, csv o json). **Un row por cada Nodo de la traza** (acción atómica del flujo) con Test ID, Test Name, Step Number, Step (label corto: `Click`, `Llenar campo`, `Validar visibilidad`, etc.), Description en **imperativo** (*"Hacer click en el botón 'Aceptar'"*, *"Ingresar el valor correspondiente en el campo 'Usuario'"*) y Expected Result observable, una sola línea (*"El botón 'Aceptar' se acciona correctamente."*, *"El campo 'Usuario' muestra el valor ingresado."*). Pensado para que un QA lea el archivo en ALM y pueda recrear el caso a mano. Granularidad un Test por archivo. |
+| 🔍 Importar y Analizar Test de ALM | `importar-test-alm.md` | Usa la integración binaria `.autoflow/alm/integrations/fetch_test_v1.0.0.exe` (chequeo determinístico vía `node -e fs.existsSync`, no `file_search` que skipea binarios). Pide el testid, corre el .exe con `--name {testid}`, persiste el JSON crudo en `.autoflow/alm/originalTests/{test_id}.json` y aplica 2 checks de calidad: alerta si `step_count < 8` (caso muy reducido) + heurística para detectar pasos solapados (múltiples verbos imperativos o conectores `y/luego/además` en una sola `description`/`expected`). **No graba ni modifica nada del repo** — solo audita. |
+| 📤 Humanizar y Exportar Test a ALM | `exportar-alm.md` + `conventions/alm-steps.md` | Carga la convención `alm-steps.md` como fuente de verdad (rol de QA Lead senior, vocabulario, reglas técnico→negocio, granularidad, formato JSON, checklist de calidad). Pide qué Test exportar, lee POM(s) + spec siguiendo cadenas `retornaPage`, humaniza siguiendo las buenas prácticas (acciones imperativas, sin selectores ni jerga de Playwright, un step = una acción observable) y emite `.autoflow/alm/exports/{slug}-testId-{N}-{ts}.json` con shape `{ test_id, new_steps: [{action, name, description, expected}] }`. Dispara `alm-json-to-xlsx.js` para generar el `.xlsx` hermano. A futuro, un `.exe` de la integración va a leer el JSON y subir los steps a ALM directamente. |
+| 📄 Importar .XSLX y crear Test | `crear-caso.md` con `origen: "alm-xlsx"` (o `"alm"` legado) | Atajo a la rama xlsx del paso 0.b de `crear-caso.md` saltando la pregunta inicial. Lee A2 (testId), C2 (nombre), G2 (enfoque) del xlsx que dejaste en `.autoflow/alm-exports/`. |
 | 🔧 Utilidades | `utilidades.md` | Aplica/desaplica librerías complementarias que el QA deja en `utils/` (ej: `pdfReporter.ts` para reportes custom). Cada archivo se autodescribe con un header (`@autoflow-util`, `@descripcion`, `@aplicarEn`, `@como-aplicar`). El agente parsea, muestra preview de los cambios y aplica con confirmación por utilidad. Idempotente. Frena si las instrucciones son ambiguas. |
 | 🖥️ Abrir dashboard del proyecto | (corre `dashboard.js`) | Vista única navegable con Test Sets, Tests, pasos del flujo, historial de ejecuciones, grafo del paso a paso (subgraph por Page con colores), perfil de Usuario editable, y **Manual de uso** embebido. Cada nodo se puede abrir en VSCode con un click o copiar como prompt para que el agente lo repare / bifurque / aplique Auto-Health. |
 
@@ -336,13 +339,21 @@ Es la diferencia entre "tenemos N tests" y "qué del producto está testeado de 
 
 ## Importar casos desde ALM
 
-Si el QA ya tiene el caso cargado en ALM, puede arrancar "Crear caso" con la opción **📄 Importar desde Export ALM (.xlsx)** en lugar de tipear nombre/TC a mano. El flujo es:
+Hay **3 caminos** según lo que estés buscando:
 
-1. Exportar el caso desde ALM y dejar el `.xlsx` en `.autoflow/alm-exports/`.
-2. En el chat, elegir la opción de import y escribir el nombre del archivo (o ruta completa).
-3. El script [.autoflow/scripts/parse-alm-export.js](.autoflow/scripts/parse-alm-export.js) lee A2 (test ID), C2 (nombre, lo limpia), G2 (enfoque de prueba) e ignora los pasos de E/F.
-4. El agente confirma con el QA y, si hace falta, le permite editar nombre/TC. Después solo se pregunta el canal y arranca codegen.
-5. El `enfoque` queda guardado en `{numero}-session.json` bajo `almContext.enfoque` para análisis posterior.
+### A. Importar + Analizar (no graba nada)
+**Menú → 📄 ALM-HP → 🔍 Importar y Analizar Test de ALM**. Usa la integración binaria `fetch_test_v1.0.0.exe` para traer los datos del Test por testid, los guarda en `.autoflow/alm/originalTests/` y aplica chequeos de calidad (pasos solapados, cantidad mínima). Ideal cuando querés inspeccionar antes de decidir si lo automatizás.
+
+### B. Crear Test arrancando desde ALM (con grabación)
+Tres sub-caminos desde **🆔 / 📄 / ✍️** en el paso 0 de Crear Test:
+- 🆔 Por testid con la integración (`fetch_test_v1.0.0.exe`) — autopopula nombre+steps informativos.
+- 📄 Importar XLSX exportado de ALM — script [`parse-alm-export.js`](.autoflow/scripts/parse-alm-export.js) lee A2 (test ID), C2 (nombre), G2 (enfoque). El XLSX se deja en `.autoflow/alm-exports/`. **Atajo directo** desde el sub-menú ALM-HP → 📄 Importar .XSLX y Crear un Nuevo Test Automatizado.
+- ✍️ Manual.
+
+El `enfoque` (del XLSX) queda guardado en `{numero}-session.json` bajo `almContext.enfoque`. El `test_id` (de la integración) queda en `almContext.testId`.
+
+### C. Humanizar y Exportar a ALM (inversa)
+**Menú → 📄 ALM-HP → 📤 Humanizar y Exportar Test Automatizado a ALM**. Toma un Test ya automatizado, lo humaniza siguiendo `.autoflow/conventions/alm-steps.md` y genera un JSON + xlsx en `.autoflow/alm/exports/`. A futuro un `.exe` de la integración va a leer ese JSON y subirlo a ALM directamente.
 
 ## Nodos especiales: capturar y verificar
 
@@ -463,9 +474,10 @@ node .autoflow/scripts/parse-codegen-output.js <numero>
 # Parsear un xlsx exportado de ALM (usado por crear-caso al importar)
 node .autoflow/scripts/parse-alm-export.js <archivo-en-alm-exports-o-ruta-completa>
 
-# Exportar un Test a un archivo importable por ALM (xlsx | csv | json)
-node .autoflow/scripts/exportar-alm.js <slug-test-set> --test=<testId>
-node .autoflow/scripts/exportar-alm.js <slug-test-set> --test=<testId> --format=csv
+# Convertir un JSON humanizado (alm/exports/) a xlsx hermano. El JSON lo genera
+# el agente desde el menú ALM-HP → Humanizar y Exportar; este script solo serializa
+# a binario, la redacción la hace el agente siguiendo conventions/alm-steps.md.
+node .autoflow/scripts/alm-json-to-xlsx.js <path al .json en .autoflow/alm/exports/>
 
 # Grabar un login reusable (storageState)
 node .autoflow/scripts/record-auth.js <canal-slug> <userKey> <urlInicial>

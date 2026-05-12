@@ -73,7 +73,6 @@ Si por algún motivo encontrás un `*-session.json` con `"activa": true` pero la
 
 ## Reglas generales de comportamiento
 
-- **Si el QA te saluda en cualquier momento** (hola, buenas, hi, qué tal, etc.) y no estás en medio de un sub-prompt activo, respondé el saludo corto (`¡Hola, {nombre}!` si lo sabés) y seguí `.autoflow/prompts/menu-principal.md`. Si estás en medio de un flujo, devolvé el saludo y seguí donde ibas.
 - **Antes de crear o modificar archivos**, mostrale al QA qué vas a hacer y confirmá con `vscode/askQuestions` cuando la acción sea destructiva o ambigua.
 - **Cuando ejecutes una VSCode task**, mencionalo. Si falla, mostrá el error y abrí un `askQuestions` con alternativas. **No reintentes ciegamente.**
 - **Cuando vayas a generar código**, leé primero `.autoflow/conventions/pom-rules.md`.

@@ -37,7 +37,7 @@ Top-level plano con 9 opciones. Solo `📄 ALM-HP` y `🛠️ Mantenimiento` abr
 | `📦 Crear o Modificar un Test-Set` | pregunta inline | crear nuevo · modificar existente |
 | `▶️ Ejecutar un Test (Individual)` | no | un spec puntual con `--grep=\[testId:N\]` |
 | `🎯 Ejecutar un Test-Set (Grupal)` | no | regresión completa headed o headless |
-| `📄 Application Lifecycle Management (ALM-HP)` | sí | importar xlsx · exportar a ALM |
+| `📄 Application Lifecycle Management (ALM-HP)` | sí | importar+analizar test de ALM · humanizar+exportar test a ALM · importar XLSX y crear test |
 | `🖥️ Abrir Dashboard del proyecto actual` | acción directa | abre `.autoflow/dashboard.html` en el browser |
 | `🛠️ Mantenimiento` | sí | validar trazas · cobertura · login reusable · utilidades |
 
@@ -309,41 +309,66 @@ Single-select de acciones disponibles:
 
 ---
 
-## 📄 ALM
+## 📄 ALM-HP
 
-### 📥 Importar .xlsx y crear Test
+El sub-menú tiene **3 opciones**, cada una resuelve un problema distinto.
 
-**Cuándo**: ya tenés el caso cargado en ALM y querés ahorrarte tipear nombre/TC a mano.
+### 🔍 Importar y Analizar un Test de ALM (no graba nada)
+
+**Cuándo**: querés inspeccionar un caso que vive en ALM antes de decidir si lo automatizás. Te lo trae completo y le hace una auditoría rápida de calidad.
+
+**Pasos**:
+1. **Menú → 📄 Application Lifecycle Management (ALM-HP) → 🔍 Importar y Analizar un Test de ALM en Autoflow (Integracion-ALM)**.
+2. El agente chequea que esté `.autoflow/alm/integrations/fetch_test_v1.0.0.exe`. Si no está, te avisa y volvés al menú.
+3. Te pide el testid (ej: `668998`).
+4. Corre el `.exe`, guarda el JSON crudo en `.autoflow/alm/originalTests/{testid}.json` y aplica 2 checks:
+   - ⚠️ Si el caso tiene **menos de 8 pasos** → te lo marca como reducido.
+   - ⚠️ Si detecta **pasos solapados** (múltiples acciones o verificaciones en una sola `description` o `expected`, con conectores tipo `y`, `luego`, `además`) → te lista los affected steps con sugerencia de separación.
+5. Te muestra el resumen y volvés al menú.
+
+> El JSON queda en cache local. Si después decidís automatizar el caso, `Crear Test → 🆔 Importar por Test ID` lo reusa sin volver a fetchear.
+
+### 📤 Humanizar y Exportar Test Automatizado a ALM
+
+**Cuándo**: tenés un Test ya automatizado y querés generar la versión "manual" (lenguaje de negocio) lista para subir a ALM.
+
+**Pasos**:
+1. **Menú → 📄 Application Lifecycle Management (ALM-HP) → 📤 Humanizar y Exportar Test Automatizado a ALM (Integracion-ALM)**.
+2. El agente carga `.autoflow/conventions/alm-steps.md` como **fuente de verdad** (rol de QA Lead senior, vocabulario, reglas técnico→negocio, granularidad, checklist de calidad).
+3. Elegís qué Test exportar.
+4. El agente lee el spec + los POMs que importa (siguiendo cadenas `retornaPage`) y aplica la convención:
+   - Cada método del POM se traduce a una acción de negocio ("Ingresar el usuario en el campo Usuario", "Presionar el botón Ingresar", etc.).
+   - Se descartan `wait`, `expect`, `locator.first()` puramente técnicos.
+   - Cada acción observable = 1 step (sin solapar).
+   - Cada step lleva su `expected` observable, una sola línea.
+5. Te muestra un resumen con los primeros 3 steps + lista de POMs + datos de prueba detectados. Confirmás o pedís ajustes.
+6. Emite `.autoflow/alm/exports/{slug}-testId-{N}-{ts}.json` con shape:
+   ```json
+   {
+     "test_id": "1234",
+     "new_steps": [
+       { "action": "create", "name": "...", "description": "...", "expected": "..." }
+     ]
+   }
+   ```
+7. Dispara `alm-json-to-xlsx.js` para generar el `.xlsx` hermano en la misma carpeta.
+
+> A futuro, un `.exe` de la integración va a leer el JSON y subir los steps a ALM directamente. Por ahora el archivo queda local — si querés subirlo a ALM manualmente, abrí el `.xlsx`.
+
+### 📄 Importar .XSLX de Test de ALM y Crear un Nuevo Test Automatizado
+
+**Cuándo**: ya tenés el caso cargado en ALM, exportaste el `.xlsx` desde ALM, y querés ahorrarte tipear nombre/testId a mano para empezar a automatizarlo.
 
 **Pasos**:
 1. Exportá el caso desde ALM y dejá el `.xlsx` en `.autoflow/alm-exports/`.
-2. **Menú → 📄 Application Lifecycle Management (ALM-HP) → 📥 Importar .xlsx y crear un Test**.
+2. **Menú → 📄 Application Lifecycle Management (ALM-HP) → 📄 Importar .XSLX de Test de ALM y Crear un Nuevo Test Automatizado**.
 3. Te pide el nombre del archivo (o ruta completa). El script lee:
    - A2 → testId
    - C2 → nombre del caso
    - G2 → enfoque de prueba
 4. El agente confirma con vos y, si hace falta, te deja editar nombre/testId. Después solo te pregunta el canal y arranca el grabador (saltea las preguntas iniciales del flujo de Crear Test).
 
-### 📤 Exportar Test a ALM
-
-**Cuándo**: tenés un Test ya grabado y querés generar un archivo para subir a ALM (xlsx por defecto).
-
-**Pasos**:
-1. **Menú → 📄 Application Lifecycle Management (ALM-HP) → 📤 Exportar Test automatizado a ALM**.
-2. Elegís Test Set → Test → formato (`xlsx` recomendado, `csv` o `json` también).
-3. El script genera un archivo en `.autoflow/alm-exports/{slug}-testId-{N}-{ts}.{ext}` con un row por cada Nodo de la traza:
-
-   | Test ID | Test Name | Step Number | Step | Description | Expected Result |
-   |---|---|---|---|---|---|
-   | 43213 | Compra de dolar... | 1 | Navegar | Navegar a https://... | La página solicitada se carga correctamente. |
-   | 43213 | Compra de dolar... | 2 | Click | Hacer click en el campo "Usuario" | El campo "Usuario" se acciona correctamente. |
-   | 43213 | Compra de dolar... | 3 | Llenar campo | Ingresar el valor correspondiente en el campo "Usuario" | El campo "Usuario" muestra el valor ingresado. |
-   | ... | | | | | |
-   | 43213 | Compra de dolar... | 7 | Validar visibilidad | Validar que el título "Bienvenido" sea visible en pantalla | El título "Bienvenido" se muestra correctamente. |
-
-4. Description y Expected están **humanizadas** en castellano — pensadas para que un QA pueda leer el archivo en ALM y recrear el caso a mano sin tener que mirar código.
-
-**Tip**: si te dice `❌ No encuentro la traza`, andá a **Mantenimiento → 🧬 Validar / Regenerar trazas** primero.
+> Es un **atajo** al paso 0.b del flujo `✨ Crear un Nuevo Test Automatizado`. Si arrancás desde el top-level Crear Test sin contexto, el paso 0 también te ofrece esta opción.
 
 ---
 

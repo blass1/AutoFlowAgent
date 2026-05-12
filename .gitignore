@@ -33,6 +33,9 @@ tests/_temp/
 !.autoflow/alm/integrations/.gitkeep
 .autoflow/alm/originalTests/*.json
 !.autoflow/alm/originalTests/.gitkeep
+.autoflow/alm/exports/*.json
+.autoflow/alm/exports/*.xlsx
+!.autoflow/alm/exports/.gitkeep
 .autoflow/runs/*.json
 !.autoflow/runs/.gitkeep
 .autoflow/dashboard.html

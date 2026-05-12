@@ -1,78 +1,138 @@
 ---
 mode: agent
-description: Exporta un Test a un archivo importable por ALM (xlsx por defecto). Un row por cada Nodo de la traza, con Step (label corto), Description (humanizada en castellano) y Expected Result (humanizado).
+description: Humaniza un Test automatizado (POM + spec) aplicando las convenciones de ALM y emite un JSON listo para subir a ALM via la integración, más una copia en xlsx.
 tools: ['vscode/askQuestions', 'edit', 'read', 'runCommands']
 ---
 
-# Exportar a ALM
+# Humanizar y Exportar Test Automatizado a ALM
 
-Sub-flow para tomar un **Test** y emitir un archivo (xlsx / csv / json) con la descripción paso a paso lista para importar en ALM o pushear a su API. **Granularidad: un archivo por Test, un row por cada Nodo de la traza** (cada acción atómica del flujo). Las descripciones y expected results se generan en castellano humanizado para que un QA pueda leer el archivo en ALM y recrear el caso a mano sin tener que mirar código.
+**Opción 2 del sub-menú ALM-HP**. Toma un Test ya automatizado del repo (POM + spec), lo traduce a lenguaje de negocio siguiendo las buenas prácticas de ALM, y emite un **JSON + xlsx** con los steps humanizados.
 
-## 1. Elegir Test Set
+> **Importante**: la lógica de humanización vive en [`.autoflow/conventions/alm-steps.md`](../conventions/alm-steps.md). Esa convención es la **fuente de verdad** — manda en cualquier conflicto con este prompt.
 
-Listá `.autoflow/testsets/*.json`. Si no hay ninguno, decile: `Todavía no hay **Test Sets**. Creá uno con la opción "Crear Test Set" primero.` y volvé al menú.
+> **A futuro**: un `.exe` de la integración (en `.autoflow/alm/integrations/`) va a tomar el JSON y subir los steps a ALM directamente. Por ahora el flujo termina con el archivo local.
 
-`#tool:vscode/askQuestions` single-select: `"¿De qué **Test Set** querés exportar un **Test**?"` con cada set como opción.
+## 1. Cargar las convenciones
 
-## 2. Elegir Test
+Antes de cualquier cosa, leé [`.autoflow/conventions/alm-steps.md`](../conventions/alm-steps.md) con `read`. Esa es la **fuente de verdad**: rol que asumís, vocabulario base, reglas de transformación técnico→negocio, granularidad, formato de salida y checklist de calidad.
 
-Leé el spec del set elegido (`tests/{slug}-{id}.spec.ts`) y extraé los bloques `test('{nombre} [testId:{numero}]', ...)`. Si el archivo no existe o no tiene `test()`, frená y avisá al QA.
+**No improvises** — seguí literal lo que dice esa convención. Si algo del prompt acá entra en conflicto, gana la convención.
 
-`vscode/askQuestions` single-select: `"¿Qué **Test** exportás?"` con cada test como opción mostrando `{nombre} [testId:{numero}]`.
+## 2. Elegir el Test a exportar
 
-## 3. Elegir formato
+Listá todos los Test Sets en `.autoflow/testsets/*.json`. Por cada uno, listá los Tests internos (`casos[]`).
 
-`vscode/askQuestions` single-select: `"¿En qué formato?"`:
-- `📊 xlsx (recomendado, importable directo a ALM)`
-- `📄 csv (universal, parsea cualquier sistema)`
-- `🔧 json (para API directa)`
+Si **no hay** ningún Test, mensaje corto al QA y volver al menú principal.
 
-Default visual: el primero. Anotá el `formato` elegido.
-
-## 4. Ejecutar el script
-
-Disparalo con `runCommands`:
+`vscode/askQuestions` single-select: `"¿Qué Test querés humanizar y exportar a ALM?"` con todos los Tests del repo en formato:
 ```
-node .autoflow/scripts/exportar-alm.js {slug} --test={testId} --format={formato}
+{slug} → {nombre} [testId:{N}]
 ```
 
-El script imprime al final una línea con prefijo `AUTOFLOW_EXPORT:` + JSON. Leela con `terminalLastCommand`.
+## 3. Leer POM(s) + spec
 
-- `ok: true` → tenés `path` (ruta al archivo generado), `rows` (cantidad de pasos exportados), `format`.
-- `ok: false` o el script falló (exit code ≠ 0) → mostrale al QA el error concreto del stderr.
+Una vez elegido el Test:
 
-## 5. Cierre
+1. **Spec**: usar `set.specPath` (con fallback de 3 niveles: raíz → `casos[0].specPath` → canónico `tests/{slug}-{id}.spec.ts`).
+2. **POMs**: parsear los `import` del spec y leer cada archivo `pages/*.ts` referenciado.
+3. **Cadenas de retorno**: si un método de POM retorna otro POM (cadena `retornaPage`), leé también ese POM destino — los métodos de ahí pueden ser pasos del flujo aunque el spec no los importe directamente.
 
-Mostrale al QA un resumen:
+Si falta el spec o algún POM → frená y avisale al QA qué está faltando.
+
+## 4. Aplicar las convenciones
+
+Seguí el proceso de [`alm-steps.md`](../conventions/alm-steps.md) **en orden**:
+
+1. **Diccionario de acciones**: por cada método del POM deduzcí su acción de negocio.
+2. **Estructura del test**: extraé título ALM, objetivo, precondiciones, datos de prueba, pasos.
+3. **Transformación**: aplicá el mapeo técnico → negocio del punto 3 de la convención.
+4. **Granularidad**: cada acción observable = 1 step, sin solapar.
+5. **Checklist de calidad**: pasalo entero antes de continuar al paso 5.
+
+## 5. Confirmación con el QA
+
+Antes de escribir archivos, mostrá un resumen:
+
 ```
-✅ Exporté el **Test** [testId:{testId}] al archivo:
-  📁 {path}
+📋 Test humanizado: "{título ALM}"
+   • Test ID:        {testId}
+   • Spec:           {specPath}
+   • POMs leídos:    {Page1}, {Page2}, ...
+   • Steps generados: {N}
 
-Total de Nodos exportados: {rows}
-Formato: {format}
+Precondiciones detectadas:
+  • {precond 1}
+  • ...
 
-Tip: el archivo tiene las columnas Test ID, Test Name, Step Number, Step, Description y Expected Result. Cada row es una acción atómica del flujo (click, llenar campo, validar, capturar, etc.) descrita en castellano humanizado, lista para que cualquier QA pueda recrear el caso leyendo solo este archivo.
+Datos de prueba:
+  • {dato 1}: {valor o "(parametrizado)"}
+  • ...
+
+Primeros 3 steps:
+  1. {name}
+     → {description}
+     ✅ {expected}
+  2. ...
+  3. ...
+
+(Los demás van completos al archivo.)
 ```
 
-Después abrí `vscode/askQuestions` single-select: `"¿Algo más?"`:
-- `📂 Abrir la carpeta de exports` → ejecutá con `runCommands` el comando para abrir `.autoflow/alm-exports/` (`start ` en Windows, `open ` en macOS, `xdg-open ` en Linux). Al volver, releé este menú.
-- `📤 Exportar otro **Test**` → volvé al paso 1.
-- `🏠 Volver al menú`
+`vscode/askQuestions` single-select: `"¿Está bien lo humanizado?"`:
+- `✅ Sí, exportá` → seguí al paso 6.
+- `✏️ Ajustar algo` → text input para que el QA diga qué cambiar (ej: "el paso 5 quedó solapado, separalo"); volvé al paso 4 incorporando ese ajuste.
+- `❌ Cancelar` → volvé al menú principal sin escribir nada.
 
-## Notas
+## 6. Emitir el JSON
 
-- **Granularidad un Test por archivo**: si querés exportar varios Tests del mismo Test Set, hacelo uno por uno. Más adelante puede convenir batch, pero por ahora simple.
-- **Fuente de verdad: la traza** (`.autoflow/recordings/{testId}-path.json`) cruzada con `.autoflow/nodos.json`. Cada Nodo de la traza se convierte en un row. Si el path.json no existe, el script frena y le indica al QA cómo regenerarlo.
-- **Step**: label corto del tipo de acción — `Click`, `Llenar campo`, `Navegar`, `Validar visibilidad`, `Validar texto exacto`, `Capturar valor`, `Verificar igualdad`, etc. Mapeado desde la `accion` y el `matcher` del Nodo.
-- **Description en imperativo**: instrucción clara para que un QA pueda reproducir el paso a mano leyendo solo esta columna. Ejemplos:
-  - `"Hacer click en el botón 'Aceptar'"`
-  - `"Ingresar el valor correspondiente en el campo 'Usuario'"`
-  - `"Validar que el título 'Bienvenido' sea visible en pantalla"`
-  - `"Extraer el valor del campo 'Saldo' y guardarlo como 'saldoInicial'"`
-  - `"Comparar el valor actual del campo 'Saldo' con el valor 'saldoInicial' capturado previamente y verificar que haya disminuido"`
-- **Expected Result observable**: una sola línea con lo que el QA tiene que ver después de hacer la acción. Sin paréntesis explicativos genéricos. Ejemplos:
-  - `"El botón 'Aceptar' se acciona correctamente."`
-  - `"El campo 'Usuario' muestra el valor ingresado."`
-  - `"El título 'Bienvenido' se muestra correctamente."`
-  - `"El valor actual del campo 'Saldo' es menor que 'saldoInicial'."`
-- **Output**: `.autoflow/alm-exports/{slug}-testId-{testId}-{timestamp}.{ext}`. La carpeta ya existe (también la usa `parse-alm-export.js` para imports). Los `.xlsx`/`.csv`/`.json` quedan **gitignored** — son artefactos efímeros de exportación.
+Asegurate que `.autoflow/alm/exports/` exista (creala si no). Escribí:
+
+```
+.autoflow/alm/exports/{slug}-testId-{N}-{ts}.json
+```
+
+Donde `{ts}` es un timestamp compacto (`YYYY-MM-DD-HH-MM-SS`).
+
+Forma **exacta** del JSON (dictada por `alm-steps.md`):
+```json
+{
+  "test_id": "{testId}",
+  "new_steps": [
+    {
+      "action": "create",
+      "name": "...",
+      "description": "...",
+      "expected": "..."
+    }
+  ]
+}
+```
+
+## 7. Emitir el xlsx hermano
+
+Disparar con `runCommands`:
+
+```
+node .autoflow/scripts/alm-json-to-xlsx.js "<path del .json recién creado>"
+```
+
+El script lee el JSON y escribe un `.xlsx` con el mismo basename en la misma carpeta. Una sola hoja con columnas `Step Number · Action · Name · Description · Expected`.
+
+Output del script: `AUTOFLOW_ALM_XLSX: { ok, path, rows }`. Si falla, mostrale el error al QA pero el JSON ya quedó persistido — el xlsx es secundario.
+
+## 8. Cierre
+
+Mostrale al QA:
+
+```
+✅ Listo. Exporté:
+   • {path}.json   ← formato canónico para la integración
+   • {path}.xlsx   ← copia humana para revisar / editar
+
+Cuando el .exe de la integración esté en .autoflow/alm/integrations/,
+el JSON se sube a ALM solo. Por ahora queda local.
+```
+
+`vscode/askQuestions` single-select: `"¿Algo más?"`:
+- `📤 Exportar otro Test` → volvé al paso 2.
+- `↩️ Volver al menú principal`
