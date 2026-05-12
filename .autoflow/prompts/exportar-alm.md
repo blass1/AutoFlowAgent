@@ -199,6 +199,43 @@ Mostrá un resumen estructurado:
 - Si **no detectás mejoras claras** (el original ya era bueno, o ambos coinciden), decilo honesto: *"El original ya estaba bien estructurado. El nuevo no agrega mejoras significativas más allá del formato canónico para la integración."*
 - **No inflés**. Si el nuevo tiene menos pasos que el original (delta negativo), pueden ser pasos técnicos absorbidos en expecteds (mejora) o pasos faltantes en la automatización (problema) — distinguilo en el reporte.
 
+### Persistir el análisis para el dashboard
+
+Después de mostrarle el análisis al QA en el chat, **escribilo también a disco** como sidecar Markdown al lado del `.json`:
+
+```
+.autoflow/alm/exports/{basename}-analisis.md
+```
+
+(Donde `{basename}` es el mismo nombre del export sin la extensión `.json`. Ej: si el export es `compraSamsungGalaxyS6-testId-99001-2026-05-12-14-30-15.json`, el análisis va en `compraSamsungGalaxyS6-testId-99001-2026-05-12-14-30-15-analisis.md`.)
+
+Contenido del `.md` (markdown crudo, sin code-fence):
+
+```markdown
+# Comparación con el original de ALM — Test {test_id}
+
+**Test:** {test_name}
+**Cache original:** {ISO timestamp del archivo originalTests/{testId}.json}
+**Export generado:** {ISO timestamp del archivo nuevo}
+
+## Cantidad de pasos
+
+| Versión | Pasos |
+|---|---|
+| Original (ALM) | {N_original} |
+| Nuevo (auto) | {N_nuevo} |
+| Diferencia | {±delta} ({±porcentaje}%) |
+
+## Mejoras del caso nuevo
+
+- {mejora 1, en oración completa con ejemplo concreto}
+- {mejora 2}
+- {mejora 3}
+- ...
+```
+
+> El dashboard (`dashboard.js`) lee este `.md` y lo renderiza en la tab **📄 ALM** junto al diff cuantitativo, para que el QA vea visualmente la comparación sin tener que recordar el output del chat.
+
 ## 8. Cierre
 
 Mostrale al QA:

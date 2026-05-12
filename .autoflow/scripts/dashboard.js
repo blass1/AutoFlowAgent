@@ -113,6 +113,63 @@ function cargarRuns() {
     .sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
 }
 
+// Tests importados desde ALM (originalTests/) cruzados con su versión humanizada
+// (exports/{slug}-testId-{N}-{ts}.json) y el análisis comparativo sidecar
+// ({basename}-analisis.md). El dashboard renderea cada testId con la comparación
+// en la tab ALM. Si solo está el original o solo el export, igual se muestra
+// (single-side, sin diff).
+function cargarAlmTests() {
+  const porTestId = {}; // { [test_id]: { testId, original?, originalArchivo?, originalModificado?, latestExport?, latestExportArchivo?, latestExportModificado?, analysisMd?, analysisArchivo?, todosExports: [] } }
+
+  // 1. Originales (cache del fetch_test_*.exe)
+  for (const p of listarArchivos('.autoflow/alm/originalTests', '.json')) {
+    const data = leerJson(p);
+    if (!data?.test_id) continue;
+    const tid = String(data.test_id);
+    if (!porTestId[tid]) porTestId[tid] = { testId: tid, todosExports: [] };
+    porTestId[tid].original = data;
+    porTestId[tid].originalArchivo = p;
+    try { porTestId[tid].originalModificado = statSync(p).mtime.toISOString(); } catch {}
+  }
+
+  // 2. Exports humanizados (uno o más por testId — guardamos todos para listarlos
+  //    y elegimos el más reciente para la vista de comparación).
+  for (const p of listarArchivos('.autoflow/alm/exports', '.json')) {
+    const data = leerJson(p);
+    if (!data?.test_id) continue;
+    const tid = String(data.test_id);
+    if (!porTestId[tid]) porTestId[tid] = { testId: tid, todosExports: [] };
+    let mtime = null;
+    try { mtime = statSync(p).mtime.toISOString(); } catch {}
+    porTestId[tid].todosExports.push({ archivo: p, modificado: mtime, data });
+  }
+
+  // 3. Para cada testId, ordenar exports por mtime descendente y tomar el más
+  //    reciente como `latestExport`. Buscar el análisis sidecar correspondiente.
+  for (const tid of Object.keys(porTestId)) {
+    const entry = porTestId[tid];
+    if (entry.todosExports.length === 0) continue;
+    entry.todosExports.sort((a, b) => (b.modificado || '').localeCompare(a.modificado || ''));
+    const latest = entry.todosExports[0];
+    entry.latestExport = latest.data;
+    entry.latestExportArchivo = latest.archivo;
+    entry.latestExportModificado = latest.modificado;
+
+    // Sidecar: {basename}-analisis.md
+    const mdPath = latest.archivo.replace(/\.json$/, '-analisis.md');
+    if (existsSync(mdPath)) {
+      try {
+        entry.analysisMd = readFileSync(mdPath, 'utf8');
+        entry.analysisArchivo = mdPath;
+      } catch {}
+    }
+  }
+
+  // Devuelvo ordenado por testId ascendente para que la lista en el sidebar
+  // sea estable entre runs.
+  return Object.values(porTestId).sort((a, b) => a.testId.localeCompare(b.testId, undefined, { numeric: true }));
+}
+
 // Parser muy simple del spec: extrae nombre del test.describe y los test() adentro.
 // Espera el formato del repo: `test.describe('{nombre} [testSetId:{id}]', () => { test('{nombre} [testId:{numero}]', ...) })`.
 function parsearSpec(specPath) {
@@ -225,6 +282,7 @@ function construirModelo() {
   const paginas = indexarPaginas();
   const usuario = cargarUsuario();
   const manual = cargarManual();
+  const almTests = cargarAlmTests();
 
   // Por cada Test Set, parseamos el spec y armamos los Tests con sus pasos (traza).
   const testSets = sets.map((set) => {
@@ -335,6 +393,7 @@ function construirModelo() {
     nodos,
     sidecars,
     paginas: paginasOut,
+    almTests,
   };
 }
 
@@ -403,12 +462,37 @@ function html(modelo) {
   header {
     display: flex; align-items: center; gap: 16px; padding: 10px 16px;
     border-bottom: 2px solid var(--accent);
-    background: linear-gradient(135deg, var(--indigo) 0%, #1c1430 100%);
+    /* Degradé naranja → violeta base — usa los mismos hue de --accent y --indigo del palette. */
+    background: linear-gradient(90deg, var(--indigo) 0%, var(--accent) 100%);
     position: sticky; top: 0; z-index: 10;
   }
-  header h1 { margin: 0; font-size: 15px; font-weight: 600; }
-  header .meta { color: var(--muted); font-size: 12px; }
-  header .toolbar { margin-left: auto; display: flex; gap: 6px; }
+  header h1 { margin: 0; font-size: 15px; font-weight: 600; color: var(--text); text-shadow: 0 1px 2px rgba(0,0,0,0.4); }
+  header .meta { color: rgba(243,240,231,0.85); font-size: 12px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+  header .meta .chip { background: rgba(0,0,0,0.25); color: rgba(243,240,231,0.95); }
+  header .toolbar { display: flex; gap: 6px; }
+  header .toolbar button {
+    background: rgba(0,0,0,0.25); color: var(--text); border: 1px solid rgba(255,255,255,0.15);
+    padding: 6px 10px; border-radius: 6px; font-size: 12px; cursor: pointer;
+  }
+  header .toolbar button:hover { background: rgba(0,0,0,0.4); border-color: rgba(255,255,255,0.3); }
+
+  /* Card del usuario, ancorada arriba a la derecha del header contra el borde. */
+  header .header-user {
+    margin-left: auto; display: flex; align-items: center; gap: 10px;
+    padding: 4px 10px 4px 4px; border-radius: 999px;
+    background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.18);
+    cursor: pointer; transition: background 0.15s, border-color 0.15s;
+  }
+  header .header-user:hover { background: rgba(0,0,0,0.45); border-color: rgba(255,255,255,0.35); }
+  header .header-user.active { border-color: var(--text); }
+  header .header-user .avatar {
+    width: 28px; height: 28px; border-radius: 50%; flex: 0 0 28px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: white; font-size: 11px;
+  }
+  header .header-user .info { line-height: 1.1; }
+  header .header-user .info .nombre { font-weight: 600; font-size: 13px; color: var(--text); }
+  header .header-user .info .meta-line { color: rgba(243,240,231,0.75); font-size: 10px; margin-top: 1px; }
 
   .layout { display: grid; grid-template-columns: 280px 1fr; height: calc(100vh - 50px); }
   aside { border-right: 1px solid var(--border); overflow: auto; background: var(--panel); }
@@ -527,6 +611,52 @@ function html(modelo) {
 
   .empty { color: var(--muted); padding: 20px; text-align: center; font-style: italic; }
 
+  /* Vista ALM — comparación original vs humanizado */
+  .alm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-top: 16px; }
+  .alm-card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 16px; cursor: pointer; transition: border-color 0.15s, transform 0.15s;
+    border-left: 3px solid var(--accent); }
+  .alm-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .alm-card-head { margin-bottom: 12px; }
+  .alm-card-head .alm-id { font-family: monospace; font-size: 11px; color: var(--muted); }
+  .alm-card-head .alm-name { font-weight: 600; font-size: 14px; margin-top: 2px; }
+  .alm-card-foot { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+
+  .alm-diff { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 8px 0; }
+  .alm-diff-cell { background: var(--chip); border-radius: 6px; padding: 10px 8px; text-align: center; }
+  .alm-diff-cell .num { display: block; font-size: 22px; font-weight: 700; font-family: monospace; line-height: 1.1; }
+  .alm-diff-cell .lbl { display: block; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+  .alm-diff-cell.delta.pos { background: rgba(61,220,151,0.12); border: 1px solid rgba(61,220,151,0.3); }
+  .alm-diff-cell.delta.pos .num { color: var(--ok); }
+  .alm-diff-cell.delta.neg { background: rgba(255,180,84,0.12); border: 1px solid rgba(255,180,84,0.3); }
+  .alm-diff-cell.delta.neg .num { color: var(--warn); }
+  .alm-diff-single { grid-template-columns: 1fr; }
+  .alm-diff-single .num { display: inline-block; font-size: 22px; font-weight: 700; margin-right: 6px; }
+  .alm-diff-single .lbl { display: inline-block; color: var(--muted); }
+  .alm-diff-big .alm-diff-cell { padding: 18px 12px; }
+  .alm-diff-big .alm-diff-cell .num { font-size: 32px; }
+
+  .alm-meta { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 16px; }
+  .alm-analysis { padding: 12px 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; }
+  .alm-analysis h1, .alm-analysis h2 { font-size: 16px; margin: 8px 0; }
+  .alm-analysis h3 { font-size: 13px; }
+  .alm-analysis table { margin: 8px 0; font-size: 13px; }
+
+  .alm-steps { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .alm-steps-header { display: grid; grid-template-columns: 1fr 1fr; background: var(--panel2);
+    font-weight: 600; font-size: 12px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; }
+  .alm-steps-header > div { padding: 8px 12px; border-right: 1px solid var(--border); }
+  .alm-steps-header > div:last-child { border-right: none; }
+  .alm-step-row { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--border); }
+  .alm-step-cell { padding: 10px 12px; border-right: 1px solid var(--border); font-size: 13px; }
+  .alm-step-cell:last-child { border-right: none; }
+  .alm-step-cell.is-empty { background: rgba(255,255,255,0.02); }
+  .alm-step-num { font-family: monospace; font-size: 10px; color: var(--muted); }
+  .alm-step-name { font-weight: 600; margin: 2px 0 4px; }
+  .alm-step-desc { color: var(--text); margin-bottom: 4px; line-height: 1.4; }
+  .alm-step-exp { color: var(--muted); font-size: 12px; font-style: italic; }
+  .alm-step-empty { color: var(--muted); font-style: italic; opacity: 0.5; }
+
   /* Modal */
   .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; z-index: 100; }
   .modal-bg.show { display: flex; align-items: center; justify-content: center; }
@@ -550,6 +680,7 @@ function html(modelo) {
   <header>
     <h1>🌊 AutoFlow — Dashboard</h1>
     <div class="meta" id="metaProyecto"></div>
+    <div class="header-user" id="headerUser" onclick="abrirUsuario()" title="Mi perfil"></div>
     <div class="toolbar">
       <button onclick="location.reload()">🔄 Recargar</button>
     </div>
@@ -617,24 +748,27 @@ function html(modelo) {
       \`<span class="chip">Generado: \${fmtFecha(datos.generadoEn)}</span>\` +
       \`<span class="chip">\${datos.testSets.length} **Test Sets**</span>\`.replace(/\\*\\*(.+?)\\*\\*/g, '<b>$1</b>');
 
-    function renderSidebar() {
-      const html = [];
-
-      // — Sección Usuario —
-      html.push('<h2>Usuario</h2>');
+    function renderHeaderUser() {
       const u = datos.usuario;
       const nombreU = u?.nombre || '(sin configurar)';
       const hueU = colorPage(nombreU);
-      const activeUser = estado.vista === 'usuario' ? 'active' : '';
-      html.push(\`
-        <div class="user-row \${activeUser}" onclick="abrirUsuario()">
-          <div class="avatar" style="background: \${hueU.border};">\${esc(iniciales(nombreU))}</div>
-          <div class="info">
-            <div class="nombre">\${esc(nombreU)}</div>
-            <div class="meta-line">\${u ? esc((u.equipo || '—') + ' · ' + (u.tribu || '—')) : 'Hacé click para configurar'}</div>
-          </div>
+      const meta = u ? esc((u.equipo || '—') + ' · ' + (u.tribu || '—')) : 'Hacé click para configurar';
+      const active = estado.vista === 'usuario' ? 'active' : '';
+      $('headerUser').className = 'header-user ' + active;
+      $('headerUser').innerHTML = \`
+        <div class="avatar" style="background: \${hueU.border};">\${esc(iniciales(nombreU))}</div>
+        <div class="info">
+          <div class="nombre">\${esc(nombreU)}</div>
+          <div class="meta-line">\${meta}</div>
         </div>
-      \`);
+      \`;
+    }
+
+    function renderSidebar() {
+      const html = [];
+
+      // El usuario vive en el header (arriba a la derecha). El sidebar arranca
+      // directo con Manual / ALM / Test Sets.
 
       // — Sección Manual —
       if (datos.manual) {
@@ -645,6 +779,23 @@ function html(modelo) {
             <div class="info">
               <div class="nombre">Manual de uso</div>
               <div class="meta-line">Tutorial, conceptos, troubleshooting</div>
+            </div>
+          </div>
+        \`);
+      }
+
+      // — Sección ALM (comparación original vs humanizado) —
+      // Solo se muestra si hay al menos un Test importado o exportado.
+      if (datos.almTests && datos.almTests.length > 0) {
+        const activeAlm = estado.vista === 'alm' ? 'active' : '';
+        const totalAlm = datos.almTests.length;
+        const conComparacion = datos.almTests.filter((a) => a.original && a.latestExport).length;
+        html.push(\`
+          <div class="user-row \${activeAlm}" onclick="abrirAlm()" style="margin-top: 4px;">
+            <div class="avatar" style="background: var(--accent);">📄</div>
+            <div class="info">
+              <div class="nombre">ALM (\${totalAlm})</div>
+              <div class="meta-line">\${conComparacion} con comparación · original vs humanizado</div>
             </div>
           </div>
         \`);
@@ -700,12 +851,18 @@ function html(modelo) {
       estado = { vista: 'manual', tsSlug: null, testId: null, tab: 'detalles' };
       render();
     }
+    function abrirAlm(testId = null) {
+      // Si pasan un testId, lo seleccionamos para abrir directamente esa comparación.
+      estado = { vista: 'alm', tsSlug: null, testId, tab: 'detalles' };
+      render();
+    }
     function elegirTab(tab) { estado.tab = tab; renderMain(); }
 
     window.seleccionarTS = seleccionarTS;
     window.seleccionarTest = seleccionarTest;
     window.abrirUsuario = abrirUsuario;
     window.abrirManual = abrirManual;
+    window.abrirAlm = abrirAlm;
     window.elegirTab = elegirTab;
 
     function getTS() { return datos.testSets.find((s) => s.slug === estado.tsSlug); }
@@ -723,12 +880,13 @@ function html(modelo) {
     function renderMain() {
       if (estado.vista === 'usuario') { renderUsuario(); return; }
       if (estado.vista === 'manual') { renderManual(); return; }
+      if (estado.vista === 'alm') { renderAlm(); return; }
       if (estado.vista === 'testset' && estado.tsSlug) {
         if (estado.testId) renderTest();
         else renderTestSet();
         return;
       }
-      $('main').innerHTML = '<div class="empty">Elegí un Test Set, un Test, el Manual de uso o tu perfil de Usuario del panel izquierdo.</div>';
+      $('main').innerHTML = '<div class="empty">Elegí un Test Set, un Test, el Manual de uso, ALM o tu perfil de Usuario del panel izquierdo.</div>';
     }
 
     function renderManual() {
@@ -770,6 +928,170 @@ function html(modelo) {
           if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
       }
+    }
+
+    function renderAlm() {
+      const lista = datos.almTests || [];
+      if (lista.length === 0) {
+        $('main').innerHTML = \`
+          <div class="panel">
+            <h2>📄 Tests importados de ALM</h2>
+            <p style="color: var(--muted);">
+              Todavía no importaste ningún Test de ALM. Andá al agente y elegí
+              <strong>🔍 Importar y Analizar un Test de ALM</strong> desde el sub-menú ALM-HP,
+              o usá el atajo <strong>🆔 Test ID</strong> al crear un Test nuevo.
+            </p>
+          </div>
+        \`;
+        return;
+      }
+
+      // Si hay un testId seleccionado, mostrar el detalle de ese caso.
+      if (estado.testId) {
+        const alm = lista.find((a) => a.testId === estado.testId);
+        if (alm) { renderAlmDetalle(alm); return; }
+      }
+
+      // Vista de lista: una card por testId con resumen del diff.
+      const cards = lista.map((alm) => {
+        const hasOrig = !!alm.original;
+        const hasExp = !!alm.latestExport;
+        const N_orig = alm.original?.steps?.length ?? 0;
+        const N_new = alm.latestExport?.new_steps?.length ?? 0;
+        const delta = N_new - N_orig;
+        const pct = N_orig > 0 ? ((delta / N_orig) * 100).toFixed(1) : null;
+        const nombre = esc(alm.original?.test_name || alm.latestExport?.test_name || '(sin nombre)');
+        const statusChip = hasOrig && hasExp
+          ? '<span class="chip ok">✅ Con comparación</span>'
+          : hasOrig
+            ? '<span class="chip warn">⚠️ Solo original (sin export)</span>'
+            : '<span class="chip warn">⚠️ Solo humanizado (sin original)</span>';
+        const analChip = alm.analysisMd ? '<span class="chip">📊 Con análisis</span>' : '';
+
+        const diffBlock = (hasOrig && hasExp) ? \`
+          <div class="alm-diff">
+            <div class="alm-diff-cell"><span class="num">\${N_orig}</span><span class="lbl">orig</span></div>
+            <div class="alm-diff-cell"><span class="num">\${N_new}</span><span class="lbl">nuevo</span></div>
+            <div class="alm-diff-cell delta \${delta >= 0 ? 'pos' : 'neg'}">
+              <span class="num">\${delta >= 0 ? '+' : ''}\${delta}</span>
+              <span class="lbl">\${pct !== null ? pct + '%' : ''}</span>
+            </div>
+          </div>
+        \` : \`
+          <div class="alm-diff alm-diff-single">
+            <span class="num">\${hasOrig ? N_orig : N_new}</span>
+            <span class="lbl">\${hasOrig ? 'pasos en el original' : 'pasos humanizados'}</span>
+          </div>
+        \`;
+
+        return \`
+          <div class="alm-card" onclick="abrirAlm('\${esc(alm.testId)}')">
+            <div class="alm-card-head">
+              <div class="alm-id">Test ID \${esc(alm.testId)}</div>
+              <div class="alm-name">\${nombre}</div>
+            </div>
+            \${diffBlock}
+            <div class="alm-card-foot">\${statusChip}\${analChip}</div>
+          </div>
+        \`;
+      }).join('');
+
+      $('main').innerHTML = \`
+        <div class="panel">
+          <h2>📄 Tests importados de ALM</h2>
+          <p style="color: var(--muted); font-size: 14px;">
+            Cada Test que importaste con <strong>🔍 Importar y Analizar Test de ALM</strong>
+            (o desde el flujo <strong>Crear Test → 🆔 Test ID</strong>) aparece acá. Si después
+            lo humanizaste con <strong>📤 Humanizar y Exportar</strong>, ves la comparación entre
+            la versión original y la nueva. Hacé click en una card para ver el detalle.
+          </p>
+          <div class="alm-grid">\${cards}</div>
+        </div>
+      \`;
+    }
+
+    function renderAlmDetalle(alm) {
+      const hasOrig = !!alm.original;
+      const hasExp = !!alm.latestExport;
+      const N_orig = alm.original?.steps?.length ?? 0;
+      const N_new = alm.latestExport?.new_steps?.length ?? 0;
+      const delta = N_new - N_orig;
+      const pct = N_orig > 0 ? ((delta / N_orig) * 100).toFixed(1) : null;
+      const nombre = esc(alm.original?.test_name || alm.latestExport?.test_name || '(sin nombre)');
+
+      // Análisis cualitativo (sidecar .md, renderizado con marked).
+      const analysisHtml = alm.analysisMd && window.marked
+        ? window.marked.parse(alm.analysisMd)
+        : '';
+
+      // Pasos side-by-side. Si una de las dos versiones tiene menos pasos, las
+      // celdas que sobran quedan vacías (—).
+      const origSteps = alm.original?.steps || [];
+      const newSteps = alm.latestExport?.new_steps || [];
+      const maxLen = Math.max(origSteps.length, newSteps.length);
+      let stepsRows = '';
+      for (let i = 0; i < maxLen; i++) {
+        const o = origSteps[i];
+        const n = newSteps[i];
+        const cellOrig = o ? \`
+          <div class="alm-step-num">#\${i + 1}</div>
+          <div class="alm-step-name">\${esc(o.name || '')}</div>
+          <div class="alm-step-desc">\${esc(o.description || '')}</div>
+          <div class="alm-step-exp">✅ \${esc(o.expected || '')}</div>
+        \` : '<div class="alm-step-empty">— sin paso —</div>';
+        const cellNew = n ? \`
+          <div class="alm-step-num">#\${i + 1}</div>
+          <div class="alm-step-name">\${esc(n.name || '')}</div>
+          <div class="alm-step-desc">\${esc(n.description || '')}</div>
+          <div class="alm-step-exp">✅ \${esc(n.expected || '')}</div>
+        \` : '<div class="alm-step-empty">— sin paso —</div>';
+        stepsRows += \`
+          <div class="alm-step-row">
+            <div class="alm-step-cell \${o ? '' : 'is-empty'}">\${cellOrig}</div>
+            <div class="alm-step-cell \${n ? '' : 'is-empty'}">\${cellNew}</div>
+          </div>
+        \`;
+      }
+
+      const diffBlock = (hasOrig && hasExp) ? \`
+        <h3>📊 Diff cuantitativo</h3>
+        <div class="alm-diff alm-diff-big">
+          <div class="alm-diff-cell"><span class="num">\${N_orig}</span><span class="lbl">Pasos originales (ALM)</span></div>
+          <div class="alm-diff-cell"><span class="num">\${N_new}</span><span class="lbl">Pasos humanizados (auto)</span></div>
+          <div class="alm-diff-cell delta \${delta >= 0 ? 'pos' : 'neg'}">
+            <span class="num">\${delta >= 0 ? '+' : ''}\${delta}</span>
+            <span class="lbl">\${pct !== null ? \`\${pct}% \${delta >= 0 ? 'más' : 'menos'}\` : ''}</span>
+          </div>
+        </div>
+      \` : '';
+
+      $('main').innerHTML = \`
+        <div class="panel">
+          <p><button onclick="abrirAlm()">← Volver a la lista</button></p>
+          <h2>Test ID \${esc(alm.testId)} — \${nombre}</h2>
+          <div class="alm-meta">
+            \${alm.originalArchivo ? \`<span class="chip">Original cacheado: \${esc(fmtFecha(alm.originalModificado))}</span>\` : '<span class="chip warn">Sin original cacheado</span>'}
+            \${alm.latestExportArchivo ? \`<span class="chip">Último export: \${esc(fmtFecha(alm.latestExportModificado))}</span>\` : '<span class="chip warn">Sin export</span>'}
+            \${alm.analysisArchivo ? '<span class="chip ok">Con análisis cualitativo</span>' : ''}
+          </div>
+
+          \${diffBlock}
+
+          \${analysisHtml ? \`
+            <h3>🧠 Análisis cualitativo</h3>
+            <div class="alm-analysis manual-content">\${analysisHtml}</div>
+          \` : ''}
+
+          <h3>📋 Pasos lado a lado</h3>
+          <div class="alm-steps">
+            <div class="alm-steps-header">
+              <div>Original (ALM)</div>
+              <div>Humanizado (auto)</div>
+            </div>
+            <div class="alm-steps-body">\${stepsRows}</div>
+          </div>
+        </div>
+      \`;
     }
 
     function renderUsuario() {
@@ -1181,7 +1503,7 @@ import LoginPage from '../../pages/auth/LoginPage'</pre>
       return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;');
     }
 
-    function render() { renderSidebar(); renderMain(); }
+    function render() { renderHeaderUser(); renderSidebar(); renderMain(); }
     render();
   </script>
 </body>

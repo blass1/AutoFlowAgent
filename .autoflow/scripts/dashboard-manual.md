@@ -466,14 +466,32 @@ El sub-menú tiene **3 opciones**, cada una resuelve un problema distinto.
 
 ### Lo que vas a encontrar
 
+**Header (arriba)**:
+- 👤 **Tu perfil** vive **arriba a la derecha** contra el borde, como una card semitransparente con tu avatar + nombre + equipo/tribu. Click para editarlo.
+
 **Sidebar (izquierda)**:
-- 👤 **Mi perfil** — editás tus datos del `user.json` (el agente actualiza el archivo cuando le pegás el prompt al chat).
 - 📖 **Manual de uso** — esta misma guía.
+- 📄 **ALM (N)** — aparece cuando hay al menos un Test importado o exportado de ALM. Lleva a la vista de comparación original vs humanizado (ver abajo).
 - **Test Sets** expandibles a Tests. Cada Test tiene una **page-bar** debajo: una barra horizontal coloreada que muestra qué Pages toca (un segmento por Page, en orden de visita).
 
 **Vista principal (derecha)**:
 - **Test Set seleccionado** → 3 tabs: Detalles (descripción + grilla de Page Objects con métricas: locators, métodos, nodos, # de Tests que lo usa, confiabilidad promedio), Tests, Ejecuciones.
 - **Test seleccionado** → 4 tabs: Detalles (canal, sesión, origen ALM si aplica), Pasos (cada paso con su confiabilidad y color por Page), Grafo (Mermaid agrupado en `subgraph` por Page), Ejecuciones.
+- **ALM** → ver "Vista ALM" abajo.
+
+### Vista ALM (comparación original vs humanizado)
+
+Cuando hacés click en **📄 ALM (N)** en el sidebar, ves la lista de todos los Tests que importaste o exportaste a ALM. Cada testId aparece como una card con:
+
+- **Test ID** y nombre del caso.
+- **Diff cuantitativo**: cantidad de pasos en el original (ALM) vs en el nuevo (auto), con el delta absoluto y porcentual. Verde si el nuevo agrega pasos, naranja si tiene menos.
+- **Chips de estado**: `✅ Con comparación` (hay original y export), `⚠️ Solo original` (importado pero todavía no exportado), `⚠️ Solo humanizado` (exportado pero sin original cacheado). `📊 Con análisis` aparece si el agente ya generó el análisis cualitativo (sidecar `-analisis.md`).
+
+Hacé **click en una card** y entrás al detalle del testId:
+
+1. **Diff cuantitativo grande** arriba: N pasos del original vs N pasos del nuevo, con la diferencia destacada.
+2. **Análisis cualitativo** (si el agente lo generó en el paso 7.5 de Humanizar+Exportar): markdown renderizado con las mejoras concretas que detectó (granularidad, cobertura de expected, vocabulario, verificaciones agregadas, ejemplos puntuales).
+3. **Pasos lado a lado**: tabla con dos columnas — `Original (ALM)` a la izquierda, `Humanizado (auto)` a la derecha — pegado por número de paso. Si una versión tiene menos pasos que la otra, las celdas que sobran quedan vacías con `— sin paso —`.
 
 ### Modal de Nodo
 
