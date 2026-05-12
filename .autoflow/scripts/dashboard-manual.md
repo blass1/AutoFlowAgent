@@ -356,6 +356,11 @@ El sub-menú tiene **3 opciones**, cada una resuelve un problema distinto.
    }
    ```
 7. Dispara `alm-json-to-xlsx.js` para generar el `.xlsx` hermano en la misma carpeta.
+8. **Comparación con el original de ALM**: si ya importaste este mismo testId con la Opción 1 (🔍 Importar y Analizar), el flujo cierra mostrándote un análisis comparativo:
+   - **Cuantitativo**: cuántos pasos tenía el original vs los que generó la automatización, con delta absoluto y porcentaje.
+   - **Cualitativo**: qué mejoró el caso nuevo (granularidad, `expected` completos, vocabulario consistente, verificaciones agregadas, acciones técnicas absorbidas), citando ejemplos concretos del original.
+
+   Si no hay original cacheado, el agente te avisa corto y te sugiere importar primero — pero el export ya quedó persistido igual.
 
 > A futuro, un `.exe` de la integración va a leer el JSON y subir los steps a ALM directamente. Por ahora el archivo queda local — si querés subirlo a ALM manualmente, abrí el `.xlsx`.
 
