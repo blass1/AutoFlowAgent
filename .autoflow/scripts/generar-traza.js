@@ -16,8 +16,9 @@
 //   - Algún nodo del recording no cae dentro de ningún rango de grupos.json.
 //   - El id resultante no existe en nodos.json (catch-all de drift).
 
-const { readFileSync, writeFileSync, existsSync } = require('node:fs');
+const { writeFileSync, existsSync } = require('node:fs');
 const { join } = require('node:path');
+const { leerJsonSeguro } = require('./lib/leer-json-seguro');
 
 const numero = process.argv[2];
 if (!numero) {
@@ -41,9 +42,12 @@ for (const [label, p] of [
   }
 }
 
-const parsed = JSON.parse(readFileSync(parsedPath, 'utf8'));
-const grupos = JSON.parse(readFileSync(gruposPath, 'utf8'));
-const nodos = JSON.parse(readFileSync(nodosPath, 'utf8'));
+// leerJsonSeguro tolera BOM (UTF-8 con marca al inicio que escribe el `create_file`
+// de VS Code en Windows) y mojibake latin1-en-UTF8 (que pasa cuando Codegen
+// se spawnea con shell: true). Sin esto, parsed.json toca JSON.parse() y crashea.
+const parsed = leerJsonSeguro(parsedPath);
+const grupos = leerJsonSeguro(gruposPath);
+const nodos = leerJsonSeguro(nodosPath);
 
 if (!Array.isArray(grupos.rangos) || grupos.rangos.length === 0) {
   console.error(`❌ ${gruposPath} no tiene "rangos" o está vacío.`);

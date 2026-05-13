@@ -18,6 +18,7 @@
 const { readFileSync, writeFileSync, existsSync, readdirSync, statSync, mkdirSync } = require('node:fs');
 const { join, resolve, relative, sep } = require('node:path');
 const { spawn, spawnSync } = require('node:child_process');
+const { leerJsonSeguro } = require('./lib/leer-json-seguro');
 
 const ROOT = process.cwd();
 const OUT = '.autoflow/dashboard.html';
@@ -26,10 +27,10 @@ const OUT = '.autoflow/dashboard.html';
 // Lectura del estado
 // ---------------------------------------------------------------------------
 
+// Wrapper sobre leerJsonSeguro que retorna fallback en caso de JSON inválido
+// o archivo inexistente, manteniendo la API histórica del dashboard.
 function leerJson(path, fallback = null) {
-  if (!existsSync(path)) return fallback;
-  try { return JSON.parse(readFileSync(path, 'utf8')); }
-  catch { return fallback; }
+  return leerJsonSeguro(path, fallback);
 }
 
 function listarArchivos(dir, ext) {

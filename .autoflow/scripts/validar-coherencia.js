@@ -16,6 +16,7 @@
 
 const { readdirSync, readFileSync, existsSync } = require('node:fs');
 const { join } = require('node:path');
+const { leerJsonSeguro } = require('./lib/leer-json-seguro');
 
 const slugFiltro = process.argv[2] ?? null;
 
@@ -25,11 +26,11 @@ const warnings = [];
 function err(msg) { errores.push(msg); }
 function warn(msg) { warnings.push(msg); }
 
-// 1. Cargar nodos.json
+// 1. Cargar nodos.json (leerJsonSeguro tolera BOM y mojibake de Windows).
 let nodos = {};
 if (existsSync('.autoflow/nodos.json')) {
   try {
-    nodos = JSON.parse(readFileSync('.autoflow/nodos.json', 'utf8'));
+    nodos = leerJsonSeguro('.autoflow/nodos.json');
   } catch (e) {
     err(`nodos.json no es JSON valido: ${e.message}`);
   }
@@ -44,7 +45,7 @@ if (existsSync(sidecarsDir)) {
   for (const f of readdirSync(sidecarsDir).filter((x) => x.endsWith('.json'))) {
     const path = join(sidecarsDir, f);
     try {
-      const data = JSON.parse(readFileSync(path, 'utf8'));
+      const data = leerJsonSeguro(path);
       sidecars[data.page] = { ...data, _file: path };
     } catch (e) {
       err(`Sidecar ${path} no es JSON valido: ${e.message}`);
@@ -116,7 +117,7 @@ if (slugFiltro && testsetsAValidar.length === 0) {
 for (const ts of testsetsAValidar) {
   let data;
   try {
-    data = JSON.parse(readFileSync(ts.path, 'utf8'));
+    data = leerJsonSeguro(ts.path);
   } catch (e) {
     err(`Test set ${ts.slug} no es JSON valido: ${e.message}`);
     continue;

@@ -15,9 +15,10 @@
 //   node .autoflow/scripts/validar-trazas.js              → audit + intento de reparación
 //   node .autoflow/scripts/validar-trazas.js --solo-audit → no intenta regenerar, solo reporta
 
-const { readFileSync, existsSync, readdirSync } = require('node:fs');
+const { existsSync, readdirSync } = require('node:fs');
 const { spawnSync } = require('node:child_process');
 const { join } = require('node:path');
+const { leerJsonSeguro } = require('./lib/leer-json-seguro');
 
 const soloAudit = process.argv.includes('--solo-audit');
 const RECORDINGS = '.autoflow/recordings';
@@ -37,9 +38,8 @@ const irrecuperable = [];
 for (const archivo of sessionsArchivos) {
   const numero = archivo.replace(/-session\.json$/, '');
   const sessionPath = join(RECORDINGS, archivo);
-  let session;
-  try { session = JSON.parse(readFileSync(sessionPath, 'utf8')); }
-  catch { continue; }
+  const session = leerJsonSeguro(sessionPath, null);
+  if (!session) continue;
   if (session.activa !== false) continue; // no auditamos sesiones activas
 
   const pathJson = join(RECORDINGS, `${numero}-path.json`);
@@ -48,13 +48,12 @@ for (const archivo of sessionsArchivos) {
 
   // ¿Existe y está OK?
   if (existsSync(pathJson)) {
-    try {
-      const data = JSON.parse(readFileSync(pathJson, 'utf8'));
-      if (Array.isArray(data.path) && data.path.length > 0) {
-        ok.push({ numero, nombre: session.nombre, pasos: data.path.length });
-        continue;
-      }
-    } catch { /* corrupto, cae al if de abajo */ }
+    const data = leerJsonSeguro(pathJson, null);
+    if (data && Array.isArray(data.path) && data.path.length > 0) {
+      ok.push({ numero, nombre: session.nombre, pasos: data.path.length });
+      continue;
+    }
+    // corrupto o vacío — cae al regenerate de abajo
   }
 
   // Falta o está roto. ¿Tenemos inputs para regenerar?
@@ -79,8 +78,8 @@ for (const archivo of sessionsArchivos) {
   // Intentar regenerar.
   const res = spawnSync('node', ['.autoflow/scripts/generar-traza.js', numero], { encoding: 'utf8' });
   if (res.status === 0 && existsSync(pathJson)) {
-    let pasos = 0;
-    try { pasos = (JSON.parse(readFileSync(pathJson, 'utf8')).path || []).length; } catch {}
+    const data = leerJsonSeguro(pathJson, null);
+    const pasos = (data?.path || []).length;
     regenerado.push({ numero, nombre: session.nombre, pasos });
   } else {
     const stderr = (res.stderr || '').trim().split('\n').slice(-3).join(' / ');

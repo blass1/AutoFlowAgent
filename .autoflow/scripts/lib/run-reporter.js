@@ -22,6 +22,7 @@ const { writeFileSync, mkdirSync, existsSync, readFileSync, readdirSync } = requ
 const { join, relative, basename } = require('node:path');
 const { generatePdfReport } = require('./pdf-report');
 const { appendResultsAlm } = require('./results-alm');
+const { leerJsonSeguro } = require('./leer-json-seguro');
 
 class AutoFlowRunReporter {
   constructor() {
@@ -215,8 +216,7 @@ class AutoFlowRunReporter {
 // ---------- utils ----------
 
 function leerJson(path) {
-  try { return JSON.parse(readFileSync(path, 'utf8')); }
-  catch { return null; }
+  return leerJsonSeguro(path, null);
 }
 
 function listScreensFor(runDir, testId) {

@@ -20,9 +20,10 @@
 // este archivo y suba los resultados). El path queda relativo a la raíz del
 // repo para que sea portable.
 
-const { existsSync, mkdirSync, readFileSync, writeFileSync } = require('node:fs');
+const { existsSync, mkdirSync, writeFileSync } = require('node:fs');
 const { join } = require('node:path');
 const { formatDateOnly } = require('./run-timestamp');
+const { leerJsonSeguro } = require('./leer-json-seguro');
 
 function appendResultsAlm(entries, date = new Date()) {
   if (!Array.isArray(entries) || entries.length === 0) return null;
@@ -33,17 +34,12 @@ function appendResultsAlm(entries, date = new Date()) {
 
   mkdirSync(dailyDir, { recursive: true });
 
-  // Cargar archivo existente o arrancar vacío.
+  // Cargar archivo existente o arrancar vacío. leerJsonSeguro maneja BOM y
+  // mojibake; si el archivo está corrupto, retorna null y arrancamos limpio.
   let payload = { date: dateStr, lastUpdated: date.toISOString(), entries: [] };
-  if (existsSync(filePath)) {
-    try {
-      const raw = JSON.parse(readFileSync(filePath, 'utf8'));
-      if (raw && Array.isArray(raw.entries)) {
-        payload = { ...payload, entries: raw.entries };
-      }
-    } catch {
-      // archivo corrupto — sobreescribimos con array vacío.
-    }
+  const raw = leerJsonSeguro(filePath, null);
+  if (raw && Array.isArray(raw.entries)) {
+    payload = { ...payload, entries: raw.entries };
   }
 
   // Merge: por cada entry nueva, si el testId ya está, reemplazamos; sino, push.
