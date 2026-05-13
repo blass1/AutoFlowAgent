@@ -293,9 +293,13 @@ Esto va construyendo un grafo dirigido de pages que después se usa para visuali
 
 > **Nota sobre regeneración de los grafos Mermaid**: NO los regeneres acá — la regeneración (`grafo.js` + `grafo-nodos.js`) es **costosa** (lee todos los sidecars, render Mermaid, escribe HTML autocontenido) y se difiere a un único pase al final de la sesión (paso 9.5). Acá solo enriquecés `conecta` en los sidecars; los HTML se reescriben una sola vez después del último flujo de agrupación.
 
-## 7. Elegir / crear Test Set
+## 7. Asociar el Test al Test Set
 
 Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar el **Test** a un **Test Set**. Nunca lo dejes suelto.
+
+**Camino default — el set ya viene en `session.json`** (caso común desde el refactor): `crear-caso.md` paso 1.4 ya le preguntó al QA y persistió `session.testSet = { slug, id, nombre, creadoEnEstaSesion }`. Tomá esos valores directo y andá al paso 8. No re-preguntes ni listes opciones.
+
+**Camino fallback — la session NO trae `testSet`** (sesiones legacy previas al refactor, futura integración que aún no completó el campo, o sesión corrupta):
 
 1. Listá los archivos en `.autoflow/testsets/*.json`.
 2. Abrí `vscode/askQuestions` single-select: `"¿En qué **Test Set** va este **Test**?"` con:
@@ -308,6 +312,8 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
    3. `"Descripción corta"` → text input
 
    Generá `slug` desde `nombre` en **camelCase**: sin acentos, primera palabra minúscula, resto capitalizado, sin separadores. Ej: `Dolar MEP` → `dolarMep`, `Regresion de compras` → `regresionDeCompras`. Si `.autoflow/testsets/{slug}.json` ya existe, pedí otro nombre.
+
+> El fallback existe para no romper Tests grabados antes del refactor o sesiones donde la integración futura no llegue a setear `testSet`. **No es el camino esperado** — en una corrida normal el bloque default cubre todo.
 
 ## 8. Cierre — generar el Test
 

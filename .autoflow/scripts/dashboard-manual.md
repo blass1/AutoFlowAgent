@@ -62,7 +62,12 @@ Tras completar una acción, siempre volvés al **top-level** (no al sub-menú de
    - Número/testId
    - Canal — single-select de los canales conocidos (`data/urls.ts`) o opción para crear uno nuevo.
 
-4. **¿Arranca logueado?**
+4. **Test Set al que pertenece** (paso 1.4):
+   - Single-select de los Test Sets existentes (mostrando `📦 {nombre} [testSetId:{id}]`) + opción `➕ Crear un Test Set nuevo`.
+   - Si elegís crear nuevo: carrousel con nombre / testSetId / descripción. El JSON del set se crea vacío y se llena cuando se cierra la grabación con el Test recién armado.
+   - Si venís de **Editar Test → 🔄 Regrabar desde cero**, el set del Test fuente se reusa automáticamente — no te lo vuelve a preguntar.
+
+5. **¿Arranca logueado?**
    Si para ese canal hay un `auth/{canal}-{user}.json` configurado, te ofrece elegirlo. Decí "sí" si querés saltearte el login y "no" si querés grabarlo.
 
 5. **¿Buffer anti-solape de 500ms?**

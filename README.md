@@ -83,9 +83,10 @@ flowchart LR
     CrearOrigen --> CrearTID[🆔 Test ID ALM<br/>fetch_test_*.exe]
     CrearOrigen --> CrearALMImp[📄 Importar ALM .xlsx]
     CrearOrigen --> CrearManual[✍️ Cargar a mano]
-    CrearManual --> CrearLogin{¿Arranca logueado?<br/>· buffer anti-solape?}
-    CrearALMImp --> CrearLogin
-    CrearTID --> CrearLogin
+    CrearManual --> CrearTS{Test Set:<br/>existente o crear nuevo}
+    CrearALMImp --> CrearTS
+    CrearTID --> CrearTS
+    CrearTS --> CrearLogin{¿Arranca logueado?<br/>· buffer anti-solape?}
     CrearLogin --> CrearGrabar[Grabar flujo en codegen]
     CrearGrabar --> CrearConfirm[Confirmar terminó<br/>+ limpieza pre-agrupado]
     CrearConfirm --> CrearPOM[Agrupar pasos en pages<br/>· matcheo por vocabulario<br/>· colisión = reusar/extender<br/>· generar POM + sidecar + spec]

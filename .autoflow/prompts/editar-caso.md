@@ -45,10 +45,11 @@ Usá `vscode/askQuestions` single-select: `"¿Qué hacés con el **Test** [testI
 
 1. Leé `tests/{archivo}.spec.ts` y extraé URL inicial (primer `page.goto`).
 2. Inferí `nombre`, `numero`, `canal` del nombre/contenido del archivo.
-3. Confirmá los datos con `vscode/askQuestions` single-select `"¿Va con estos datos?"`:
+3. Resolvé el **Test Set** del Test fuente: del filename `tests/{slug}-{testSetId}.spec.ts` sacá el `slug` y leé `.autoflow/testsets/{slug}.json` para tener `{ slug, id, nombre }`.
+4. Confirmá los datos con `vscode/askQuestions` single-select `"¿Va con estos datos?"`:
    - `✅ Sí, regrabar`
    - `✏️ Cambiar algo`
-4. Si confirma, delegá a `crear-caso.md` desde el paso 3 (no preguntes datos de nuevo, ya los tenés).
+5. Si confirma, delegá a `crear-caso.md` desde el paso 3, **pasando contexto** con `nombre`, `numero`, `canal`, `urlInicial`, **y `testSet: { slug, id, nombre, creadoEnEstaSesion: false }`**. Con eso `crear-caso.md` paso 1.4 se saltea (ya tiene el set) y la regrabación arranca limpia sin re-preguntar nada.
 
 ### Opción `📝 Editar el código manualmente`
 

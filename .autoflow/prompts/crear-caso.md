@@ -194,6 +194,55 @@ Agregá el nuevo canal al array `canales` de `data/urls.ts` (insertá un nuevo o
 
 Tomá `nombre` y `url` directamente del entry seleccionado. **No preguntes la URL** — ya está.
 
+## 1.4. ¿A qué Test Set pertenece este Test?
+
+> **Si vino contexto** con `testSetSlug` ya definido (ej: `editar-caso.md` modo "Regrabar" reusa el set del Test fuente; futura integración que setee `testSetSlug` antes de invocar `crear-caso.md`): **salteá este paso**. Tomá `testSetSlug`, `testSetId`, `testSetNombre` del contexto y andá al paso 1.5.
+
+> **Por qué se pregunta acá** (después del Test, antes de auth/buffer): el Test es la entidad obligatoria; el Test Set es asociación. Hoy se pregunta acá pero el lugar está pensado para que en el futuro una integración pueda completarlo automáticamente y saltar la pregunta.
+
+Listá `.autoflow/testsets/*.json` (excluí `.gitkeep`). Cargá cada uno con `leerJsonSeguro` y extraé `{ slug, id, nombre }`.
+
+Abrí `vscode/askQuestions` single-select: `"¿A qué Test Set pertenece este Test?"`:
+
+- Una opción por cada Test Set existente, mostrando `📦 {nombre} [testSetId:{id}]`.
+- Al final, siempre: `➕ Crear un Test Set nuevo`.
+
+### 1.4.a. Si eligió uno existente
+
+Tomá `testSetSlug = set.slug`, `testSetId = set.id`, `testSetNombre = set.nombre` directamente. Andá al paso 1.5.
+
+### 1.4.b. Si eligió `➕ Crear un Test Set nuevo`
+
+`vscode/askQuestions` carousel con 3 text inputs:
+
+1. `"Nombre del Test Set (ej: Dolar MEP en CA / CC)"` → text input.
+2. `"testSetId (número único, ej: 99001)"` → text input.
+3. `"Descripción corta (1 línea — qué cubre el set)"` → text input.
+
+**Validaciones**:
+- `nombre` no vacío.
+- `testSetId` numérico, no vacío, no debe chocar contra `id` de algún testset existente. Si choca, decilo corto y volvé a pedir.
+- `slug` se calcula del nombre como kebab-case (lower-case, espacios → `-`, sin caracteres especiales). No debe chocar contra `slug` de algún testset existente. Si choca, sumá un sufijo numérico (`{slug}-2`).
+- `descripcion` puede ser vacía pero recomendá completarla.
+
+**Crear el JSON** `.autoflow/testsets/{slug}.json` con shape mínimo:
+```json
+{
+  "slug": "{slug}",
+  "id": "{testSetId}",
+  "nombre": "{nombre}",
+  "descripcion": "{descripcion}",
+  "specPath": "tests/{slug}-{testSetId}.spec.ts",
+  "casos": []
+}
+```
+
+> El campo `specPath` queda anticipado a nivel raíz (la convención correcta — ver `pom-rules.md`). El array `casos` arranca vacío; el Test recién grabado se le agrega en `generar-pom.md` paso 8 al cierre.
+
+**No** crear todavía el archivo `tests/{slug}-{testSetId}.spec.ts` — ese lo escribe `generar-pom.md` paso 8 cuando ya tiene los POMs listos. El JSON del testset queda "huérfano" (sin Tests) hasta que se complete la grabación + agrupación. Si el QA cancela, el set queda creado vacío y se puede reusar después.
+
+Anotá `testSetSlug`, `testSetId`, `testSetNombre` en memoria para los siguientes pasos.
+
 ## 1.5. ¿Arranca logueado?
 
 Listá `.autoflow/auth/*.json` (excluí `.gitkeep`) cuyo nombre arranque con el slug del canal elegido (`{canalSlug}-...`). El slug se calcula como en `setup-auth.md` (kebab-case del nombre del canal).
@@ -225,6 +274,7 @@ Mostrale al QA el resumen:
 Vamos a grabar:
   • Nombre:        {nombre}
   • Número:        {numero}
+  • Test Set:      {testSetNombre} [testSetId:{testSetId}]{(nuevo) si se creó en 1.4.b}
   • Canal:         {canal.nombre}
   • URL inicial:   {canal.url}
   • Login previo:  {authState ? userKey : "no, grabamos desde cero"}
@@ -254,9 +304,17 @@ Leé `.autoflow/user.json` y escribí:
   "specPath": ".autoflow/recordings/{numero}.spec.ts",
   "authState": <ruta al .json de auth si vino del paso 1.5, sino omitido>,
   "bufferTiempo": <true|false según paso 1.6>,
+  "testSet": {
+    "slug": "<testSetSlug>",
+    "id": "<testSetId>",
+    "nombre": "<testSetNombre>",
+    "creadoEnEstaSesion": <true si vino de 1.4.b crear-nuevo, sino false>
+  },
   "almContext": <ver abajo>
 }
 ```
+
+> El bloque `testSet` viene del paso 1.4. Lo lee `generar-pom.md` paso 7 para saber a qué set asociar el Test sin re-preguntar. El flag `creadoEnEstaSesion` permite (a futuro) que cancel/cleanup borre sets huérfanos si el QA lo pide; por ahora se persiste como info para auditoría, sin cleanup automático.
 
 Si `authState` está seteado, `start-recording.js` lo va a pasar al grabador con `--load-storage` y la grabación arranca con la sesión ya cargada — el QA no graba el login. En `generar-pom.md` el spec generado va a emitir `test.use({ storageState: '<authState>' })` arriba del bloque `test()`.
 
