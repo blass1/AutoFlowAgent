@@ -125,22 +125,33 @@ function buildHtml(opts) {
     font-size: 11pt;
     line-height: 1.45;
   }
-  /* Cada .pdf-page ocupa exactamente UNA hoja A4 (210mm x 297mm). El gradient
-     llena la hoja completa de naranja arriba a indigo abajo. Usar mm en vez de
-     px es clave: en pixels se desincronizaba con el formato A4 del page.pdf
-     y dejaba sobras blancas + content empujado a paginas siguientes. */
+  /* .pdf-page por default ocupa AL MENOS una hoja A4 (210mm x 297mm) pero
+     puede crecer si el contenido la supera — usado en las páginas de evidencia
+     donde varios screens fluyen a páginas siguientes naturalmente. El gradient
+     se estira sobre toda la altura del div: si la página ocupa 2 A4, el
+     gradient queda partido (top page muestra la mitad superior orange-violeta,
+     bottom page muestra la mitad inferior violeta-indigo) lo cual es visualmente
+     coherente y se siente continuo entre páginas.
+     Para la portada hay un override .pdf-cover que fija altura exacta + overflow
+     hidden — el cover debe llenar UNA sola A4 sin recortar nada relevante. */
   .pdf-page {
     background: linear-gradient(180deg, var(--accent) 0%, var(--accent2) 52%, var(--indigo) 100%);
     width: 210mm;
-    height: 297mm;
+    min-height: 297mm;
     padding: 14mm 14mm 12mm;
     page-break-after: always;
     display: flex;
     flex-direction: column;
     position: relative;
-    overflow: hidden;
   }
   .pdf-page:last-child { page-break-after: auto; }
+  /* Override para la portada: altura A4 exacta + overflow hidden. Su contenido
+     está calibrado para entrar en una sola hoja. */
+  .pdf-cover {
+    height: 297mm;
+    min-height: 297mm;
+    overflow: hidden;
+  }
 
   /* Brand header chiquito en cada página */
   .brand {
@@ -313,23 +324,25 @@ function buildHtml(opts) {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
     border-radius: 10px;
-    padding: 14px;
-    margin-bottom: 18px;
+    padding: 10mm 12mm;
+    margin: 0 auto 6mm;
+    max-width: 165mm;
     page-break-inside: avoid;
   }
   .screen img {
     max-width: 100%;
-    max-height: 600px;
+    max-height: 78mm;
     border-radius: 6px;
     display: block;
     margin: 0 auto;
     border: 1px solid var(--card-inner-border);
+    object-fit: contain;
   }
   .screen .caption {
-    font-size: 10px;
+    font-size: 8.5pt;
     color: var(--muted);
     font-family: 'SF Mono', Menlo, Consolas, monospace;
-    margin-top: 10px;
+    margin-top: 6mm;
     text-align: center;
     word-break: break-all;
   }
@@ -355,7 +368,7 @@ function buildHtml(opts) {
 </head><body>
 
 <!-- ============ Página 1 — Portada ============ -->
-<div class="pdf-page">
+<div class="pdf-page pdf-cover">
   <div class="brand">
     <span class="logo">🌊</span>
     <span class="title">AutoFlow · Reporte de Ejecución</span>

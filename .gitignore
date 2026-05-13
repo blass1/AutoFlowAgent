@@ -71,6 +71,11 @@ tests/_temp/
 .autoflow/alm/exports/*.md
 !.autoflow/alm/exports/.gitkeep
 
+# ResultsALM por corrida — sub-carpetas {run_timestamp}/ con ResultsALM.json
+# (formato que consume la integración con ALM: config + tests con url_doc al PDF).
+.autoflow/alm/runs/*
+!.autoflow/alm/runs/.gitkeep
+
 # Runs (history JSON + sub-carpetas diarias con ResultsALM)
 .autoflow/runs/*
 !.autoflow/runs/.gitkeep

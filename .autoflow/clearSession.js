@@ -59,7 +59,8 @@ const carpetasAVaciar = [
 // anidada que cambia entre runs (ej: `runs/{ts}/screens/{testId}/`, `captures/{numero}/`).
 const carpetasAVaciarRecursivo = [
   '.autoflow/captures',             // HTML+intent por nodo, sub-carpeta por numero
-  '.autoflow/runs',                 // run JSONs + sub-carpetas diarias ResultsALM
+  '.autoflow/runs',                 // run JSONs del dashboard (metadata por corrida)
+  '.autoflow/alm/runs',             // ResultsALM.json por corrida (sub-carpetas {run_ts}/)
   'runs',                           // raíz: sub-carpetas por corrida con screens + PDFs
   'tests/_temp',                    // specs efímeros (page.pause, auth setup, etc.)
   'playwright-report',              // HTML report cuando se corrió con --debug

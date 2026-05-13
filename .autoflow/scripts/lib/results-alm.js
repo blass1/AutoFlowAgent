@@ -1,65 +1,92 @@
-// Daily aggregator de resultados para ALM.
+// ResultsALM.json — un archivo POR CORRIDA con el shape que consume la
+// integración con ALM (a futuro un .exe que levante el archivo y suba los
+// resultados a HP/Micro Focus ALM).
 //
-// Por cada corrida, appendea una entry al archivo
-//   .autoflow/runs/{DD_MM_YYYY}/ResultsALM.json
-// (creando el directorio si no existe). Si ya hay una entry con el mismo
-// testId en el mismo día, la actualiza en vez de duplicar — refleja "el
-// último resultado de ese testId hoy".
+// Ubicación: `.autoflow/alm/runs/{run_timestamp}/ResultsALM.json` (no daily
+// aggregator — un archivo por corrida, mismo timestamp que la carpeta de
+// artifacts en `runs/{run_timestamp}/`).
 //
-// Shape del archivo:
+// Shape del archivo (espejo exacto del formato que pide ALM):
 //   {
-//     "date": "13_05_2026",
-//     "lastUpdated": "2026-05-13T14:30:15.123Z",
-//     "entries": [
-//       { "testId": "99001", "status": "passed", "pdfPath": "runs/13_05_2026_14-30-00/99001.pdf", "testSet": "compraSamsungGalaxyS6" },
-//       ...
+//     "config": {
+//       "legajo": "L1000846",
+//       "tool": "Playwright"
+//     },
+//     "tests": [
+//       {
+//         "testId": "99001",
+//         "testSetId": "99001",
+//         "result": "Passed",                          // "Passed" o "Failed", capitalizado
+//         "name": "Compra Samsung Galaxy S6",
+//         "duration": 6,                               // segundos (entero)
+//         "url_doc": "runs/13_05_2026_15-37-43/99001.pdf",  // path relativo al repo, donde está físicamente el PDF
+//         "evidence": "99001.pdf"                      // solo el filename
+//       }
 //     ]
 //   }
 //
-// El consumidor previsto es la integración con ALM (a futuro un .exe que lea
-// este archivo y suba los resultados). El path queda relativo a la raíz del
-// repo para que sea portable.
+// Notas:
+// - `config.legajo` viene de `.autoflow/user.json`. Si no está seteado queda como `"unknown"`.
+// - `config.tool` es constante `"Playwright"` por ahora; cuando entren otros runners se parametriza.
+// - `result` se capitaliza ("Passed"/"Failed") porque ese es el formato que ALM consume — distinto
+//   del `status` lowercase que usan el dashboard, run JSON y resto de scripts del agente.
+// - `duration` va en SEGUNDOS (no ms) y redondeado al entero — coincide con cómo ALM lo muestra.
+// - `url_doc` siempre apunta físicamente al PDF en `runs/{run_timestamp}/`, relativo a la raíz del repo.
+//   La integración con ALM resuelve el archivo desde ahí para subirlo como adjunto del caso.
 
-const { existsSync, mkdirSync, writeFileSync } = require('node:fs');
-const { join } = require('node:path');
-const { formatDateOnly } = require('./run-timestamp');
-const { leerJsonSeguro } = require('./leer-json-seguro');
+const { mkdirSync, writeFileSync } = require('node:fs');
+const { join, basename } = require('node:path');
 
-function appendResultsAlm(entries, date = new Date()) {
-  if (!Array.isArray(entries) || entries.length === 0) return null;
+/**
+ * Escribe el ResultsALM.json de UNA corrida.
+ *
+ * @param {object} opts
+ * @param {string} opts.runTimestamp  - Timestamp de la corrida (formato `DD_MM_YYYY_HH-MM-SS`).
+ *                                       Usado para el folder destino dentro de `.autoflow/alm/runs/`.
+ * @param {string} opts.runDir        - Path al run folder físico (ej: `runs/13_05_2026_15-37-43`).
+ *                                       Se usa para armar `url_doc`.
+ * @param {object} opts.executor      - Objeto del user.json (al menos `legajo`).
+ * @param {string} opts.tool          - Herramienta de automatización (ej: `'Playwright'`).
+ * @param {string} opts.pdfPath       - Path completo al PDF generado (ej: `runs/.../99001.pdf`).
+ *                                       Si no hay PDF (gen falló o no aplica), pasá `null`.
+ * @param {Array}  opts.tests         - Array de tests del run: `{ testId, testSetId, name, status, duration }`
+ *                                       donde `status` es `'passed'|'failed'|...` y `duration` está en ms.
+ *
+ * @returns {string|null} - Path absoluto al archivo escrito, o null si no había tests.
+ */
+function writeRunResultsAlm(opts) {
+  const { runTimestamp, runDir, executor, tool, pdfPath, tests } = opts;
+  if (!runTimestamp || !Array.isArray(tests) || tests.length === 0) return null;
 
-  const dateStr = formatDateOnly(date);
-  const dailyDir = join('.autoflow/runs', dateStr);
-  const filePath = join(dailyDir, 'ResultsALM.json');
+  const outDir = join('.autoflow/alm/runs', runTimestamp);
+  const outPath = join(outDir, 'ResultsALM.json');
+  mkdirSync(outDir, { recursive: true });
 
-  mkdirSync(dailyDir, { recursive: true });
+  // url_doc: relativo al repo, apuntando físicamente al PDF en runs/{ts}/.
+  // evidence: solo el filename (sin path).
+  const pdfFilename = pdfPath ? basename(pdfPath) : null;
+  const urlDoc = pdfPath
+    ? (runDir ? `${runDir.replace(/\\/g, '/')}/${pdfFilename}` : pdfFilename)
+    : null;
 
-  // Cargar archivo existente o arrancar vacío. leerJsonSeguro maneja BOM y
-  // mojibake; si el archivo está corrupto, retorna null y arrancamos limpio.
-  let payload = { date: dateStr, lastUpdated: date.toISOString(), entries: [] };
-  const raw = leerJsonSeguro(filePath, null);
-  if (raw && Array.isArray(raw.entries)) {
-    payload = { ...payload, entries: raw.entries };
-  }
+  const payload = {
+    config: {
+      legajo: executor?.legajo || 'unknown',
+      tool: tool || 'Playwright',
+    },
+    tests: tests.map((t) => ({
+      testId: String(t.testId ?? ''),
+      testSetId: String(t.testSetId ?? ''),
+      result: t.status === 'passed' ? 'Passed' : 'Failed',
+      name: t.name || '',
+      duration: Math.round((t.duration || 0) / 1000),
+      url_doc: urlDoc,
+      evidence: pdfFilename,
+    })),
+  };
 
-  // Merge: por cada entry nueva, si el testId ya está, reemplazamos; sino, push.
-  for (const e of entries) {
-    if (!e || !e.testId) continue;
-    const norm = {
-      testId: String(e.testId),
-      status: e.status || 'unknown',
-      pdfPath: e.pdfPath || null,
-      testSet: e.testSet || null,
-      timestamp: e.timestamp || date.toISOString(),
-    };
-    const idx = payload.entries.findIndex((x) => String(x.testId) === norm.testId);
-    if (idx >= 0) payload.entries[idx] = norm;
-    else payload.entries.push(norm);
-  }
-
-  payload.lastUpdated = date.toISOString();
-  writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf8');
-  return filePath;
+  writeFileSync(outPath, JSON.stringify(payload, null, 2), 'utf8');
+  return outPath;
 }
 
-module.exports = { appendResultsAlm };
+module.exports = { writeRunResultsAlm };

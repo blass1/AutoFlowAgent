@@ -5,7 +5,7 @@
 //   2. Generar el reporte PDF en `{runDir}/{name}.pdf` con todas las evidencias
 //      (screenshots tomados por la fixture `screen()` durante el test). Siempre
 //      corre, sin importar el wrapper.
-//   3. Appendear al daily aggregator `.autoflow/runs/{DD_MM_YYYY}/ResultsALM.json`
+//   3. Escribir el ResultsALM.json del run en `.autoflow/alm/runs/{run_ts}/ResultsALM.json`
 //      una entry por test (testId, status, pdfPath, testSet). Siempre corre.
 //
 // Anti-duplicados del run JSON: si el proceso fue lanzado por nuestros wrappers
@@ -21,7 +21,7 @@
 const { writeFileSync, mkdirSync, existsSync, readFileSync, readdirSync } = require('node:fs');
 const { join, relative, basename } = require('node:path');
 const { generatePdfReport } = require('./pdf-report');
-const { appendResultsAlm } = require('./results-alm');
+const { writeRunResultsAlm } = require('./results-alm');
 const { leerJsonSeguro } = require('./leer-json-seguro');
 
 class AutoFlowRunReporter {
@@ -97,15 +97,32 @@ class AutoFlowRunReporter {
       if (err?.stack) console.error(err.stack);
     }
 
-    // 2. Appendear a ResultsALM.json (siempre).
+    // 2. Escribir ResultsALM.json del run en .autoflow/alm/runs/{ts}/ResultsALM.json.
+    //    Formato espejo de lo que consume la integración con ALM (config + tests[]
+    //    con testId, testSetId, result Passed/Failed capitalizado, name, duration en s,
+    //    url_doc apuntando al PDF físico en runs/ raíz, evidence con el filename).
     try {
-      const entries = ctx.testsData.map((t) => ({
-        testId: t.testId,
-        status: t.status === 'passed' ? 'passed' : 'failed',
-        pdfPath: pdfPath ? relative(process.cwd(), pdfPath).replace(/\\/g, '/') : null,
-        testSet: ctx.testSet?.slug ?? null,
-      })).filter((e) => e.testId);
-      if (entries.length > 0) appendResultsAlm(entries);
+      // Derivar el runTimestamp del runDir: 'runs/13_05_2026_15-37-43' → '13_05_2026_15-37-43'.
+      const runTimestamp = ctx.runDir ? ctx.runDir.replace(/^.*[/\\]/, '') : null;
+      const testsForAlm = ctx.testsData
+        .filter((t) => t.testId)
+        .map((t) => ({
+          testId: t.testId,
+          testSetId: ctx.testSet?.id ?? ctx.setId ?? '',
+          name: t.name || '',
+          status: t.status,
+          duration: t.duration,
+        }));
+      if (runTimestamp && testsForAlm.length > 0) {
+        writeRunResultsAlm({
+          runTimestamp,
+          runDir: ctx.runDir,
+          executor: ctx.executor,
+          tool: 'Playwright',
+          pdfPath,
+          tests: testsForAlm,
+        });
+      }
     } catch (err) {
       console.error(`⚠ AutoFlow ResultsALM falló: ${err?.message ?? err}`);
     }
