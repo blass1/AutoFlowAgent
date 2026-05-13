@@ -16,4 +16,28 @@ function formatRunTimestamp(date = new Date()) {
   return `${dd}_${mm}_${yyyy}_${hh}-${mi}-${ss}`;
 }
 
-module.exports = { formatRunTimestamp };
+// Timestamp para nombres de screenshot — formato `DD_MM_YYYY_HH_MM_SS`
+// (todos `_`, sin guiones), distinto del de run folder. Lo usa el helper
+// `screen()` en fixtures/index.ts para nombrar cada captura.
+function formatScreenTimestamp(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const dd = pad(date.getDate());
+  const mm = pad(date.getMonth() + 1);
+  const yyyy = date.getFullYear();
+  const hh = pad(date.getHours());
+  const mi = pad(date.getMinutes());
+  const ss = pad(date.getSeconds());
+  return `${dd}_${mm}_${yyyy}_${hh}_${mi}_${ss}`;
+}
+
+// Solo la parte de fecha (DD_MM_YYYY) — la usa el ResultsALM.json daily
+// aggregator y se puede derivar del formatRunTimestamp también.
+function formatDateOnly(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const dd = pad(date.getDate());
+  const mm = pad(date.getMonth() + 1);
+  const yyyy = date.getFullYear();
+  return `${dd}_${mm}_${yyyy}`;
+}
+
+module.exports = { formatRunTimestamp, formatScreenTimestamp, formatDateOnly };

@@ -1,0 +1,10 @@
+{
+  "nombre": "TestParaBorrar01",
+  "slug": "testParaBorrar01",
+  "id": "12345",
+  "descripcion": "test",
+  "specPath": "tests/testParaBorrar01-12345.spec.ts",
+  "creadoPor": { "nombre": "B", "legajo": "L" },
+  "creadoEn": "2026-05-12T00:00:00.000Z",
+  "casos": []
+}
