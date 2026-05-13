@@ -131,8 +131,8 @@ Tras completar una acción, siempre volvés al **top-level** (no al sub-menú de
 
 - ✅ **Pasó** → te ofrece correr otro Test, repetir, o volver al menú.
 - ❌ **Falló** → te ofrece varias acciones:
+  - `🔧 Reparar el Test fallido` → sub-flow **surgical**: el agente parsea el output de Playwright, identifica el Nodo concreto que rompió y te ofrece **`🪄 Auto-Health Node`** o **`✍️ Pegar a mano`** sobre ese Nodo. Si no logra identificarlo (asserts inline sin selector claro, timeouts genéricos), cae al multi-select adivinatorio (vos tildás los que pensás que cambiaron).
   - `🔄 Volver a correr` (reintentar tal cual).
-  - `🧩 Actualizar Nodos sospechosos` → sub-flow para reparar locators rotos. Lista los nodos del Test ordenados por confiabilidad ascendente y por cada uno te ofrece **`🪄 Capturar DOM y proponer`** (Auto-Health) o **`✍️ Pegar a mano`** el locator nuevo.
   - `📊 Re-correr con trace y abrir reporte HTML` → vuelve a correr con `--debug` (suma `--reporter=html --trace=on`) y abre el reporte de Playwright con screenshots, trace y stack.
   - `🔍 Ver el error completo` → te muestra el output del terminal.
   - `📝 Abrir el Test para editar`.
@@ -317,7 +317,7 @@ Single-select de acciones disponibles:
 - ✅ **Todos pasaron** → te ofrece correr otro set o volver al menú.
 - ❌ **Algunos fallaron** → te muestra cuáles y te ofrece:
   - `▶️ Correr solo los que fallaron` (rearma el grep).
-  - `🧩 Actualizar Nodos sospechosos de un caso` (te pregunta cuál si hay varios).
+  - `🔧 Reparar un Test fallido` (te pregunta cuál si hay varios) — el agente parsea el output, identifica el Nodo que rompió y ofrece Auto-Health o pegado a mano sobre ese Nodo concreto. Cae al multi-select adivinatorio si no logra identificarlo.
   - `📊 Re-correr con trace y abrir reporte HTML`.
   - `🔍 Ver el primer error en detalle`.
 
@@ -527,7 +527,7 @@ El dashboard es **estático** — se actualiza solo cuando lo regenerás. Cada v
 |---|---|
 | El agente dice "no encuentro el archivo del recording" pero vos lo ves en la carpeta | Race condition de filesystem. El agente reintenta 3 veces antes de declarar fallo. Si igual falla, te muestra el listado real y te ofrece confirmar manualmente con `✅ Confirmo que está, seguí`. |
 | El dashboard muestra Tests sin pasos | La traza no se generó. Andá a `🛠️ Mantenimiento → 🧬 Validar / Regenerar trazas`. Si los inputs siguen, el script la regenera. |
-| Un Test pasaba y empezó a fallar — el front cambió un selector | Correr el Test → menú post-fallo elegí `🧩 Actualizar Nodos sospechosos`. Tildás los que creés que cambiaron y elegís `🪄 Capturar DOM y proponer` (recomendado) o `✍️ Pegar locator a mano`. |
+| Un Test pasaba y empezó a fallar — el front cambió un selector | Correr el Test → menú post-fallo elegí `🔧 Reparar el Test fallido`. El agente parsea el error y te dice qué Nodo rompió, después elegís `🪄 Auto-Health Node` (recomendado, captura el DOM real y propone) o `✍️ Pegar locator a mano`. Si no logra identificar el Nodo (asserts inline ambiguos, timeouts genéricos), cae al multi-select donde tildás vos cuáles creés que cambiaron. |
 | Querés mejorar locators frágiles antes de que rompan | `🪄 Mejorar un Test (Auto-Health Node)` (top-level del menú). |
 | El login con OTP se hace eterno cada vez que grabás | `🛠️ Mantenimiento → 🔐 Login reusable`. Lo grabás una vez y los siguientes Tests del mismo canal arrancan ya logueados. |
 | El Test cuelga 30s y falla con timeout sin explicación | Probable que tu PO use `waitForLoadState('networkidle')` en un site con long-polling/analytics persistente. Cambialo a `'domcontentloaded'` (que es el default actual). Para Tests viejos podés migrar a mano. |

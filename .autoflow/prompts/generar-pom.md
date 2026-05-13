@@ -639,33 +639,21 @@ Abrí `vscode/askQuestions` single-select: `"¿Qué hacemos?"`:
 
 ### 11.1. Auto-reparar tras smoke fallido
 
-> **Por qué este bloque existe**: el agente NO puede saber si los selectores capturados por codegen realmente funcionan — solo que tienen el shape correcto. Casos típicos detectados acá: assert con selector inventado por el QA durante la grabación, locator que matchea cuando se grabó pero no en producción (timing), confirm dialog nativo no propagado al PO, etc.
+> **Por qué este bloque existe**: el agente NO puede saber si los selectores capturados por codegen realmente funcionan — solo que tienen el shape correcto. Casos típicos: assert con selector inventado por el QA durante la grabación, locator que matchea al grabar pero no en producción (timing), confirm dialog nativo no propagado al PO.
 
-Cuando el smoke test falla, NO te quedes con el resumen genérico. Procesá el output de Playwright para ofrecer una reparación dirigida:
+Cuando el smoke test falla, **delegá en `.autoflow/prompts/reparar-tras-fallo.md`** con el contexto:
 
-1. **Parseá el `AUTOFLOW_RESULT`** de stdout para confirmar `status: 'failed'` y leé los últimos ~40 líneas de stderr/stdout para extraer:
-   - El **selector concreto** que falló (típico patrón `Locator: <selectorRaw>` o `waiting for <selectorRaw>`).
-   - El **archivo y línea** del PO donde está ese locator (`pages/{Nombre}Page.ts:NN`).
-   - El **mensaje del matcher** (`element(s) not found`, `expected to be visible`, `timeout exceeded`, etc.).
+```
+{ specPath: 'tests/{slug}-{id}.spec.ts', testId: <numero>, mode: 'smoke' }
+```
 
-2. **Cruzá el selectorRaw fallido con `nodos.json`** para identificar el id del nodo: buscá el nodo cuyo `selectorRaw` coincida exactamente. Si encontrás más de uno, preferí el que pertenezca a una page que aparece en la traza (`{numero}-path.json`).
+Ese sub-flow se encarga de:
+1. Parsear el output de Playwright (`terminalLastCommand`) para extraer el selector que rompió, el archivo:línea del PO y el mensaje del matcher.
+2. Cruzar el `selectorRaw` con `nodos.json` para identificar el nodo afectado.
+3. Si lo identifica → mostrar diagnóstico al QA y ofrecer `🪄 Auto-Health Node` / `✏️ Pegar locator a mano` / `🔄 Re-correr smoke` / `🏠 Volver al menú` sobre ese nodo concreto (modo surgical).
+4. Si no lo identifica → caer al fallback `actualizar-nodos.md` con multi-select de todos los nodos del Test.
+5. Tras reparar, re-correr el smoke automáticamente (máximo 2 iteraciones).
 
-3. **Mostrale al QA** el contexto en una sola pasada:
-   ```
-   ❌ El smoke test falló en el step "{stepName}".
-
-   Locator que rompió:  {selectorRaw}
-   Page object:         {Nombre}Page (línea {linea})
-   Razón:               {mensaje del matcher}
-   Nodo afectado:       {id del nodo}
-   ```
-
-4. **Single-select** `vscode/askQuestions`: `"¿Qué hacemos con este nodo?"`:
-   - `🪄 Reparar con Auto-Health Node` → cargá `auto-health-node.md` con contexto `{ nodoId: <id>, motivo: 'smoke-fallido', testIdContext: <numero> }`. Auto-Health intenta navegar el flujo hasta el paso anterior, capturar el DOM, y proponer un locator más confiable.
-   - `✏️ Pegar locator a mano` → cargá `actualizar-nodos.md` con el mismo contexto, modo "pegar a mano".
-   - `🔄 Re-correr el smoke` (por si fue flaky — UI lenta, dialog que el QA no aceptó a tiempo, etc.). Si vuelve a fallar, no ofrezcas esta opción una segunda vez.
-   - `🏠 Dejar como está y volver al menú` → para casos donde el QA decide investigar más tarde. Mostrá un warning corto: `⚠️ El Test queda commiteable pero rojo. Vas a tener que arreglarlo antes de que entre a CI.`
-
-5. **Después de reparar** (Auto-Health o pegado a mano): repetí automáticamente el smoke test (paso 1 de 11.1). Si pasa, mostrá `✅ Reparado. El Test pasa.`. Si vuelve a fallar, ofrecé el mismo single-select pero con la opción `🔄 Re-correr` deshabilitada y `↪️ Reparar otro nodo distinto (el que falla ahora)` agregada al inicio.
+Cuando `reparar-tras-fallo.md` retorna el control, volvé al paso 11 (resumen final) — el flow ya manejó la decisión del QA y los archivos quedaron consistentes.
 
 > **Por qué no proponer "Rehacer la grabación"**: regrabar es caro y suele introducir más drift. Auto-Health Node con DOM real es casi siempre la mejor primera apuesta. Si el QA elige regrabar, que vuelva al menú principal explícitamente.

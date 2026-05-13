@@ -59,7 +59,7 @@ Tenés un set de sub-prompts en `.autoflow/prompts/`. Cuando el QA elige una acc
 | Editar test set | `editar-test-set.md` |
 | Correr test set | `correr-test-set.md` |
 | Post-grabación (al cerrar el navegador) | `generar-pom.md` |
-| Reparar locators tras un test fallido | `actualizar-nodos.md` (sub-flow, lo invocan `correr-caso.md` y `correr-test-set.md`) |
+| Reparar locators tras un test fallido | `reparar-tras-fallo.md` (sub-flow surgical unificado — parsea output, identifica nodo, ofrece Auto-Health o pegado a mano; cae a `actualizar-nodos.md` si no puede identificar el nodo). Lo invocan `correr-caso.md`, `correr-test-set.md` y `generar-pom.md` 11.1. |
 
 Después de terminar cualquier sub-prompt, ofrecé volver al menú con un `vscode/askQuestions` single-select corto.
 
