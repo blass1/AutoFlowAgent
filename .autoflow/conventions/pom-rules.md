@@ -181,6 +181,47 @@ Edición de archivos al insertar (sin regenerar):
 - `nodos.json` y el sidecar de la page se actualizan en el mismo cambio: el nuevo id se suma a `nodos[]` en la posición que corresponda.
 - El test importa el fixture `vars` desde `../fixtures` y, si usa parsers, los importa desde `../data`.
 
+#### Nodo especial: `capturar-screen`
+
+Captura un screenshot JPEG (quality 60, viewport only) y lo guarda en `{AUTOFLOW_RUN_DIR}/screens/{testId}/{label}_DD_MM_YYYY_HH_MM_SS.jpg`. Lo materializa como una llamada a la helper exportada por [fixtures/index.ts](../../fixtures/index.ts):
+
+```ts
+import { screen } from '../fixtures';
+// ...
+await screen(page, 'HomePage');
+```
+
+El helper espera `domcontentloaded` y `aria-busy=false` antes de disparar la captura — evita screens de pantallas a medio cargar. Si `AUTOFLOW_RUN_DIR` no está seteado (corrida fuera de wrapper / config), retorna `null` silenciosa sin romper el test.
+
+**Cuándo el agente lo inserta** (auto, en `generar-pom.md`):
+- **Antes y después** de un `click` cuando el `name` del botón matchea `/aceptar|continuar|confirmar|preparar|guardar|enviar|finalizar|pagar|comprar|submit/i`.
+- **Al final** de un método cuando la page activa post-acción matchea `/home|overview|dashboard|main|inicio/i` (pantallas principales).
+- Anti-spam: no más de 1 screen consecutivo — si ya emitió uno, salta el siguiente que caería al lado.
+
+**Cuándo el QA lo inserta** (manual, vía `editar-caso.md` → "Insertar screenshot en un paso"): elige Test → step → label, y el sub-flujo agrega la llamada en el lugar correcto.
+
+Shape del nodo (va a `nodos[]` del sidecar, no a `asserts[]`):
+
+```json
+{
+  "id": "HomePage::capturar-screen::welcome-loaded",
+  "page": "HomePage",
+  "accion": "capturar-screen",
+  "label": "HomePage",
+  "selector": "page",
+  "selectorRaw": "screen(page, 'HomePage')",
+  "confiabilidad": null
+}
+```
+
+Campos:
+- **id**: `{page}::capturar-screen::{slug-del-label}` — determinístico. Permite reusar el mismo screen-spot entre Tests que pasan por la misma page.
+- **label**: el string que va al filename y al PDF como caption (preserva mayúsculas/espacios del input del QA).
+- **selector / selectorRaw**: convención de "no-locator" — el target es `page` y el raw es la llamada literal al helper. Sirve para regenerar el código.
+- **confiabilidad**: siempre `null` (no hay locator a evaluar).
+
+El parser de codegen (`parse-codegen-output.js`) **no** emite estos nodos — los agrega solo el agente (en `generar-pom.md` o `insertar-screen.md`). El dashboard los muestra en la traza con ícono 📸.
+
 ### Diccionario global — `.autoflow/nodos.json`
 
 Archivo único en la raíz de `.autoflow/` con shape `{ [id]: nodo }`. Se enriquece con cada grabación: si el id no existe, se agrega; si existe, se valida que `accion`, `selector`, `page` y `confiabilidad` coincidan (no se sobreescribe). Es la fuente de verdad para análisis de caminos cross-recording.

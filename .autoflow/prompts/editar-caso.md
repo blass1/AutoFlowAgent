@@ -38,6 +38,7 @@ Usá `vscode/askQuestions` single-select: `"¿Qué hacés con el **Test** [testI
 - `🎯 Insertar **Nodo** de captura/verificación`
 - `🎯 Acción filtrada en lista (click+submenú o validar existencia/no-existencia de fila)`
 - `📅 Elegir fecha en date picker (parametrizada — no hardcodeada)`
+- `📸 Insertar screenshot en un paso (captura JPEG para evidencia del PDF)`
 - `🍴 Bifurcar **Test** desde un **Nodo** (crear Test nuevo a partir de éste)`
 
 ### Opción `🔄 Regrabar desde cero`
@@ -87,6 +88,10 @@ Cargá [accion-en-lista.md](accion-en-lista.md) pasándole `numero` y la ruta de
 ### Opción `📅 Elegir fecha en date picker`
 
 Cargá [elegir-fecha-en-picker.md](elegir-fecha-en-picker.md) pasándole `numero` y la ruta del spec. Ese sub-prompt construye un método del PO que elige una fecha en un date picker, **parametrizado por la fecha** (no clavada al día capturado por el grabador). Soporta input nativo `<input type="date">`, calendario custom con navegación de meses, y typeable con dropdown de sugerencias. La fecha viene del data file, calculada al vuelo (hoy, +30 días, etc.) o como literal.
+
+### Opción `📸 Insertar screenshot en un paso`
+
+Cargá [insertar-screen.md](insertar-screen.md) pasándole `numero` y la ruta del spec del **Test** elegido. Ese sub-prompt lista los pasos del **Test** numerados, deja al QA elegir uno + dar un label, e inserta `await screen(this.page, '{label}')` en el método del PO correspondiente. Registra también el nodo `capturar-screen` en `nodos.json` y en el sidecar de la page. El screen se va a tomar durante la próxima corrida del **Test** y quedar en `runs/{ts}/screens/{testId}/{label}_DD_MM_YYYY_HH_MM_SS.jpg`, donde lo levanta el reporte PDF como evidencia.
 
 ### Opción `🍴 Bifurcar Test desde un Nodo`
 

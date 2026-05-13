@@ -250,17 +250,39 @@ Cuando el comando es válido **y el nombre NO chocaba con un PO existente**:
      Cubre tres casos típicos: (a) input → input (validación on-input), (b) input → click de avanzar/continuar (el botón se habilita tras la validación), (c) click → click rápido en checkboxes/toggles consecutivos (sin el wait el segundo se ejecuta antes de que el front terminó de aplicar el primero y el checkbox queda mal seleccionado). **No** emitas el wait si la siguiente línea ya es `waitForLoadState(...)` (redundante) o si la acción es la última del método y el método dispara navegación (cerrás con `waitForLoadState('domcontentloaded')` en lugar). Si `session.bufferTiempo` es `false` o falta el campo, no agregues nada.
    - **Métodos retornan siempre `Promise<void>`**. Sin chains. Los Page Objects no se conocen entre sí — `LoginPage` no importa `OverviewPage`. Si el método dispara una navegación a otra page, terminá con `await this.page.waitForLoadState('domcontentloaded')` **antes de retornar** (no instancies la próxima page; el spec se encarga). **Default `'domcontentloaded'`** (ver pom-rules.md → "Esperas"): `'networkidle'` cuelga 60s en sites con long-polling o analytics persistente, así que solo usalo en SPAs limpias y con comentario justificando.
    - **Si el primer nodo del rango es `goto`**, **no lo metas en un método del PO**. El `goto` lo dispara el spec en su propio `test.step('Abrir el canal', async () => page.goto(urlInicial))`. El nodo `goto` queda registrado en `sidecar.nodos[]` igual (es parte de la firma de la page para el matcheo), pero sin código en la clase. Los demás nodos del rango sí tienen métodos.
+   - **Screenshots automáticos en puntos clave** (ver `pom-rules.md` → "Nodo especial: `capturar-screen`"). Importá el helper:
+     ```typescript
+     import { screen } from '../fixtures';
+     ```
+     Identificá los puntos del método donde insertar `await screen(this.page, '{NombrePage}')`:
+     - **Antes y después** de cada `click` cuyo `name` matchee `/aceptar|continuar|confirmar|preparar|guardar|enviar|finalizar|pagar|comprar|submit/i` (case-insensitive). Si hay varios clicks así seguidos, solo el primero gana el screen "antes" y solo el último el screen "después" — no rodeés cada uno.
+     - **Al final del método** cuando el método dispara navegación (cierra con `waitForLoadState('domcontentloaded')`) Y la page destino matchea `/home|overview|dashboard|main|inicio/i` (pantallas principales). El screen va **después** del `waitForLoadState`, así captura la page ya cargada.
+     - **Anti-spam**: nunca emitas dos `screen()` consecutivos sin acción del usuario en el medio. Si la regla "antes del click X" colisiona con "después del click X-1" (clicks seguidos de confirmación), elegí uno solo — preferí el "después del previo" (cierra el paso anterior con evidencia).
+     - **Anti-redundancia con el screenshot de Playwright**: el `screenshot: 'only-on-failure'` de `playwright.config.ts` solo dispara al fallar el test. El `screen()` del helper es **antes/durante/después** y se acumula en `runs/{ts}/screens/{testId}/` para alimentar el reporte PDF. Son independientes — no las confundas.
+     - **Por cada `screen()` que emitís en código**, agregá también su nodo a `nodos.json` y al sidecar (ver paso 3 más abajo). Id: `{NombrePage}::capturar-screen::{slug-del-label}` donde `{slug-del-label}` se deriva del label (kebab-case sin caracteres especiales). Si dos screens del mismo método comparten label exacto, el id colisiona y queda uno solo en el sidecar — está bien, el código emite los dos llamados igual.
+
+     Ejemplo de método con screens:
+     ```typescript
+     async confirmarCompra(datos: DatosCompra): Promise<void> {
+       await this.nombre.pressSequentially(datos.nombre);
+       await this.tarjeta.pressSequentially(datos.tarjeta);
+       await screen(this.page, 'CheckoutPage'); // antes del botón de confirmación
+       await this.botonPurchase.click();
+       await screen(this.page, 'CheckoutPage'); // después del botón de confirmación
+     }
+     ```
 3. **Materializá los nodos del rango**:
    - Para cada nodo crudo del rango asignado a esta page, calculá su `id = {NombrePage}::{accion}::{selector}`.
    - Para `fill`/`press`/`selectOption`, si el `valor` parece dato variable (input del usuario, no UI fija), reemplazalo por `*` antes de armar el nodo a guardar.
    - Actualizá `.autoflow/nodos.json` (creá el archivo si no existe). Por cada id: si no está, agregalo con `{ id, page, accion, selector, selectorRaw, valor?, confiabilidad, matcher? }`. Si ya está, dejalo como está (no sobreescribir).
    - **Asserts** del rango: también van a `nodos.json` con su id. Si el assert es a nivel page (`selector="page"`), su id usa la **page activa** al momento del paso → en este rango, la page que estás generando.
+   - **Nodos `capturar-screen`** (los que insertaste en el método según las reglas del punto 2): por cada `await screen(this.page, '{Label}')` emitido, agregá a `nodos.json` un nodo con `id = {NombrePage}::capturar-screen::{slug-del-label}` (slug en kebab-case sin caracteres especiales), `accion: "capturar-screen"`, `label: "{Label}"`, `selector: "page"`, `selectorRaw: "screen(page, '{Label}')"`, `confiabilidad: null`. Si dos screens del método comparten label exacto el id colisiona (queda uno solo en `nodos.json`) — está bien; los llamados en código se mantienen los dos. Ver `pom-rules.md` → "Nodo especial: capturar-screen".
    - **Ids únicos**: el id es determinístico (`{page}::{accion}::{selector}`). Si dos nodos del recording producen el mismo id es porque el selector normalizado los colapsa — eso es intencional (es la misma acción). **Nunca uses sufijos `_1`/`_2`** para desambiguar; si te pasa, frená y avisá: probablemente hay un bug en el normalizador del parser.
 4. Generá el sidecar `.autoflow/fingerprints/{NombrePage}.json` con el shape `{ page, nodos: [...], asserts: [...], conecta: [...] }` documentado en `pom-rules.md`:
-   - `nodos[]`: ids de **acciones del usuario** del rango (no asserts), en orden. Si el id se repite consecutivamente (mismo nodo dos veces seguidas), incluilo una sola vez.
+   - `nodos[]`: ids de **acciones del usuario** del rango (no asserts), en orden. Si el id se repite consecutivamente (mismo nodo dos veces seguidas), incluilo una sola vez. **Los nodos `capturar-screen` también van acá** (no a `asserts[]`) — son parte del flujo del método, aunque no participan del matcheo por vocabulario (paso 3 los ignora cuando compara firmas).
    - `asserts[]`: ids de los `assert` del rango, en orden. **No participan del matcheo** (son opcionales y pueden variar entre grabaciones del mismo flujo).
    - `conecta[]`: vacío por ahora — se completa en el paso 6.5.
-   - Si el sidecar ya existía (page reusada por matcheo), enriquecelo: sumá ids nuevos a `asserts[]` sin duplicar; `nodos[]` se respeta tal cual estaba (el matcheo confirmó que el flujo es el mismo).
+   - Si el sidecar ya existía (page reusada por matcheo), enriquecelo: sumá ids nuevos a `asserts[]` sin duplicar; `nodos[]` se respeta tal cual estaba (el matcheo confirmó que el flujo es el mismo). Los `capturar-screen` nuevos sí pueden sumarse a `nodos[]` (no participan del matcheo, así que enriquecerlos no rompe la firma).
 5. **Persistí el grupo** en `.autoflow/recordings/{numero}-grupos.json` (creá el archivo si no existe; appendeá al array `rangos`):
    ```json
    { "rangos": [{ "page": "LoginPage", "desde": 1, "hasta": 7 }, { "page": "AccesoFima", "desde": 8, "hasta": 10 }] }

@@ -721,6 +721,14 @@ function html(modelo) {
     const $ = (id) => document.getElementById(id);
     let estado = { vista: 'inicio', tsSlug: null, testId: null, tab: 'detalles' };
 
+    // Íconos por acción especial — agregar otros aquí si hace falta resaltarlos
+    // en la lista de pasos del Test.
+    const ICONO_ACCION = {
+      'capturar-screen': '📸',
+      'capturar': '📥',
+      'verificar': '🔍',
+    };
+
     // Color helpers — todos los lugares donde aparezca una page usan el mismo hue.
     function colorPage(nombrePage) {
       const info = datos.paginas[nombrePage];
@@ -1310,7 +1318,12 @@ import LoginPage from '../../pages/auth/LoginPage'</pre>
       const n = paso.nodo;
       if (!n) return \`<div class="paso-row"><div class="idx">\${idx}</div><div>(nodo no resuelto: \${esc(paso.id)})</div></div>\`;
       const c = colorPage(n.page);
-      const desc = \`<span class="page" style="color:\${c.fg}">\${esc(n.page)}</span> · <span class="accion">\${esc(n.accion)}</span> \${esc(n.selector || '')}\`;
+      // Ícono por acción especial — capturar-screen muestra 📸 con el label en vez del selector.
+      const iconoAccion = ICONO_ACCION[n.accion] || '';
+      const cuerpoDesc = n.accion === 'capturar-screen'
+        ? \`<span class="accion">capturar-screen</span> \${iconoAccion} <em>\${esc(n.label || n.selector || '')}</em>\`
+        : \`<span class="accion">\${esc(n.accion)}</span> \${iconoAccion} \${esc(n.selector || '')}\`;
+      const desc = \`<span class="page" style="color:\${c.fg}">\${esc(n.page)}</span> · \${cuerpoDesc}\`;
       const conf = n.confiabilidad
         ? \`<span class="conf conf-\${n.confiabilidad}">[\${n.confiabilidad}/5]</span>\`
         : '<span class="conf" style="color:var(--muted)">[—]</span>';

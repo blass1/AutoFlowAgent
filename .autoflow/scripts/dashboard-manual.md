@@ -244,6 +244,20 @@ Hay dos tipos de Nodo especial:
 
 **Tip**: si el calendario custom tiene un formato de header inusual, el helper `parsearHeader` puede necesitar ajuste manual después. El agente te avisa en el cierre.
 
+### 📸 Insertar screenshot en un paso
+
+**Cuándo**: querés sumar una evidencia visual en un punto específico del flujo, además de los screenshots automáticos que el agente inserta en botones de confirmación y pantallas principales.
+
+**Pasos**:
+1. **Menú → ✏️ Modificar o Extender un Test → 📸 Insertar screenshot en un paso**.
+2. El agente lista todos los pasos del Test numerados (los pasos que ya tienen screen aparecen con prefijo 📸 y no son seleccionables).
+3. Elegís el paso después del cual querés capturar + un label corto (ej: `tras-login`, `Checkout-confirmado`). El label va al filename y al PDF como caption.
+4. El agente inserta `await screen(this.page, '{label}')` en el método del PO correspondiente, registra el nodo `capturar-screen` en `nodos.json` + sidecar + traza, y avisa donde quedará el screen.
+
+**Resultado**: en la próxima corrida del Test, el screen se toma automáticamente y queda en `runs/{ts}/screens/{testId}/{label}_DD_MM_YYYY_HH_MM_SS.jpg`. El reporte PDF lo levanta como evidencia.
+
+**Tip**: el helper `screen()` ya espera `domcontentloaded` y `aria-busy=false` antes de disparar — no captura pantallas a medio cargar. JPEG quality 60 viewport-only para priorizar espacio sobre calidad.
+
 ### 🍴 Bifurcar Test desde un Nodo
 
 **Cuándo**: tenés un Test que llega hasta cierto punto del flujo (login + navegar al producto) y querés crear otro que arranque desde ahí, sin regrabar todo.
