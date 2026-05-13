@@ -1,5 +1,18 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Si la corrida no vino de un wrapper (run-test.js / run-testset.js), no hay
+// AUTOFLOW_RUN_DIR seteado y los workers no sabrían dónde volcar screens / PDF.
+// Lo creamos acá — esto corre en el parent antes de forkear workers, así todos
+// heredan la misma env var. Cubre `npx playwright test` directo, plugin de
+// VSCode, debug, etc. Si el wrapper ya lo seteó, respetamos el valor existente.
+if (!process.env.AUTOFLOW_RUN_DIR) {
+  const { formatRunTimestamp } = require('./.autoflow/scripts/lib/run-timestamp');
+  const { mkdirSync } = require('node:fs');
+  const ts = formatRunTimestamp();
+  process.env.AUTOFLOW_RUN_DIR = `runs/${ts}`;
+  mkdirSync(process.env.AUTOFLOW_RUN_DIR, { recursive: true });
+}
+
 export default defineConfig({
   testDir: './tests',
   // tests/_temp/ alberga specs efímeros que el agente genera y borra al instante
