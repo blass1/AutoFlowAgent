@@ -456,7 +456,7 @@ La **primera vez** detecta que faltan `node_modules` y los browsers de Playwrigh
 | `data/parsers.ts` | Parsers reusables (`parseText`, `parseNumber`, `parseCurrencyAR`, `parseDate`) para nodos `capturar`/`verificar`. |
 | `utils/` | Librerías complementarias del QA (reporting custom, hooks de notificación, helpers extra). Cada archivo se autodescribe con un header (`@autoflow-util`, `@descripcion`, `@aplicarEn`, `@como-aplicar`) que el agente lee desde la opción `🔧 Utilidades` del menú para aplicarla al código del proyecto. Convención completa en [utils/README.md](utils/README.md). |
 | `playwright.config.ts` | Timeouts amplios para fronts lentos (`actionTimeout` 30s, `navigationTimeout` 60s). Excluye `tests/_temp/` del runner. |
-| `.autoflow/clearSession.js` | Resetea el proyecto borrando todo lo generado por el agente. Resuelve cwd a la raíz del repo, así corre igual desde cualquier ubicación. |
+| `.autoflow/clearSession.js` | Resetea el proyecto borrando **todo lo generado por el agente** y deja el repo listo para automatizar desde cero. **Preserva**: `node_modules/`, `.autoflow/user.json` (identidad del QA), `.autoflow/alm/integrations/*.exe` (binarios propietarios), seeds de `data/` (`types.ts`/`parsers.ts` intactos; `index.ts` y `urls.ts` se RESETEAN al contenido inicial), prompts, scripts, conventions, fixtures, configs, utils, `.gitkeep`. **Limpia**: recordings, pages, tests/, fingerprints, testsets, nodos.json, grafos, dashboard.html, utils-applied.json, auth/, alm-exports/, alm/originalTests/, alm/exports/, data/data-*.ts, y recursivamente captures/, .autoflow/runs/, runs/ (raíz, con screens + PDFs), tests/_temp/, playwright-report/, test-results/, blob-report/. Resuelve cwd a la raíz del repo, así corre igual desde cualquier ubicación. |
 | `docs/presentacion.html` | Presentación HTML autocontenida (32 slides) para mostrar AutoFlow al equipo en una reunión de ~1h. Navegación con flechas / barra espaciadora. |
 
 Más detalle del estado runtime y los archivos de cada grabación: [.autoflow/README.md](.autoflow/README.md).
@@ -537,7 +537,18 @@ node .autoflow/clearSession.js          # pide confirmación (escribir SI)
 node .autoflow/clearSession.js --yes    # sin prompt, para CI o scripts
 ```
 
-Borra: `user.json`, todas las grabaciones, fingerprints, testsets, `nodos.json`, los dos grafos, `pages/*`, `tests/*`, `data/data-*.ts`. Resetea los seeds `data/index.ts` y `data/urls.ts` a su contenido inicial (re-exports + array de canales vacío). **No toca** `data/types.ts`, `data/parsers.ts`, scripts, prompts, conventions, fixtures, configs, `utils/`, `.claude/` ni `.gitkeep`.
+**Borra** (todo lo que el agente genera):
+- Top-level files: `nodos.json`, `dashboard.html`, `utils-applied.json`, grafos legados.
+- Top-level folders (vaciado plano): grabaciones (`recordings/`), `fingerprints/`, `testsets/`, `grafos/`, `auth/` (storageStates — re-grabar el login), `alm-exports/`, `alm/originalTests/`, `alm/exports/`, `pages/`, `tests/` (excepto `_temp/` que va aparte).
+- Folders recursivos (con sub-carpetas anidadas): `captures/`, `.autoflow/runs/` (history + ResultsALM diarios), `runs/` en la raíz (screens + PDFs), `tests/_temp/`, `playwright-report/`, `test-results/`, `blob-report/`.
+- En `data/`: borra `data-*.ts` (datos por Test Set) y resetea `data/index.ts` y `data/urls.ts` al contenido inicial (re-exports + array de canales vacío).
+
+**Preserva**:
+- `node_modules/` (no se toca).
+- `.autoflow/user.json` (identidad del QA — no rehace onboarding).
+- `.autoflow/alm/integrations/*.exe` (binarios propietarios distribuidos externamente, NO generados por el agente).
+- `data/types.ts`, `data/parsers.ts` (contratos puros).
+- Scripts, prompts, conventions, fixtures, configs, `utils/`, `.claude/`, `.gitkeep`.
 
 ## Stack
 

@@ -1,7 +1,14 @@
 // Resetea el proyecto al estado anterior a cualquier sesión de AutoFlow:
-// borra la identidad del QA, todas las grabaciones, y todo lo que el agente
-// haya generado (pages, tests, fingerprints, testsets, nodos, grafos, data).
-// Conserva scripts, prompts, conventions, fixtures y configuración del proyecto.
+// borra todo lo que el agente haya generado (recordings, pages, tests, fingerprints,
+// testsets, nodos, grafos, captures, runs, auth, dashboards, data de Tests, screens,
+// PDFs, outputs de ALM).
+//
+// **Preserva**:
+//   - `node_modules/` (el script no lo toca)
+//   - `.autoflow/user.json` (identidad del QA — se conserva para no rehacer onboarding)
+//   - `.autoflow/alm/integrations/*.exe` (binarios propietarios — NO generados por el agente)
+//   - Seeds de `data/` (`types.ts`, `parsers.ts`, `index.ts` reset, `urls.ts` reset)
+//   - Prompts, scripts, conventions, fixtures, configs, utils, `.gitkeep`
 //
 //  Uso:
 //   node .autoflow/clearSession.js          (pide confirmación interactiva)
@@ -12,28 +19,52 @@ const { join, resolve } = require('node:path');
 const readline = require('node:readline');
 
 // El script vive en `.autoflow/`, pero todos los paths abajo son relativos a la
-// raíz del proyecto (`.autoflow/user.json`, `pages/`, `tests/`, `data/`).
-// Forzamos cwd a la raíz para que funcione desde cualquier ubicación.
+// raíz del proyecto. Forzamos cwd a la raíz para que funcione desde cualquier ubicación.
 process.chdir(resolve(__dirname, '..'));
 
 const skipConfirm = process.argv.includes('--yes') || process.argv.includes('-y');
 
 // Archivos individuales a borrar.
+//
+// NO incluye `.autoflow/user.json` — la identidad del QA se preserva por diseño.
+// Si querés borrarla también, hacelo a mano: `rm .autoflow/user.json`.
 const archivos = [
-  '.autoflow/user.json',
   '.autoflow/nodos.json',
-  '.autoflow/grafo.md',           // legado (versión anterior, antes de mover a grafos/)
-  '.autoflow/grafo-nodos.md',     // legado
+  '.autoflow/dashboard.html',       // HTML estático generado por dashboard.js
+  '.autoflow/utils-applied.json',   // state de utilidades de utils/ aplicadas
+  '.autoflow/grafo.md',             // legado (versión anterior, antes de mover a grafos/)
+  '.autoflow/grafo-nodos.md',       // legado
 ];
 
-// Carpetas a vaciar (se borra todo su contenido, la carpeta queda).
+// Carpetas a vaciar (top-level only — borra archivos sueltos, deja subdirectorios
+// como están). Si una carpeta también tiene subcarpetas a limpiar, va en
+// `carpetasAVaciarRecursivo` abajo.
 const carpetasAVaciar = [
   '.autoflow/recordings',
   '.autoflow/fingerprints',
   '.autoflow/testsets',
   '.autoflow/grafos',
-  'pages',
-  'tests',
+  '.autoflow/auth',                 // storageStates — sensibles (re-grabar el login)
+  '.autoflow/alm-exports',          // xlsx del QA para "Importar XLSX"
+  '.autoflow/alm/originalTests',    // cache del fetch_test_*.exe
+  '.autoflow/alm/exports',          // outputs del humanizador (JSON + xlsx + .md)
+  'pages',                          // Page Objects generados
+  'tests',                          // specs generados (tests/_temp/ se trata aparte recursivo)
+];
+
+// Carpetas a vaciar recursivamente (también borra subcarpetas anidadas, pero
+// mantiene la carpeta raíz y su `.gitkeep` si tenía).
+//
+// Las usamos para carpetas que el agente o las corridas generan con estructura
+// anidada que cambia entre runs (ej: `runs/{ts}/screens/{testId}/`, `captures/{numero}/`).
+const carpetasAVaciarRecursivo = [
+  '.autoflow/captures',             // HTML+intent por nodo, sub-carpeta por numero
+  '.autoflow/runs',                 // run JSONs + sub-carpetas diarias ResultsALM
+  'runs',                           // raíz: sub-carpetas por corrida con screens + PDFs
+  'tests/_temp',                    // specs efímeros (page.pause, auth setup, etc.)
+  'playwright-report',              // HTML report cuando se corrió con --debug
+  'test-results',                   // outputDir default de Playwright (sin AUTOFLOW_RUN_DIR)
+  'blob-report',                    // formato blob (raro pero puede aparecer)
 ];
 
 // `data/` recibe trato especial: se borra todo menos los seeds del proyecto
@@ -82,6 +113,17 @@ function listarObjetivos() {
     }
   }
 
+  // Las carpetas recursivas listan todo su contenido (files + subdirs) excepto
+  // `.gitkeep`. Cada entrada del top-level se va a borrar con `rmSync recursive`,
+  // así que la listamos una sola vez aunque sea carpeta.
+  for (const dir of carpetasAVaciarRecursivo) {
+    if (!existsSync(dir)) continue;
+    for (const f of readdirSync(dir)) {
+      const p = join(dir, f);
+      if (!esPreservado(f)) objetivos.push(p);
+    }
+  }
+
   if (existsSync(dataDir)) {
     for (const f of readdirSync(dataDir)) {
       if (dataSeeds.has(f)) continue;
@@ -109,6 +151,18 @@ function ejecutarBorrado() {
         rmSync(p);
         borrados++;
       }
+    }
+  }
+  // Para las carpetas recursivas, borramos cada entrada del top-level con
+  // `rmSync recursive: true` — esto se lleva files Y sub-carpetas anidadas.
+  // Preservamos `.gitkeep` así la carpeta raíz queda versionada.
+  for (const dir of carpetasAVaciarRecursivo) {
+    if (!existsSync(dir)) continue;
+    for (const f of readdirSync(dir)) {
+      if (esPreservado(f)) continue;
+      const p = join(dir, f);
+      rmSync(p, { recursive: true, force: true });
+      borrados++;
     }
   }
   if (existsSync(dataDir)) {
@@ -150,10 +204,15 @@ function preguntar(mensaje) {
     return;
   }
 
-  console.log(`Se van a borrar ${objetivos.length} archivos:`);
+  console.log(`Se van a borrar ${objetivos.length} archivos/carpetas:`);
   for (const o of objetivos) console.log(`  • ${o}`);
   console.log('');
-  console.log('Los seeds de data/ (index.ts, urls.ts) se resetean a su estado inicial.');
+  console.log('Se preservan:');
+  console.log('  • node_modules/');
+  console.log('  • .autoflow/user.json (identidad del QA)');
+  console.log('  • .autoflow/alm/integrations/*.exe (binarios propietarios)');
+  console.log('  • Seeds de data/ (types.ts, parsers.ts intactos; index.ts y urls.ts se RESETEAN al contenido inicial)');
+  console.log('  • Prompts, scripts, conventions, fixtures, configs, utils, .gitkeep');
   console.log('');
 
   if (!skipConfirm) {
