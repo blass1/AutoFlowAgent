@@ -1,0 +1,10 @@
+{
+  "nombre": "Testset001",
+  "slug": "testset001",
+  "id": "0001",
+  "descripcion": "Dec",
+  "specPath": "tests/testset001-0001.spec.ts",
+  "casos": [
+    { "numero": "01", "nombre": "Demon compra test" }
+  ]
+}

@@ -69,6 +69,18 @@ const res = spawnSync('npx', args, {
 const duration = Date.now() - inicio;
 const exitCode = res.status ?? 1;
 
+// Generar el PDF como proceso hijo separado — ver explicación en run-test.js.
+// El reporter dejó pdf-context.json en artifactsDir; este standalone lo lee y
+// arma el PDF sin conflicto con los workers de Playwright.
+try {
+  spawnSync('node', ['.autoflow/scripts/generate-pdf-from-context.js', artifactsDir], {
+    stdio: 'inherit',
+    shell: false,
+  });
+} catch (errPdf) {
+  console.error(`⚠ No se pudo disparar la generación del PDF: ${errPdf?.message ?? errPdf}`);
+}
+
 const resultado = {
   total: totalCasos,
   status: exitCode === 0 ? 'passed' : 'failed',

@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>Grafo de Nodos · AutoFlow</title>
+<style>
+  :root {
+    /* Paleta Galicia — coherente con el dashboard */
+    --bg: #0d0d1a;
+    --panel: #161628;
+    --text: #f3f0e7;
+    --muted: #9d99af;
+    --accent: #ff6f1d;
+    --indigo: #2a2168;
+    --border: #2a2640;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  header {
+    display: flex; align-items: center; gap: 16px; padding: 10px 16px;
+    border-bottom: 1px solid var(--border); background: var(--panel);
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { margin: 0; font-size: 15px; font-weight: 600; }
+  header .meta { color: var(--muted); font-size: 12px; }
+  header .meta div { display: inline-block; margin-right: 12px; }
+  header .toolbar { margin-left: auto; display: flex; gap: 6px; }
+  header button {
+    background: transparent; color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+  }
+  header button:hover { border-color: var(--accent); color: var(--accent); }
+  #stage {
+    width: 100vw; height: calc(100vh - 50px);
+    overflow: hidden; cursor: grab;
+  }
+  #stage.dragging { cursor: grabbing; }
+  #stage svg { width: 100%; height: 100%; display: block; }
+  .hint {
+    position: fixed; bottom: 12px; right: 16px; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px;
+    font-size: 11px; color: var(--muted);
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Grafo de Nodos · AutoFlow</h1>
+    <div class="meta">
+      <div>16 nodos</div>
+      <div>8 intra-page</div>
+      <div>3 inter-page</div>
+      <div>3 asserts</div>
+    </div>
+    <div class="toolbar">
+      <button id="zoomIn" title="Zoom in">＋</button>
+      <button id="zoomOut" title="Zoom out">−</button>
+      <button id="reset" title="Reset">⤺</button>
+      <button id="fit" title="Ajustar a pantalla">⇲</button>
+    </div>
+  </header>
+  <div id="stage"><div class="mermaid" id="diagrama">flowchart TB
+    classDef conf5 fill:#1B5E20,stroke:#0D3311,color:#FFFFFF;
+    classDef conf4 fill:#A5D6A7,stroke:#2E7D32,color:#0D3311;
+    classDef conf3 fill:#FFF59D,stroke:#F9A825,color:#5D4037;
+    classDef conf2 fill:#FFCC80,stroke:#EF6C00,color:#3E2723;
+    classDef conf1 fill:#EF9A9A,stroke:#C62828,color:#3E0000;
+    classDef confNa fill:#ECEFF1,stroke:#607D8B,color:#263238;
+    classDef confCap fill:#E1BEE7,stroke:#6A1B9A,color:#4A148C;
+    classDef confVer fill:#B2EBF2,stroke:#00838F,color:#006064;
+
+    subgraph AddToCartMonitorPage["AddToCartMonitorPage"]
+        direction LR
+        N3["toBeVisible\nApple monitor"]:::confNa
+        N1["click\nApple monitor"]:::conf4
+        N4["toBeVisible\nApple monitor"]:::confNa
+        N2["click\nAdd to cart"]:::conf4
+    end
+
+    subgraph CartPage["CartPage"]
+        direction LR
+        N5["click\nCart"]:::conf4
+        N16["toBeVisible\nimg"]:::confNa
+        N6["toBeVisible\nimg&amp;gt;&amp;gt;first"]:::confNa
+    end
+
+    subgraph LoginPage["LoginPage"]
+        direction LR
+        N7["goto demoblaze.com/"]:::confNa
+        N8["click\nLog in"]:::conf4
+        N9["click\n#loginusername"]:::conf2
+        N10["fill\n#loginusername"]:::conf2
+        N11["click\n#loginpassword"]:::conf2
+        N12["fill\n#loginpassword"]:::conf2
+        N13["click\nLog in"]:::conf4
+        N14["capturar-screen\npage"]:::confNa
+    end
+
+    subgraph OverviewPage["OverviewPage"]
+        direction LR
+        N15["click\nMonitors"]:::conf4
+    end
+
+    N1 --&gt; N2
+    N7 --&gt; N8
+    N8 --&gt; N9
+    N9 --&gt; N10
+    N10 --&gt; N11
+    N11 --&gt; N12
+    N12 --&gt; N13
+    N13 --&gt; N14
+    N2 ==&gt; N5
+    N14 ==&gt; N15
+    N15 ==&gt; N1
+    N2 -.assert.-&gt; N3
+    N2 -.assert.-&gt; N4
+    N5 -.assert.-&gt; N6</div></div>
+  <div class="hint">Click + arrastrar para mover · rueda para zoom · doble click para resetear</div>
+
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    import svgPanZoom from 'https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/+esm';
+
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'dark',
+      securityLevel: 'loose',
+      flowchart: { htmlLabels: true, useMaxWidth: false, curve: 'basis' },
+    });
+
+    const stage = document.getElementById('stage');
+    const src = document.getElementById('diagrama').textContent;
+    const { svg } = await mermaid.render('diagramaSvg', src);
+    stage.innerHTML = svg;
+
+    const svgEl = stage.querySelector('svg');
+    svgEl.removeAttribute('width');
+    svgEl.removeAttribute('height');
+    svgEl.setAttribute('width', '100%');
+    svgEl.setAttribute('height', '100%');
+
+    const panZoom = svgPanZoom(svgEl, {
+      zoomEnabled: true,
+      controlIconsEnabled: false,
+      fit: true,
+      center: true,
+      minZoom: 0.1,
+      maxZoom: 20,
+      zoomScaleSensitivity: 0.4,
+      dblClickZoomEnabled: false,
+    });
+
+    document.getElementById('zoomIn').onclick = () => panZoom.zoomIn();
+    document.getElementById('zoomOut').onclick = () => panZoom.zoomOut();
+    document.getElementById('reset').onclick = () => { panZoom.resetZoom(); panZoom.center(); };
+    document.getElementById('fit').onclick = () => { panZoom.fit(); panZoom.center(); };
+    stage.addEventListener('dblclick', () => { panZoom.resetZoom(); panZoom.center(); });
+    stage.addEventListener('mousedown', () => stage.classList.add('dragging'));
+    window.addEventListener('mouseup', () => stage.classList.remove('dragging'));
+    window.addEventListener('resize', () => panZoom.resize());
+  </script>
+</body>
+</html>

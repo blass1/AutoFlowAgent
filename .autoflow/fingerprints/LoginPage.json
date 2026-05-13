@@ -1,0 +1,15 @@
+{
+  "page": "LoginPage",
+  "nodos": [
+    "LoginPage::goto::goto:demoblaze.com/",
+    "LoginPage::click::getByRole:link:Log in",
+    "LoginPage::click::locator:#loginusername",
+    "LoginPage::fill::locator:#loginusername",
+    "LoginPage::click::locator:#loginpassword",
+    "LoginPage::fill::locator:#loginpassword",
+    "LoginPage::click::getByRole:button:Log in",
+    "LoginPage::capturar-screen::login-page"
+  ],
+  "asserts": [],
+  "conecta": ["OverviewPage"]
+}

@@ -47,10 +47,18 @@ class AutoFlowRunReporter {
 
     const ctx = this._gatherContext();
 
-    // 1. Generar PDF (siempre — el wrapper no tiene this.tests con detalle).
+    // 1. Persistir contexto del PDF a disco para que un proceso hijo lo genere
+    //    (chromium.launch desde adentro del proceso de tests entra en conflicto
+    //    con los workers de Playwright en algunos setups; spawn separado es
+    //    inmune). El reporter solo escribe el `pdf-context.json`; el wrapper
+    //    de run-test.js / run-testset.js, o un standalone post-run, levanta
+    //    ese JSON y dispara la generación.
     let pdfPath = null;
+    const expectedPdfPath = ctx.runDir && ctx.reportName
+      ? require('node:path').join(ctx.runDir, `${ctx.reportName}.pdf`)
+      : null;
     try {
-      pdfPath = await generatePdfReport({
+      const pdfContext = {
         runDir: ctx.runDir,
         mode: ctx.mode,
         reportName: ctx.reportName,
@@ -63,9 +71,29 @@ class AutoFlowRunReporter {
         urlInicial: ctx.urlInicial,
         testSet: ctx.testSet,
         tests: ctx.testsData,
-      });
+        expectedPdfPath,
+      };
+      const ctxPath = require('node:path').join(ctx.runDir, 'pdf-context.json');
+      try {
+        require('node:fs').mkdirSync(ctx.runDir, { recursive: true });
+        require('node:fs').writeFileSync(ctxPath, JSON.stringify(pdfContext, null, 2), 'utf8');
+      } catch (errCtx) {
+        console.error(`⚠ AutoFlow: no pude persistir pdf-context.json: ${errCtx?.message ?? errCtx}`);
+      }
+
+      // Intento de generación inline (best-effort). Si el wrapper también la
+      // dispara después, los archivos se sobreescriben (idempotente).
+      try {
+        pdfPath = await generatePdfReport(pdfContext);
+        console.log(`📄 AutoFlow: reporte PDF generado en ${pdfPath}`);
+      } catch (errGen) {
+        console.error(`⚠ AutoFlow PDF report inline falló (el wrapper puede reintentarlo): ${errGen?.message ?? errGen}`);
+        if (errGen?.stack) console.error(errGen.stack);
+        // Pasa al wrapper la responsabilidad — leerá pdf-context.json y reintentará.
+      }
     } catch (err) {
-      console.error(`⚠ AutoFlow PDF report falló: ${err?.message ?? err}`);
+      console.error(`⚠ AutoFlow PDF report falló (envolvente): ${err?.message ?? err}`);
+      if (err?.stack) console.error(err.stack);
     }
 
     // 2. Appendear a ResultsALM.json (siempre).

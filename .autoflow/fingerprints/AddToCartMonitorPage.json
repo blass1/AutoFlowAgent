@@ -1,0 +1,12 @@
+{
+  "page": "AddToCartMonitorPage",
+  "nodos": [
+    "AddToCartMonitorPage::click::getByRole:link:Apple monitor",
+    "AddToCartMonitorPage::click::getByRole:link:Add to cart"
+  ],
+  "asserts": [
+    "AddToCartMonitorPage::assert::getByRole:link:Apple monitor",
+    "AddToCartMonitorPage::assert::getByRole:heading:Apple monitor"
+  ],
+  "conecta": ["CartPage"]
+}

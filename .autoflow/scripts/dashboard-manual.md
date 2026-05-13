@@ -246,7 +246,7 @@ Hay dos tipos de Nodo especial:
 
 ### 📸 Insertar screenshot en un paso
 
-**Cuándo**: querés sumar una evidencia visual en un punto específico del flujo, además de los screenshots automáticos que el agente inserta en botones de confirmación y pantallas principales.
+**Cuándo**: querés sumar una evidencia visual en un punto específico del flujo. Complementa a los **screenshots automáticos opt-in** que el agente puede ofrecer agregar al final del flujo de Crear Test (post-smoke), o lo usás standalone si querés screens muy puntuales en un Test ya existente.
 
 **Pasos**:
 1. **Menú → ✏️ Modificar o Extender un Test → 📸 Insertar screenshot en un paso**.
