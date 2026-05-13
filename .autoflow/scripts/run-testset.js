@@ -53,9 +53,15 @@ mkdirSync(artifactsDir, { recursive: true });
 const inicio = Date.now();
 // Reporter `line` por default (rápido). `--debug` suma html + trace=on cuando el
 // agente quiere investigar después de un fallo.
-const args = ['playwright', 'test', set.specPath, '--reporter=line'];
+//
+// IMPORTANTE: incluímos el reporter custom `./.autoflow/scripts/lib/run-reporter.js`
+// en la lista. Cuando `--reporter` se pasa por CLI, Playwright OVERRIDEA el array
+// del config — sin esto, el reporter custom no corre, no se escribe `pdf-context.json`
+// y no se appendea a `ResultsALM.json` cuando la corrida viene del wrapper.
+const REPORTER_CUSTOM = './.autoflow/scripts/lib/run-reporter.js';
+const args = ['playwright', 'test', set.specPath, `--reporter=line,${REPORTER_CUSTOM}`];
 if (debug) {
-  args[args.length - 1] = '--reporter=line,html';
+  args[args.length - 1] = `--reporter=line,html,${REPORTER_CUSTOM}`;
   args.push('--trace=on');
 }
 if (headed) args.push('--headed', '--workers=1');

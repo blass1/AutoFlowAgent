@@ -37,9 +37,15 @@ if (!existsSync(archivo)) {
 // `line` por default — rápido, sin overhead de HTML/trace en cada corrida.
 // Con --debug sumamos reporter html + trace=on para investigar (típicamente
 // el menú post-fallo del agente lo dispara con --debug para abrir el reporte).
-const args = ['playwright', 'test', archivo, '--reporter=line'];
+//
+// IMPORTANTE: incluímos el reporter custom `./.autoflow/scripts/lib/run-reporter.js`
+// en la lista. Cuando `--reporter` se pasa por CLI, Playwright OVERRIDEA el array
+// del config — sin esto, el reporter custom no corre, no se escribe `pdf-context.json`
+// y no se appendea a `ResultsALM.json` cuando la corrida viene del wrapper.
+const REPORTER_CUSTOM = './.autoflow/scripts/lib/run-reporter.js';
+const args = ['playwright', 'test', archivo, `--reporter=line,${REPORTER_CUSTOM}`];
 if (debug) {
-  args[args.length - 1] = '--reporter=line,html';
+  args[args.length - 1] = `--reporter=line,html,${REPORTER_CUSTOM}`;
   args.push('--trace=on');
 }
 if (headed) args.push('--headed', '--workers=1');
