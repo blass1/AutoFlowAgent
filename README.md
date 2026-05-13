@@ -421,6 +421,8 @@ En VS Code:
 
 La **primera vez** detecta que faltan `node_modules` y los browsers de Playwright, y te guía para instalarlos (`npm install` + `npx playwright install chromium`). Después hace un onboarding corto (nombre, legajo, equipo, tribu) y guarda `.autoflow/user.json` (no se commitea). A partir de ahí cada sesión arranca directo en el menú.
 
+> **Política de repo limpio**: un `git clone` fresh **no trae automatización generada** — solo prompts, scripts, conventions, fixtures, configs y seeds. Los Page Objects, Tests, fingerprints, testsets, nodos.json, grafos, captures, runs, screens, PDFs, exports de ALM y data files por Test Set están **todos gitignored**. Cada QA construye su automatización con el agente. Si querés borrar tu estado local para arrancar de cero, corré `node .autoflow/clearSession.js` (preserva tu `user.json` y `node_modules`). Lista completa de qué se commitea y qué no en [.autoflow/README.md](.autoflow/README.md#qué-se-commitea-y-qué-no).
+
 > Si preferís instalar a mano: `npm install && npx playwright install chromium` antes de abrir el chat.
 
 ## Estructura del repo

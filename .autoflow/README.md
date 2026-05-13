@@ -33,18 +33,34 @@ Este directorio contiene los **prompts del agente AutoFlow**, sus **convenciones
 
 ## Qué se commitea y qué no
 
-**Sí** se commitean:
-- `prompts/`, `conventions/`, `scripts/`, este README, `user.json.example`, los `.gitkeep` de las carpetas runtime.
-- `fingerprints/`, `testsets/`, `nodos.json` y `grafos/` — son los assets del proyecto que el equipo va construyendo.
+**Política**: el repo se shippea **limpio**. Un `git clone` en una máquina nueva trae solo prompts, scripts, conventions, fixtures, configs y seeds — **no trae automatización generada**. Cada QA construye su propia desde cero con el agente, sesión por sesión. El script `node .autoflow/clearSession.js` borra exactamente lo que está gitignored (excepto `node_modules/` y `user.json` que también se preservan local).
 
-**No** se commitea (ya está en `.gitignore`):
-- `user.json` — identidad personal del QA.
-- `recordings/*` — estado efímero de grabaciones (excepto el `.gitkeep`).
-- `auth/*.json` — storageState con tokens de sesión sensibles.
-- `alm-exports/*.xlsx` — exports propietarios del usuario.
+**Sí** se commitean (assets del proyecto, son el "código" del agente):
+- `prompts/`, `conventions/`, `scripts/` (incluido `dashboard-manual.md`), este README, `user.json.example`, banner ASCII de `consolegraph/`.
+- Los `.gitkeep` de las carpetas runtime (para que la estructura quede versionada aunque vacía).
+
+**No** se commitea (todo está en `.gitignore` — coincide con lo que `clearSession.js` borra):
+- `user.json` — identidad personal del QA, local de cada máquina.
+- `nodos.json` / `utils-applied.json` / `dashboard.html` — estado generado top-level.
+- `recordings/*` — sesiones de grabación (session, parsed, grupos, path, spec crudo).
+- `fingerprints/*.json` — sidecars de Page Objects.
+- `testsets/*.json` — definición de cada Test Set.
+- `grafos/*` — grafos de pages y nodos (Mermaid + HTML).
+- `captures/*` — HTML+intent por nodo capturar/verificar.
+- `auth/*.json` — storageStates con tokens de sesión sensibles.
+- `alm-exports/*` — xlsx que el QA dropea como input.
 - `alm/integrations/*.exe` — binarios propietarios provistos externamente.
-- `alm/originalTests/*.json` — cache local de fetches desde la integración.
-- `alm/exports/*.{json,xlsx}` — outputs del humanizador (regenerables desde el spec+POM).
+- `alm/originalTests/*.json` — cache local de fetches desde la integración ALM.
+- `alm/exports/*.{json,xlsx,md}` — outputs humanizados + análisis sidecar.
+- `runs/*` — history JSON de corridas + sub-carpetas diarias con `ResultsALM.json`.
+
+**Además** (en la raíz del repo, no bajo `.autoflow/`):
+- `pages/*.ts`, `tests/*.spec.ts` — Page Objects y Tests que genera el agente.
+- `data/data-*.ts` — data files autocontenidos por Test Set (los seeds `types.ts`, `parsers.ts`, `index.ts`, `urls.ts` SÍ se commitean).
+- `runs/` raíz — sub-carpetas por corrida con screens + PDF + traces de Playwright.
+- `tests/_temp/`, `playwright-report/`, `test-results/`, `blob-report/` — artifacts efímeros.
+
+**Resultado en `git clone` fresh**: el QA encuentra el repo listo para `npm install` y arrancar a grabar — sin estado de otros desarrolladores que pueda generar conflictos.
 
 ## Archivos de una sesión de grabación
 

@@ -19,12 +19,45 @@ runs/
 # Specs temporales generados por el agente (page.pause(), prueba de auth, etc.)
 tests/_temp/
 
-# AutoFlow runtime
+# AutoFlow runtime — todo lo que el agente genera. El repo se shippea limpio
+# para que un fresh clone arranque de cero (sin recordings, sin pages, sin
+# tests, sin nodos, sin grafos). Cada QA construye su propia automatización
+# sesión por sesión con el agente; los assets no se comparten via git.
+# El script `node .autoflow/clearSession.js` borra exactamente este conjunto.
+
+# Identidad del QA y estado generado top-level
 .autoflow/user.json
+.autoflow/nodos.json
+.autoflow/utils-applied.json
+.autoflow/dashboard.html
+.autoflow/grafo.md
+.autoflow/grafo-nodos.md
+
+# Recordings (sesiones de grabación: session/parsed/grupos/path JSON + spec crudo)
 .autoflow/recordings/*
 !.autoflow/recordings/.gitkeep
+
+# Auth — storageStates por (canal, usuario) — sensibles
 .autoflow/auth/*.json
 !.autoflow/auth/.gitkeep
+
+# Fingerprints (sidecars de Page Objects)
+.autoflow/fingerprints/*.json
+!.autoflow/fingerprints/.gitkeep
+
+# Test Sets (un JSON por set)
+.autoflow/testsets/*.json
+!.autoflow/testsets/.gitkeep
+
+# Grafos generados (Mermaid + HTML interactivo)
+.autoflow/grafos/*
+!.autoflow/grafos/.gitkeep
+
+# Captures (HTML + intent por nodo capturar/verificar — sub-carpeta por testId)
+.autoflow/captures/*
+!.autoflow/captures/.gitkeep
+
+# ALM — inputs del QA + cache del fetch + outputs humanizados + binarios propietarios
 .autoflow/alm-exports/*.xlsx
 .autoflow/alm-exports/*.csv
 .autoflow/alm-exports/*.json
@@ -35,10 +68,22 @@ tests/_temp/
 !.autoflow/alm/originalTests/.gitkeep
 .autoflow/alm/exports/*.json
 .autoflow/alm/exports/*.xlsx
+.autoflow/alm/exports/*.md
 !.autoflow/alm/exports/.gitkeep
-.autoflow/runs/*.json
+
+# Runs (history JSON + sub-carpetas diarias con ResultsALM)
+.autoflow/runs/*
 !.autoflow/runs/.gitkeep
-.autoflow/dashboard.html
+
+# Page Objects y Tests generados por el agente — un QA arranca con pages/ y
+# tests/ vacíos (solo .gitkeep). Los crea grabando + corriendo el flujo del agente.
+pages/*.ts
+tests/*.spec.ts
+
+# Data files generados por el agente (por Test Set, autocontenidos).
+# Los seeds (types.ts, parsers.ts, index.ts, urls.ts) sí se commitean —
+# son contratos del proyecto + catálogo de canales.
+data/data-*.ts
 
 # VSCode (mantenemos solo tasks.json versionado)
 .vscode/*

@@ -1,8 +1,0 @@
-{
-  "page": "OverviewPage",
-  "nodos": [
-    "OverviewPage::click::getByRole:link:Monitors"
-  ],
-  "asserts": [],
-  "conecta": ["AddToCartMonitorPage"]
-}
