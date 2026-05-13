@@ -4,10 +4,18 @@
 // Modos:
 //   - mode === 'test'    → un solo test corrido. Filename: {testId}.pdf
 //   - mode === 'testset' → múltiples tests (testset completo). Filename: {slug}.pdf,
-//                          una sección por test con su evidencia.
+//                          con sección y evidencia por cada test.
 //
 // Estrategia de render: HTML/CSS inline → Playwright (chromium) → page.pdf(). Las
 // imágenes van como data: URIs (base64) embebidas para que el PDF sea autocontenido.
+//
+// Diseño visual (paleta Galicia):
+//   - Background gradient en cada página: naranja arriba → violeta intermedio → indigo abajo.
+//   - Texto cream/off-white, cards semitransparentes oscuras para legibilidad.
+//   - `print-color-adjust: exact` para que el gradient y los colores se preserven.
+//   - Página 1 (portada): datos del ejecutor + ejecución + ambiente — pensada para que un QA
+//     que la adjunte a ALM tenga toda la metadata visible de un vistazo.
+//   - Páginas siguientes: evidencia (screens) con captions.
 
 const { chromium } = require('@playwright/test');
 const { readFileSync } = require('node:fs');
@@ -24,13 +32,17 @@ async function generatePdfReport(opts) {
 
   const browser = await chromium.launch({ headless: true });
   try {
-    const page = await browser.newPage({ viewport: { width: 1200, height: 1600 } });
+    // Viewport ~= A4 a 96 DPI (210mm × 297mm). Que el browser y el PDF coincidan
+    // en dimensiones evita que el contenido se rompa entre hojas por mismatch
+    // entre tamaño de viewport y formato del PDF.
+    const page = await browser.newPage({ viewport: { width: 794, height: 1123 } });
     await page.setContent(html, { waitUntil: 'load' });
     await page.pdf({
       path: outputPath,
       format: 'A4',
       printBackground: true,
-      margin: { top: '20mm', right: '15mm', bottom: '20mm', left: '15mm' },
+      preferCSSPageSize: true,
+      margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
     });
   } finally {
     await browser.close().catch(() => {});
@@ -57,86 +69,403 @@ function buildHtml(opts) {
 
   const statusClass = status === 'passed' ? 'passed' : 'failed';
   const statusText = (status || 'unknown').toUpperCase();
-  const executorLine = formatExecutor(executor);
-  const testSetLine = testSet ? `${esc(testSet.nombre)} [testSetId:${esc(testSet.id)}]` : '—';
 
-  let bodyContent;
+  // ID principal — testId si es modo test, testSetId si es testset.
+  let mainId, subtitle;
   if (mode === 'testset') {
-    bodyContent = tests.map(t => buildTestSection(t)).join('');
+    mainId = testSet ? `testSetId: ${testSet.id ?? '—'}` : '—';
+    subtitle = `Test Set · ${tests.length} test${tests.length !== 1 ? 's' : ''}`;
   } else {
     const t = tests[0];
-    bodyContent = t ? buildEvidenceSection(t.screens || []) : '<p class="empty">Sin datos.</p>';
+    mainId = t?.testId ? `testId: ${t.testId}` : '—';
+    subtitle = testSet ? `${testSet.nombre} · testSetId: ${testSet.id ?? '—'}` : 'Test individual';
+  }
+
+  // Bloques de evidencia: en modo test, un solo bloque sin sub-portada. En testset,
+  // una sección por test con su mini-header (status + duración).
+  let evidenceBlock;
+  if (mode === 'testset') {
+    evidenceBlock = tests.map(t => buildTestSection(t)).join('');
+  } else {
+    const t = tests[0];
+    evidenceBlock = t ? buildEvidencePage(t.screens || [], t.name, t.testId) : '';
   }
 
   return `<!doctype html>
 <html lang="es"><head><meta charset="utf-8">
 <style>
-  * { box-sizing: border-box; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; padding: 0; margin: 0; color: #2a2a2a; }
-  .page { padding: 30px 25px; }
-  h1 { color: #2a2168; margin: 0 0 8px; font-size: 24px; border-bottom: 3px solid #ff6f1d; padding-bottom: 8px; }
-  h2 { color: #2a2168; margin: 28px 0 10px; font-size: 18px; border-bottom: 2px solid #ff6f1d; padding-bottom: 4px; }
-  h3 { color: #4d3a8a; margin: 18px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; }
-  .meta { background: #f5f3fb; border-left: 4px solid #ff6f1d; padding: 14px 16px; margin: 12px 0 22px; border-radius: 4px; }
-  .meta dl { display: grid; grid-template-columns: 140px 1fr; gap: 5px 12px; margin: 0; font-size: 12px; }
-  .meta dt { font-weight: 600; color: #555; }
-  .meta dd { margin: 0; color: #222; word-break: break-word; }
-  .status-passed { color: #2e7d32; font-weight: 700; }
-  .status-failed { color: #c62828; font-weight: 700; }
-  .test-section { page-break-before: always; }
-  .test-section:first-of-type { page-break-before: auto; }
-  .evidencia { page-break-inside: avoid; margin: 14px 0; }
-  .evidencia img { max-width: 100%; max-height: 700px; border: 1px solid #ccc; display: block; }
-  .evidencia .caption { font-size: 9px; color: #666; margin-top: 3px; font-family: monospace; word-break: break-all; }
-  .empty { color: #999; font-style: italic; padding: 8px 0; font-size: 12px; }
-  footer { font-size: 9px; color: #999; text-align: center; margin-top: 30px; border-top: 1px solid #eee; padding-top: 8px; }
+  :root {
+    --accent: #ff6f1d;
+    --accent2: #4d3a8a;
+    --indigo: #2a2168;
+    --text: #f3f0e7;
+    --muted: rgba(243, 240, 231, 0.78);
+    --ok: #3ddc97;
+    --bad: #ff5c7a;
+    --card-bg: rgba(13, 13, 26, 0.62);
+    --card-border: rgba(243, 240, 231, 0.22);
+    --card-inner-border: rgba(243, 240, 231, 0.12);
+  }
+  /* @page A4 sin márgenes — el padding lo maneja .pdf-page para que el gradient
+     llegue al borde del papel. preferCSSPageSize=true en page.pdf() respeta esto. */
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    color: var(--text);
+    font-family: 'Segoe UI', -apple-system, Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.45;
+  }
+  /* Cada .pdf-page ocupa exactamente UNA hoja A4 (210mm x 297mm). El gradient
+     llena la hoja completa de naranja arriba a indigo abajo. Usar mm en vez de
+     px es clave: en pixels se desincronizaba con el formato A4 del page.pdf
+     y dejaba sobras blancas + content empujado a paginas siguientes. */
+  .pdf-page {
+    background: linear-gradient(180deg, var(--accent) 0%, var(--accent2) 52%, var(--indigo) 100%);
+    width: 210mm;
+    height: 297mm;
+    padding: 14mm 14mm 12mm;
+    page-break-after: always;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+  .pdf-page:last-child { page-break-after: auto; }
+
+  /* Brand header chiquito en cada página */
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 16px;
+    border-bottom: 1.5px solid rgba(243, 240, 231, 0.28);
+    margin-bottom: 28px;
+  }
+  .brand .logo {
+    font-size: 24px;
+    line-height: 1;
+  }
+  .brand .title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    opacity: 0.92;
+  }
+
+  /* ---------- Portada (página 1) ---------- */
+  .cover-title {
+    font-size: 34px;
+    font-weight: 700;
+    margin: 0 0 8px;
+    line-height: 1.12;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.32);
+  }
+  .cover-subtitle {
+    font-size: 14px;
+    opacity: 0.88;
+    margin-bottom: 28px;
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+  }
+  .status-badge {
+    display: inline-block;
+    padding: 11px 24px;
+    border-radius: 999px;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    margin-bottom: 32px;
+    background: var(--card-bg);
+    border: 2px solid var(--card-border);
+  }
+  .status-badge.passed { color: var(--ok); border-color: rgba(61, 220, 151, 0.58); }
+  .status-badge.failed { color: var(--bad); border-color: rgba(255, 92, 122, 0.58); }
+
+  .cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 20px;
+  }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 22px 24px;
+  }
+  .card.wide { grid-column: 1 / -1; }
+  .card h2 {
+    margin: 0 0 14px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 9px 14px;
+    font-size: 13px;
+  }
+  .card.wide dl { grid-template-columns: 120px 1fr; }
+  .card dt {
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .card dd {
+    margin: 0;
+    color: var(--text);
+    font-weight: 600;
+    word-break: break-word;
+  }
+
+  /* ---------- Tests del Test Set (modo testset, en página de portada) ---------- */
+  .tests-summary {
+    margin-top: 4px;
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+  }
+  .tests-summary li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: rgba(13, 13, 26, 0.42);
+    border: 1px solid var(--card-inner-border);
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .tests-summary .test-id {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 11px;
+    opacity: 0.72;
+    min-width: 70px;
+  }
+  .tests-summary .test-name { flex: 1; font-weight: 600; }
+  .tests-summary .test-pill {
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+  }
+  .tests-summary .test-pill.passed { color: var(--ok); background: rgba(61, 220, 151, 0.14); }
+  .tests-summary .test-pill.failed { color: var(--bad); background: rgba(255, 92, 122, 0.14); }
+
+  /* ---------- Páginas de evidencia ---------- */
+  .evidence-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0 0 4px;
+  }
+  .evidence-subtitle {
+    font-size: 12px;
+    opacity: 0.82;
+    margin-bottom: 22px;
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+  }
+  .test-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 6px;
+  }
+  .test-header h2 {
+    margin: 0;
+    font-size: 22px;
+    flex: 1;
+  }
+  .test-header .test-status {
+    padding: 5px 14px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    background: var(--card-bg);
+    border: 1.5px solid var(--card-border);
+  }
+  .test-header .test-status.passed { color: var(--ok); border-color: rgba(61, 220, 151, 0.55); }
+  .test-header .test-status.failed { color: var(--bad); border-color: rgba(255, 92, 122, 0.55); }
+  .test-meta {
+    font-size: 11px;
+    opacity: 0.75;
+    margin-bottom: 22px;
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+  }
+  .screen {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 18px;
+    page-break-inside: avoid;
+  }
+  .screen img {
+    max-width: 100%;
+    max-height: 600px;
+    border-radius: 6px;
+    display: block;
+    margin: 0 auto;
+    border: 1px solid var(--card-inner-border);
+  }
+  .screen .caption {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    margin-top: 10px;
+    text-align: center;
+    word-break: break-all;
+  }
+  .empty {
+    color: var(--muted);
+    font-style: italic;
+    padding: 14px 0;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  /* Footer en cada página */
+  .pdf-footer {
+    margin-top: auto;
+    padding-top: 18px;
+    border-top: 1px solid rgba(243, 240, 231, 0.22);
+    font-size: 10px;
+    opacity: 0.72;
+    text-align: center;
+    letter-spacing: 0.02em;
+  }
 </style>
 </head><body>
-<div class="page">
-  <h1>Reporte de ejecución — ${esc(reportTitle)}</h1>
-  <div class="meta"><dl>
-    ${mode === 'testset' ? `<dt>Test Set</dt><dd>${testSetLine}</dd>` : ''}
-    <dt>Status</dt><dd class="status-${statusClass}">${statusText}</dd>
-    <dt>Duración</dt><dd>${fmtDur(duration)}</dd>
-    <dt>Fecha</dt><dd>${esc(fmtDate(date))}</dd>
-    <dt>Ejecutor</dt><dd>${executorLine}</dd>
-    <dt>Canal</dt><dd>${esc(canal || '—')}</dd>
-    <dt>URL inicial</dt><dd>${esc(urlInicial || '—')}</dd>
-    ${mode === 'test' && testSet ? `<dt>Test Set</dt><dd>${testSetLine}</dd>` : ''}
-  </dl></div>
-  ${bodyContent}
-  <footer>Generado por AutoFlow · ${esc(fmtDate(new Date().toISOString()))}</footer>
+
+<!-- ============ Página 1 — Portada ============ -->
+<div class="pdf-page">
+  <div class="brand">
+    <span class="logo">🌊</span>
+    <span class="title">AutoFlow · Reporte de Ejecución</span>
+  </div>
+
+  <h1 class="cover-title">${esc(reportTitle)}</h1>
+  <div class="cover-subtitle">${esc(subtitle)} · ${esc(mainId)}</div>
+
+  <div class="status-badge ${statusClass}">${statusText}</div>
+
+  <div class="cards">
+    <div class="card">
+      <h2>👤 Ejecutado por</h2>
+      <dl>
+        <dt>Nombre</dt><dd>${esc(executor?.nombre || '—')}</dd>
+        <dt>Legajo</dt><dd>${esc(executor?.legajo || '—')}</dd>
+        <dt>Equipo</dt><dd>${esc(executor?.equipo || '—')}</dd>
+        <dt>Tribu</dt><dd>${esc(executor?.tribu || '—')}</dd>
+      </dl>
+    </div>
+
+    <div class="card">
+      <h2>⚙️ Ejecución</h2>
+      <dl>
+        <dt>Fecha</dt><dd>${esc(fmtDate(date))}</dd>
+        <dt>Duración</dt><dd>${fmtDur(duration)}</dd>
+        ${mode === 'testset'
+          ? `<dt>Tests</dt><dd>${tests.length} (${tests.filter(t => t.status === 'passed').length} OK · ${tests.filter(t => t.status !== 'passed').length} fallados)</dd>`
+          : `<dt>Test ID</dt><dd>${esc(tests[0]?.testId || '—')}</dd>`}
+        <dt>Test Set</dt><dd>${testSet ? `${esc(testSet.nombre)} <span style="opacity:.6">[${esc(testSet.id)}]</span>` : '—'}</dd>
+      </dl>
+    </div>
+
+    <div class="card wide">
+      <h2>🌐 Ambiente</h2>
+      <dl>
+        <dt>Canal</dt><dd>${esc(canal || '—')}</dd>
+        <dt>URL inicial</dt><dd>${esc(urlInicial || '—')}</dd>
+      </dl>
+    </div>
+
+    ${mode === 'testset' && tests.length > 0 ? `
+    <div class="card wide">
+      <h2>📋 Tests incluidos</h2>
+      <ul class="tests-summary">
+        ${tests.map(t => `
+          <li>
+            <span class="test-id">[${esc(t.testId || '—')}]</span>
+            <span class="test-name">${esc(t.name || '—')}</span>
+            <span class="test-pill ${t.status === 'passed' ? 'passed' : 'failed'}">${(t.status || 'unknown').toUpperCase()}</span>
+          </li>
+        `).join('')}
+      </ul>
+    </div>
+    ` : ''}
+  </div>
+
+  <div class="pdf-footer">Generado por AutoFlow · ${esc(fmtDate(new Date().toISOString()))} · Reporte para ALM</div>
 </div>
+
+<!-- ============ Páginas 2+ — Evidencia ============ -->
+${evidenceBlock}
+
 </body></html>`;
 }
 
 function buildTestSection(t) {
   const statusClass = t.status === 'passed' ? 'passed' : 'failed';
-  return `<div class="test-section">
-    <h2>Test ${esc(t.testId || '—')} — ${esc(t.name || '—')}</h2>
-    <div class="meta"><dl>
-      <dt>Status</dt><dd class="status-${statusClass}">${(t.status || 'unknown').toUpperCase()}</dd>
-      <dt>Duración</dt><dd>${fmtDur(t.duration || 0)}</dd>
-    </dl></div>
-    <h3>Evidencia</h3>
-    ${buildEvidenceSection(t.screens || [])}
+  return `<div class="pdf-page">
+    <div class="brand">
+      <span class="logo">🌊</span>
+      <span class="title">AutoFlow · Evidencia</span>
+    </div>
+    <div class="test-header">
+      <h2>${esc(t.name || 'Test')}</h2>
+      <span class="test-status ${statusClass}">${(t.status || 'unknown').toUpperCase()}</span>
+    </div>
+    <div class="test-meta">testId: ${esc(t.testId || '—')} · duración: ${fmtDur(t.duration || 0)}</div>
+    ${buildScreensList(t.screens || [])}
+    <div class="pdf-footer">Generado por AutoFlow · Test ${esc(t.testId || '—')}</div>
   </div>`;
 }
 
-function buildEvidenceSection(screens) {
+function buildEvidencePage(screens, testName, testId) {
+  return `<div class="pdf-page">
+    <div class="brand">
+      <span class="logo">🌊</span>
+      <span class="title">AutoFlow · Evidencia</span>
+    </div>
+    <h1 class="evidence-title">Evidencia</h1>
+    <div class="evidence-subtitle">${esc(testName || 'Test')} · testId: ${esc(testId || '—')}</div>
+    ${buildScreensList(screens)}
+    <div class="pdf-footer">Generado por AutoFlow · Test ${esc(testId || '—')}</div>
+  </div>`;
+}
+
+function buildScreensList(screens) {
   if (!screens.length) {
-    return '<p class="empty">No hay screenshots para este test.</p>';
+    return '<p class="empty">No hay screenshots capturados para este test.</p>';
   }
-  return '<h3>Evidencia</h3>' + screens.map(screenPath => {
+  return screens.map(screenPath => {
     let dataUri = '';
     try {
       const buf = readFileSync(screenPath);
       dataUri = `data:image/jpeg;base64,${buf.toString('base64')}`;
     } catch {
-      // Si falla la lectura, mostramos un placeholder.
+      // si falla la lectura, mostramos placeholder
     }
     const filename = screenPath.split(/[/\\]/).pop();
-    return `<div class="evidencia">
+    return `<div class="screen">
       ${dataUri ? `<img src="${dataUri}" alt="${esc(filename)}">` : '<p class="empty">Imagen no disponible.</p>'}
       <div class="caption">${esc(filename)}</div>
     </div>`;
@@ -165,15 +494,6 @@ function fmtDate(iso) {
   } catch {
     return '—';
   }
-}
-
-function formatExecutor(executor) {
-  if (!executor || !executor.nombre) return '—';
-  const partes = [esc(executor.nombre)];
-  if (executor.legajo) partes.push(`(legajo ${esc(executor.legajo)})`);
-  const trib = [executor.equipo, executor.tribu].filter(Boolean).map(esc).join(' / ');
-  if (trib) partes.push(`· ${trib}`);
-  return partes.join(' ');
 }
 
 module.exports = { generatePdfReport };
