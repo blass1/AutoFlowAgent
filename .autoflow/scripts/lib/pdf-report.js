@@ -245,6 +245,49 @@ function buildHtml(opts) {
     word-break: break-word;
   }
 
+  /* ---------- Card "Páginas": flow de pages traversadas (modo test individual) ---------- */
+  .pages-flow {
+    margin-top: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+  .pages-flow .page-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--card-inner-border);
+    background: rgba(13, 13, 26, 0.42);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .pages-flow .page-pill.passed {
+    border-color: rgba(61, 220, 151, 0.55);
+    color: var(--ok);
+  }
+  .pages-flow .page-pill.failed {
+    border-color: rgba(255, 92, 122, 0.6);
+    color: var(--bad);
+    background: rgba(120, 22, 36, 0.32);
+  }
+  .pages-flow .page-pill .icon {
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .pages-flow .arrow {
+    opacity: 0.55;
+    font-size: 14px;
+  }
+  .pages-flow .empty {
+    font-style: italic;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
   /* ---------- Tests del Test Set (modo testset, en página de portada) ---------- */
   .tests-summary {
     margin-top: 4px;
@@ -410,6 +453,8 @@ function buildHtml(opts) {
       </dl>
     </div>
 
+    ${mode === 'test' ? buildPagesCard(tests[0]?.pages || []) : ''}
+
     ${mode === 'testset' && tests.length > 0 ? `
     <div class="card wide">
       <h2>📋 Tests incluidos</h2>
@@ -463,6 +508,32 @@ function buildEvidencePage(screens, testName, testId) {
     ${buildScreensList(screens)}
     <div class="pdf-footer">Generado por AutoFlow · Test ${esc(testId || '—')}</div>
   </div>`;
+}
+
+/**
+ * Card "Páginas": secuencia de pages que recorrió el test con ✓ por cada una que
+ * pasó y ✗ en la que se rompió (si falló). Solo se renderiza en modo `test`
+ * individual — en `testset` cada test tiene su propia secuencia y la card no escala.
+ *
+ * Recibe `pages: [{ name, status: 'passed' | 'failed' }]` ya computado por
+ * `run-reporter.js → computePagesForTest()`. Si está vacío (no hay path.json o el
+ * test no tiene nodos resolubles), no rendereamos el card para no mostrar info engañosa.
+ */
+function buildPagesCard(pages) {
+  if (!Array.isArray(pages) || pages.length === 0) return '';
+
+  const pills = pages.map((p, i) => {
+    const icon = p.status === 'failed' ? '✗' : '✓';
+    const cls = p.status === 'failed' ? 'failed' : 'passed';
+    const arrow = i < pages.length - 1 ? '<span class="arrow">→</span>' : '';
+    return `<span class="page-pill ${cls}"><span class="icon">${icon}</span>${esc(p.name)}</span>${arrow}`;
+  }).join('');
+
+  return `
+    <div class="card wide">
+      <h2>📄 Páginas</h2>
+      <div class="pages-flow">${pills}</div>
+    </div>`;
 }
 
 function buildScreensList(screens) {

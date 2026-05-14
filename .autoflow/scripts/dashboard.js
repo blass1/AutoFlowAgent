@@ -1474,10 +1474,14 @@ import LoginPage from '../../pages/auth/LoginPage'</pre>
           lines.push(\`    \${b.pasos[j].mid} --> \${b.pasos[j + 1].mid}\`);
         }
         lines.push('  end');
-        // Color del subgraph según el hue de la page (semitransparente).
+        // Color del subgraph según el hue de la page. Convertimos HSL→HEX porque
+        // el parser de Mermaid rompe con paréntesis (\`hsl(...)\`) en valores de style:
+        // tira "Parse error... got 'PS'" y el grafo no se renderea.
         const info = datos.paginas[b.page];
         const hue = info ? info.hue : Math.abs([...b.page].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0)) % 360;
-        lines.push(\`  style \${sgId} fill:hsl(\${hue},35%,18%),stroke:hsl(\${hue},65%,55%),stroke-width:2px,color:#e7eaf0\`);
+        const fillHex = hslToHex(hue, 35, 18);
+        const strokeHex = hslToHex(hue, 65, 55);
+        lines.push(\`  style \${sgId} fill:\${fillHex},stroke:\${strokeHex},stroke-width:2px,color:#e7eaf0\`);
       }
 
       // Edges inter-page: del último paso de cada bloque al primero del siguiente.
@@ -1515,6 +1519,16 @@ import LoginPage from '../../pages/auth/LoginPage'</pre>
 
     function esc(s) {
       return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;');
+    }
+
+    // HSL → HEX para inyectar colores en Mermaid sin paréntesis (que rompen su parser).
+    function hslToHex(h, s, l) {
+      s /= 100; l /= 100;
+      const k = (n) => (n + h / 30) % 12;
+      const a = s * Math.min(l, 1 - l);
+      const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+      const toHex = (x) => Math.round(x * 255).toString(16).padStart(2, '0');
+      return \`#\${toHex(f(0))}\${toHex(f(8))}\${toHex(f(4))}\`;
     }
 
     function render() { renderHeaderUser(); renderSidebar(); renderMain(); }
