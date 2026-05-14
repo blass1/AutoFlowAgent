@@ -18,7 +18,7 @@
 // Es no-bloqueante: cualquier error al persistir se traga para no romper la
 // corrida del test.
 
-const { writeFileSync, mkdirSync, existsSync, readFileSync, readdirSync } = require('node:fs');
+const { writeFileSync, mkdirSync, existsSync, readFileSync, readdirSync, statSync } = require('node:fs');
 const { join, relative, basename } = require('node:path');
 const { generatePdfReport } = require('./pdf-report');
 const { writeRunResultsAlm } = require('./results-alm');
@@ -240,10 +240,20 @@ function listScreensFor(runDir, testId) {
   const dir = join(runDir, 'screens', testId);
   if (!existsSync(dir)) return [];
   try {
+    // Orden cronológico ascendente (más viejo primero). Los runs viven en su
+    // propio runDir, así que mtime == momento de captura. El sort lex sobre el
+    // filename `{label}_DD_MM_YYYY_HH_MM_SS.jpg` mezclaba por label primero, no
+    // por tiempo — el PDF salía en orden alfabético, no en orden de ejecución.
     return readdirSync(dir)
       .filter((f) => /\.(jpg|jpeg|png)$/i.test(f))
-      .sort()
-      .map((f) => join(dir, f));
+      .map((f) => {
+        const path = join(dir, f);
+        let mtime = 0;
+        try { mtime = statSync(path).mtimeMs; } catch {}
+        return { path, mtime };
+      })
+      .sort((a, b) => a.mtime - b.mtime)
+      .map((entry) => entry.path);
   } catch {
     return [];
   }

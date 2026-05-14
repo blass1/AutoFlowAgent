@@ -33,21 +33,19 @@ Aplicá las heurísticas A y B + las reglas de anti-spam de [`.autoflow/conventi
 
 ## 3. Mostrar la propuesta al QA — con preview
 
-Mostrá una lista numerada de TODOS los puntos candidatos detectados, agrupados por método del PO:
+Mostrá una lista numerada de TODOS los puntos candidatos detectados, agrupados por método del PO. Los candidatos de la **Heurística A** son siempre **ANTES** del click (nunca después — ver `screens-rules.md`). Los candidatos de la **Heurística B** van al final del método tras `waitForLoadState`:
 
 ```
 📸 Encontré N puntos candidatos para screenshots automáticos:
 
   pages/LoginPage.ts → ingresar(usuario, password)
-    [1] ANTES del click "Log in"        → label "LoginPage-pre-login"
-    [2] DESPUÉS del click "Log in"      → label "LoginPage-post-login"
+    [1] ANTES del click "Log in"            → label "LoginPage-pre-login"          (Heurística A)
 
   pages/HomePage.ts → elegirProducto(producto)
-    [3] DESPUÉS del click producto       → label "HomePage-producto-elegido"
+    [2] FIN del método (pantalla principal) → label "HomePage-cargada"             (Heurística B)
 
   pages/CheckoutPage.ts → confirmar(datos)
-    [4] ANTES del click "Purchase"      → label "CheckoutPage-pre-purchase"
-    [5] DESPUÉS del click "Purchase"    → label "CheckoutPage-post-purchase"
+    [3] ANTES del click "Purchase"          → label "CheckoutPage-pre-purchase"    (Heurística A)
 
 Total: N screens. ¿Cómo seguimos?
 ```
@@ -62,7 +60,7 @@ Total: N screens. ¿Cómo seguimos?
 
 Por cada candidato aprobado, aplicá las **4 mutaciones atómicas** documentadas en [`.autoflow/conventions/screens-rules.md`](../conventions/screens-rules.md) → sección **Reglas de mutación atómica** (caso "agregar"):
 
-1. **Page Object**: agregar import de `screen` si falta + insertar `await screen(this.page, '{label}')` en la posición resuelta por la heurística (antes/después del click, o al final del método).
+1. **Page Object**: agregar import de `screen` si falta + insertar `await screen(this.page, '{label}')` en la posición resuelta por la heurística (antes del click de confirmación, o al final del método tras `waitForLoadState`).
 2. **`nodos.json`**: agregar el nodo si el id no existe (shape en `screens-rules.md`).
 3. **Sidecar** (`.autoflow/fingerprints/{NombrePage}.json`): sumar el id al final de `nodos[]`. Sin duplicar.
 4. **Traza** (`.autoflow/recordings/{numero}-path.json`): insertar el id en `path[]` en la posición correspondiente.
@@ -73,9 +71,9 @@ Mostrale al QA un resumen común (mismo formato para los dos entry points):
 
 ```
 ✅ Aplicados K screens en M método(s):
-  • pages/LoginPage.ts → ingresar()     +2 screens
-  • pages/HomePage.ts → elegirProducto()  +1 screen
-  • pages/CheckoutPage.ts → confirmar()   +2 screens
+  • pages/LoginPage.ts → ingresar()        +1 screen   (antes del click "Log in")
+  • pages/HomePage.ts → elegirProducto()   +1 screen   (fin del método, pantalla cargada)
+  • pages/CheckoutPage.ts → confirmar()    +1 screen   (antes del click "Purchase")
 
   Total nodos `capturar-screen` agregados: K
   Archivos tocados: pages/*.ts, fingerprints/*.json, recordings/{numero}-path.json, nodos.json

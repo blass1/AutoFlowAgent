@@ -66,7 +66,7 @@ El label original se preserva intacto en el filename y el `label` del nodo (para
 
 Las usa **solo** `auto-insertar-screens.md` (sub-flow opt-in post-smoke). `generar-pom.md` **no** inserta screens durante la generación — eso es por diseño (el create se mantiene liviano).
 
-### Heurística A — Botón de confirmación
+### Heurística A — Antes de un botón de confirmación
 
 Por cada nodo `click` cuyo `selectorRaw` o `valor` matchee:
 
@@ -74,7 +74,9 @@ Por cada nodo `click` cuyo `selectorRaw` o `valor` matchee:
 /log\s*in|login|ingresar|iniciar\s*sesión|aceptar|continuar|confirmar|preparar|guardar|enviar|finalizar|pagar|comprar|submit|aplicar|agregar|sumar|avanzar|siguiente|buscar|registrar|crear|aprobar|firmar/i
 ```
 
-→ **2 candidatos**: uno antes del click, uno después.
+→ **1 candidato: ANTES del click**.
+
+> **Por qué solo "antes" y no "después"**: el screen tomado inmediatamente después de un click captura la pantalla de **transición** (loader, modal a medio cerrar, navegación en curso) y no la pantalla destino real. La pantalla destino se cubre por la **Heurística B** (cuando se llega a una page principal con `waitForLoadState` completo) o por el "antes" del siguiente click de confirmación. El valor probatorio del screenshot es el **estado del formulario completo / decisión del usuario antes de confirmar**, no la transición.
 
 ### Heurística B — Pantalla principal post-navegación
 
@@ -84,13 +86,13 @@ Si un método del PO dispara navegación (lo detectás por `waitForLoadState('do
 /home|overview|dashboard|main|inicio|principal|menú|landing/i
 ```
 
-→ **1 candidato** al final del método (después del `waitForLoadState`).
+→ **1 candidato** al final del método (después del `waitForLoadState`). Esta es la única forma legítima de capturar "una pantalla post-acción": esperando explícitamente que termine de cargar.
 
 ### Anti-spam
 
-- **No 2 screens consecutivos** sin acción del usuario en el medio. Si "antes del click X" choca con "después del click X-1" (clicks de confirmación seguidos), proponer **uno solo** — preferí "después del previo".
 - **No en métodos solo-assert** (cuerpo único `expect(...).toBeVisible()` etc.). Esos asserts ya son evidencia funcional; un screen ahí es ruido.
 - **Idempotencia**: si la línea `await screen(this.page, '{label}')` ya existe en ese punto del método, no la dupliques.
+- **Cap por método**: si un método tiene 3+ clicks de confirmación seguidos, generá screens solo en el primero y el último; los del medio son ruido.
 
 ---
 
