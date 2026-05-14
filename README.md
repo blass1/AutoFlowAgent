@@ -317,7 +317,7 @@ Sub-prompts adicionales que el agente carga sin que el QA los pida:
 - `actualizar-nodos.md` — fallback adivinatorio (multi-select de todos los nodos del Test) que invoca `reparar-tras-fallo.md` cuando no logra identificar el nodo concreto. También accesible desde Mantenimiento para uso proactivo. Ofrece "🪄 Capturar DOM y proponer" o "✍️ Pegar a mano".
 - `bifurcar-caso.md` — invocado desde "Editar Test" o desde el modal de Nodo del dashboard. Crea un Test nuevo reusando el prefix de un Test existente.
 - `append-manual.md` — invocado desde "Añadir pasos al final" cuando el QA quiere armar pasos sin re-grabar (HTML + intent).
-- `auto-health-node.md` — sanea locators débiles capturando el DOM real.
+- `auto-health-node.md` — optimiza locators débiles capturando el DOM real.
 
 ## Login reusable (storageState)
 

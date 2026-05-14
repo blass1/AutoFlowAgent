@@ -38,7 +38,7 @@ Usá `vscode/askQuestions` single-select: `"¿Qué hacés con el **Test** [testI
 - `🎯 Insertar **Nodo** de captura/verificación`
 - `🎯 Acción filtrada en lista (click+submenú o validar existencia/no-existencia de fila)`
 - `📅 Elegir fecha en date picker (parametrizada — no hardcodeada)`
-- `📸 Insertar screenshot en un paso (captura JPEG para evidencia del PDF)`
+- `📸 Screenshots (generar auto / agregar uno / quitar uno)`
 - `🍴 Bifurcar **Test** desde un **Nodo** (crear Test nuevo a partir de éste)`
 
 ### Opción `🔄 Regrabar desde cero`
@@ -90,9 +90,17 @@ Cargá [accion-en-lista.md](accion-en-lista.md) pasándole `numero` y la ruta de
 
 Cargá [elegir-fecha-en-picker.md](elegir-fecha-en-picker.md) pasándole `numero` y la ruta del spec. Ese sub-prompt construye un método del PO que elige una fecha en un date picker, **parametrizado por la fecha** (no clavada al día capturado por el grabador). Soporta input nativo `<input type="date">`, calendario custom con navegación de meses, y typeable con dropdown de sugerencias. La fecha viene del data file, calculada al vuelo (hoy, +30 días, etc.) o como literal.
 
-### Opción `📸 Insertar screenshot en un paso`
+### Opción `📸 Screenshots`
 
-Cargá [insertar-screen.md](insertar-screen.md) pasándole `numero` y la ruta del spec del **Test** elegido. Ese sub-prompt lista los pasos del **Test** numerados, deja al QA elegir uno + dar un label, e inserta `await screen(this.page, '{label}')` en el método del PO correspondiente. Registra también el nodo `capturar-screen` en `nodos.json` y en el sidecar de la page. El screen se va a tomar durante la próxima corrida del **Test** y quedar en `runs/{ts}/screens/{testId}/{label}_DD_MM_YYYY_HH_MM_SS.jpg`, donde lo levanta el reporte PDF como evidencia.
+Sub-menú con tres ramas. Reglas canónicas de screens (helper, heurísticas, slug, mutaciones atómicas) → [.autoflow/conventions/screens-rules.md](../conventions/screens-rules.md).
+
+`vscode/askQuestions` single-select: `"¿Qué hacés con los screenshots del **Test** [testId:{numero}]?"`:
+
+- `🤖 Generar automáticamente para el Test` → cargá [auto-insertar-screens.md](auto-insertar-screens.md) pasándole `{ specPath, slug, numero }`. Aplica las heurísticas A (botón de confirmación) y B (pantalla principal) sobre la traza + POMs, muestra propuesta enumerada y aplica los aprobados.
+- `➕ Agregar un screenshot a un paso` → cargá [insertar-screen.md](insertar-screen.md) pasándole `{ numero, specPath }`. Lista los pasos numerados del Test, deja al QA elegir uno + dar label, inserta `await screen(this.page, '{label}')` en el método del PO de la page del paso. Registra el nodo en `nodos.json`, sidecar y traza.
+- `➖ Quitar un screenshot del Test` → cargá [quitar-screen.md](quitar-screen.md) pasándole `{ numero, specPath }`. Lista los `capturar-screen` actuales del Test (filtrando la traza por `accion === 'capturar-screen'`), deja al QA elegir cuál sacar, borra la línea `screen()` del método del PO y la entrada del id en `path.json`. Sidecar y `nodos.json` quedan intactos — el id puede estar siendo usado por otros Tests.
+
+Los screens efectivos se materializan en la próxima corrida y quedan en `runs/{ts}/screens/{testId}/{label}_DD_MM_YYYY_HH_MM_SS.jpg`, donde los levanta el reporte PDF como evidencia.
 
 ### Opción `🍴 Bifurcar Test desde un Nodo`
 

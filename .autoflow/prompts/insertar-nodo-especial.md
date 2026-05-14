@@ -84,18 +84,23 @@ Pasos:
      await page.pause();
      ```
    - Cerrá la función y el `test(...)`.
-2. **Avisar al QA** antes de lanzar:
+2. **Generar config temporal** en `tests/_temp/{numero}-inspect-{ts}.config.ts` (sin esto el spec no corre — el `testIgnore: ['**/_temp/**']` global lo filtra aunque le pases el path explícito):
+   ```typescript
+   import baseConfig from '../../playwright.config';
+   export default { ...baseConfig, testIgnore: [] };
+   ```
+3. **Avisar al QA** antes de lanzar:
    ```
    🔧 Abro Chrome hasta el paso {indiceInsercion}. Cuando frene:
       • Inspector abierto: usá "Pick locator" → click en el elemento → te copia el locator.
       • Alternativa: F12 → inspeccionar → click derecho en el contenedor → "Copy outerHTML".
       • Cerrá el Inspector cuando termines y vuelvo yo.
    ```
-3. **Lanzar** con `runCommands` (bloquea hasta que el QA cierre el Inspector). Pasale el `testIgnore` vacío para que no aplique la exclusión global de `_temp/` cuando el path apunta explícitamente al archivo:
+4. **Lanzar** con `runCommands` (bloquea hasta que el QA cierre el Inspector) — **siempre con `--config` apuntando al temporal**:
    ```
-   npx playwright test --headed --project=chromium tests/_temp/{numero}-inspect-{ts}.spec.ts
+   npx playwright test --headed --project=chromium tests/_temp/{numero}-inspect-{ts}.spec.ts --config tests/_temp/{numero}-inspect-{ts}.config.ts
    ```
-4. **Cuando vuelve el control**, borrá el spec temporal **siempre** (incluso si el QA canceló o falló).
+5. **Cuando vuelve el control**, borrá spec + config temporales **siempre** (incluso si el QA canceló o falló).
 5. `vscode/askQuestions` single-select: `"¿Qué te trajiste?"`:
    - `🎯 Locator de Playwright (lo copié del Inspector)` → text input → guardás `selectorRaw`.
    - `📋 HTML + descripción` → cae al flujo **4.2.B** sin volver a abrir Chrome.

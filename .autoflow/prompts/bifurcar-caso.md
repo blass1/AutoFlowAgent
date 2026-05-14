@@ -114,22 +114,38 @@ Notas:
 - Si la sesión fuente tenía `authState`, agregá `test.use({ storageState: '{authState}' })` arriba del bloque `test()` (igual que en el Test original).
 - El path del storageState efímero usa `_fork-` como prefijo y el mismo timestamp `{ts}` que el spec.
 
+**Generá también el config temporal** `tests/_temp/{nuevoTestId}-fork-{ts}.config.ts`. Sin esto el spec no corre — el `testIgnore: ['**/_temp/**']` global lo filtra aunque le pases el path explícito:
+
+```typescript
+import baseConfig from '../../playwright.config';
+export default { ...baseConfig, testIgnore: [] };
+```
+
 ## 6. Correr el warm-up
 
-Ejecutá con `runCommands`:
+Ejecutá con `runCommands` — **siempre con `--config` apuntando al temporal**:
 ```
-npx playwright test tests/_temp/{nuevoTestId}-fork-{ts}.spec.ts --headed --workers=1 --reporter=line
+npx playwright test tests/_temp/{nuevoTestId}-fork-{ts}.spec.ts --config tests/_temp/{nuevoTestId}-fork-{ts}.config.ts --headed --workers=1 --reporter=line
 ```
 
-Después de que termine, leé el output con `terminalLastCommand` y buscá la línea `FORK_URL: <url>`. Esa es la URL en la que vas a abrir el grabador.
+Después de que termine, leé el output con `terminalLastCommand` y clasificá el resultado en **uno de estos cuatro casos**:
 
-**Si el warm-up falla** (locators rotos, timeout, etc.):
-- Mostrale el error al QA en 5-10 líneas.
-- Single-select:
-  - `🧩 Reparar Nodos del prefix` → cargá `.autoflow/prompts/actualizar-nodos.md` con `{ specPath: 'tests/_temp/{...}.spec.ts', numeroTC: nuevoTestId }`. Al volver, repetí el paso 6.
-  - `❌ Cancelar` → borrá el spec temporal y el storageState (si se llegó a crear) y volvé al menú.
+| Caso | Cómo lo detectás | Causa raíz típica |
+|---|---|---|
+| **A · OK** | El output tiene la línea `FORK_URL: <url>`. | Todo bien — seguí al paso 7. |
+| **B · 0 tests run** | `0 passed` / `No tests found` y no aparece ni `FORK_URL:` ni traceback de Playwright. | El config temporal falló (faltó `--config` o no se generó). Es bug de orquestación, no del Test. |
+| **C · Warm-up falló** | Aparece traceback de Playwright **antes** de `FORK_URL:`. | Un locator del prefix está roto. |
 
-**Si pasa**, seguí.
+Reacción según el caso:
+
+- **A** → seguí al paso 7.
+- **B** → mostrale al QA el comando ejecutado, regenerá el config temporal y reintentá. Si dos reintentos seguidos caen en B, salí con error claro — hay un problema más fundamental que no se resuelve con otra corrida.
+- **C** → ramá de reparación del prefix con loop guard:
+  1. Mostrale al QA el error en 5-10 líneas (línea `Error:` + 3-4 circundantes).
+  2. Si llevás **≥2 vueltas** de "Reparar prefix → re-correr → vuelve a fallar" en esta sesión de `bifurcar-caso`, no re-ofrezcas reparación: avisá que el Test fuente tiene drift profundo (`Después de 2 intentos de reparación, el prefix sigue fallando. Probablemente el Test fuente necesita regrabarse o el front cambió más allá de un par de nodos.`) y volvé al menú tras borrar temporales.
+  3. Si es la 1ra o 2da vuelta, single-select con la reparación **como opción recomendada**:
+     - `🧩 Reparar Nodos del prefix (Recomendado)` → cargá `.autoflow/prompts/actualizar-nodos.md` con `{ specPath: 'tests/_temp/{nuevoTestId}-fork-{ts}.spec.ts', numeroTC: nuevoTestId }`. Al volver, incrementá tu contador interno de vueltas y repetí el paso 6.
+     - `❌ Cancelar` → borrá el spec temporal, el config temporal y el storageState (si se llegó a crear) y volvé al menú.
 
 ## 7. Lanzar el grabador con storage cargado
 
@@ -274,6 +290,7 @@ Los ids del prefix son los mismos del fuente (los nodos colapsan por id determin
 
 Borrá:
 - `tests/_temp/{nuevoTestId}-fork-{ts}.spec.ts`
+- `tests/_temp/{nuevoTestId}-fork-{ts}.config.ts`
 - `tests/_temp/{nuevoTestId}-tail-{ts}.spec.ts`
 - `.autoflow/auth/_fork-{ts}.json`
 - `.autoflow/recordings/{nuevoTestId}.spec.ts`

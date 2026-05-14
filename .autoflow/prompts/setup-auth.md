@@ -102,12 +102,19 @@ test('verificar login', async ({ page }) => {
 });
 ```
 
-Correlo con `runCommands`:
-```
-npx playwright test --headed --project=chromium tests/_temp/test-auth-{ts}.spec.ts
+**Generá también el config temporal** `tests/_temp/test-auth-{ts}.config.ts`. Sin esto, `npx playwright test` filtra el spec por el `testIgnore: ['**/_temp/**']` global y termina con "0 tests run" (pasarle el path explícito no alcanza):
+
+```typescript
+import baseConfig from '../../playwright.config';
+export default { ...baseConfig, testIgnore: [] };
 ```
 
-Cuando el QA cierra, **borrá el spec temporal sí o sí**. Single-select de cierre:
+Correlo con `runCommands` — **siempre con `--config` apuntando al temporal**:
+```
+npx playwright test --headed --project=chromium tests/_temp/test-auth-{ts}.spec.ts --config tests/_temp/test-auth-{ts}.config.ts
+```
+
+Cuando el QA cierra, **borrá spec + config temporales sí o sí**. Single-select de cierre:
 - `✅ Funcionó`
 - `❌ No anduvo, regrabar` → vuelve a 2.c.
 

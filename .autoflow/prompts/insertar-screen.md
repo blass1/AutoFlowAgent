@@ -6,7 +6,9 @@ tools: ['vscode/askQuestions', 'edit', 'read']
 
 # Insertar screenshot en un paso
 
-Sub-flow invocado desde `editar-caso.md` cuando el QA elige `📸 Insertar screenshot en un paso`. Acompaña a los screens **automáticos** que `generar-pom.md` inserta durante la generación (ver `pom-rules.md` → "Nodo especial: `capturar-screen`") — el QA usa este flujo cuando quiere uno adicional en un punto específico.
+Sub-flow invocado desde `editar-caso.md → 📸 Screenshots → ➕ Agregar un screenshot`. Acompaña a los screens automáticos que ofrece `auto-insertar-screens.md` post-smoke — el QA usa este flujo cuando quiere uno adicional en un punto específico.
+
+Reglas canónicas del nodo `capturar-screen` (helper, shape, slug, idempotencia, mutaciones atómicas) → [`.autoflow/conventions/screens-rules.md`](../conventions/screens-rules.md). Este prompt se ocupa solo de la interacción con el QA y la edición.
 
 ## Inputs
 
@@ -54,42 +56,14 @@ Si el paso N es el último de un método (ej: el click de "Ingresar" cierra el m
 
 ## 5. Aplicar los cambios
 
-### 5.1. Page Object — agregar `screen()`
+Las 4 mutaciones atómicas viven en [`.autoflow/conventions/screens-rules.md`](../conventions/screens-rules.md) → sección **Reglas de mutación atómica** (caso "agregar"). Resumen para este flujo:
 
-1. Leé `pages/{NombrePage}.ts` (o `.ts` sin sufijo `Page` si es componente).
-2. Si todavía no importa `screen` desde `../fixtures`, agregá al bloque de imports:
-   ```typescript
-   import { screen } from '../fixtures';
-   ```
-   Si ya importa otras cosas del fixture (`bufferEntreAcciones`, etc.), reusá el import: `import { bufferEntreAcciones, screen } from '../fixtures';`.
-3. Insertá la línea `await screen(this.page, '{label}');` en el método y posición que resolviste en el paso 4. **No** agregues comentarios arriba — el nombre `screen` ya documenta el intento.
+1. **PO** (`pages/{NombrePage}.ts`): agregar import de `screen` desde `../fixtures` si falta + insertar `await screen(this.page, '{label}');` en la **posición resuelta en el paso 4** (después del paso N del spec elegido por el QA, dentro del método del PO correspondiente).
+2. **`nodos.json`**: agregar el nodo si el id `{NombrePage}::capturar-screen::{slug}` no existe. Si ya existe (mismo label en la misma page), reusalo.
+3. **Sidecar** (`.autoflow/fingerprints/{NombrePage}.json`): sumar el id al final de `nodos[]` si no estaba.
+4. **Traza** (`.autoflow/recordings/{numero}-path.json`): insertá el id en `path[]` **después** del id del paso N elegido.
 
-### 5.2. `nodos.json` — agregar nodo `capturar-screen`
-
-Calculá el id: `{NombrePage}::capturar-screen::{slug}` donde `{slug}` es el label en kebab-case (lowercase, espacios → `-`, sin caracteres especiales).
-
-Si el id no existe en `nodos.json`, agregalo:
-```json
-{
-  "id": "HomePage::capturar-screen::tras-login",
-  "page": "HomePage",
-  "accion": "capturar-screen",
-  "label": "tras-login",
-  "selector": "page",
-  "selectorRaw": "screen(page, 'tras-login')",
-  "confiabilidad": null
-}
-```
-
-Si ya existe (mismo label en la misma page), **no lo agregues de nuevo** — la llamada al `screen()` en el código no requiere id único en `nodos.json` (igual que cuando dos screens consecutivos del flujo auto comparten label).
-
-### 5.3. Sidecar de la page
-
-Editá `.autoflow/fingerprints/{NombrePage}.json`. Agregá el id al final de `nodos[]` (no a `asserts[]`). Si ya estaba, no dupliques.
-
-### 5.4. Traza del Test
-
-Editá `.autoflow/recordings/{numero}-path.json`. Insertá el id en `path[]` **después** del id del paso N elegido. La traza queda con un paso más, coherente con el código nuevo.
+> No agregues comentarios arriba de la línea `screen()` — el nombre del helper ya documenta el intento.
 
 ## 6. Cierre
 

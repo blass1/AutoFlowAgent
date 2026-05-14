@@ -23,32 +23,9 @@ Sub-flow opt-in invocado desde `generar-pom.md` paso 11 cuando el smoke test pas
 
 ## 2. Identificar puntos candidatos
 
-Aplicá las siguientes heurísticas sobre la traza y los POMs. **Si la heurística no encuentra ningún candidato, decilo honesto** ("No detecté botones de confirmación ni pantallas principales claras — si querés agregar screens manuales usá la opción 📸 desde editar-caso") y volvé al menú sin tocar archivos.
+Aplicá las heurísticas A y B + las reglas de anti-spam de [`.autoflow/conventions/screens-rules.md`](../conventions/screens-rules.md) (sección **Heurísticas de auto-inserción** — regex y reglas completas viven ahí, no duplicar acá).
 
-### Heurística A — Botón de confirmación
-
-Por cada nodo `click` en la traza cuyo `selectorRaw` o `valor` matchee la regex **ampliada**:
-
-```
-/log\s*in|login|ingresar|iniciar\s*sesión|aceptar|continuar|confirmar|preparar|guardar|enviar|finalizar|pagar|comprar|submit|aplicar|agregar|sumar|avanzar|siguiente|buscar|registrar|crear|aprobar|firmar/i
-```
-
-Es un candidato a **2 screens** — uno antes del click, uno después.
-
-### Heurística B — Pantalla principal post-navegación
-
-Si un método del PO dispara navegación (lo detectás porque tiene `waitForLoadState('domcontentloaded')` al final, o porque el sidecar tiene `conecta: [{ destino: 'X' }]`) Y la page destino matchea:
-
-```
-/home|overview|dashboard|main|inicio|principal|menú|landing/i
-```
-
-Es un candidato a **1 screen** al final del método (después del `waitForLoadState`).
-
-### Anti-spam
-
-- **Nunca propongas 2 screens consecutivos** sin acción del usuario en el medio. Si la heurística A "antes del click X" choca con la heurística A "después del click X-1" (clicks de confirmación seguidos), proponé uno solo — preferí el "después del previo".
-- **No propongas screens en métodos que solo verifican** (cuerpo único `expect(...).toBeVisible()` etc.). Esos asserts ya son evidencia funcional; un screen ahí es ruido.
+**Si las heurísticas no encuentran ningún candidato, decilo honesto** ("No detecté botones de confirmación ni pantallas principales claras — si querés agregar screens manuales usá la opción 📸 desde editar-caso") y volvé al menú sin tocar archivos.
 
 ## 3. Mostrar la propuesta al QA — con preview
 
@@ -79,40 +56,12 @@ Total: N screens. ¿Cómo seguimos?
 
 ## 4. Aplicar los cambios
 
-Por cada candidato aprobado, ejecutá la misma lógica que `insertar-screen.md` (paso 5):
+Por cada candidato aprobado, aplicá las **4 mutaciones atómicas** documentadas en [`.autoflow/conventions/screens-rules.md`](../conventions/screens-rules.md) → sección **Reglas de mutación atómica** (caso "agregar"):
 
-### 4.1. Page Object
-
-1. Si el PO no importa `screen` aún, agregá al bloque de imports:
-   ```typescript
-   import { screen } from '../fixtures';
-   ```
-   Si ya importa `bufferEntreAcciones` u otra cosa de `../fixtures`, reusá el import: `import { bufferEntreAcciones, screen } from '../fixtures';`.
-2. Insertá `await screen(this.page, '{label}');` en el método, en la posición correspondiente (antes/después del click identificado, o al final del método según la heurística).
-
-### 4.2. `nodos.json`
-
-Calculá `id = {NombrePage}::capturar-screen::{slug-del-label}` (slug = kebab-case del label). Si no existe, agregalo:
-
-```json
-{
-  "id": "LoginPage::capturar-screen::login-page-pre-login",
-  "page": "LoginPage",
-  "accion": "capturar-screen",
-  "label": "LoginPage-pre-login",
-  "selector": "page",
-  "selectorRaw": "screen(page, 'LoginPage-pre-login')",
-  "confiabilidad": null
-}
-```
-
-### 4.3. Sidecar de la page
-
-Editá `.autoflow/fingerprints/{NombrePage}.json`: sumá el id al final de `nodos[]` (no a `asserts[]`). Sin duplicar.
-
-### 4.4. Traza del Test
-
-Editá `.autoflow/recordings/{numero}-path.json`: insertá el id en `path[]` en la posición correspondiente (justo después del id del paso al que sigue el screen, o al final del bloque del método según la heurística).
+1. **Page Object**: agregar import de `screen` si falta + insertar `await screen(this.page, '{label}')` en la posición resuelta por la heurística (antes/después del click, o al final del método).
+2. **`nodos.json`**: agregar el nodo si el id no existe (shape en `screens-rules.md`).
+3. **Sidecar** (`.autoflow/fingerprints/{NombrePage}.json`): sumar el id al final de `nodos[]`. Sin duplicar.
+4. **Traza** (`.autoflow/recordings/{numero}-path.json`): insertar el id en `path[]` en la posición correspondiente.
 
 ## 5. Cierre
 

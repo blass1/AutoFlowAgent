@@ -183,44 +183,11 @@ Edición de archivos al insertar (sin regenerar):
 
 #### Nodo especial: `capturar-screen`
 
-Captura un screenshot JPEG (quality 60, viewport only) y lo guarda en `{AUTOFLOW_RUN_DIR}/screens/{testId}/{label}_DD_MM_YYYY_HH_MM_SS.jpg`. Lo materializa como una llamada a la helper exportada por [fixtures/index.ts](../../fixtures/index.ts):
+Materializa un screenshot JPEG de evidencia llamando al helper `screen(page, label)` exportado por [fixtures/index.ts](../../fixtures/index.ts). Va a `sidecar.nodos[]` (no `asserts[]`) con id determinístico `{page}::capturar-screen::{slug-del-label}` y `confiabilidad: null`.
 
-```ts
-import { screen } from '../fixtures';
-// ...
-await screen(page, 'HomePage');
-```
+**Reglas completas (helper, heurísticas de auto-inserción, anti-spam, entry points, mutaciones atómicas, idempotencia, slug del label, shape del nodo)** → [screens-rules.md](screens-rules.md). Ese archivo es el source of truth; este bullet solo deja constancia de que existe la acción `capturar-screen` en el vocabulario de nodos para no romper la simetría del listado de `accion` arriba.
 
-El helper espera `domcontentloaded` y `aria-busy=false` antes de disparar la captura — evita screens de pantallas a medio cargar. Si `AUTOFLOW_RUN_DIR` no está seteado (corrida fuera de wrapper / config), retorna `null` silenciosa sin romper el test.
-
-**Cuándo el agente lo inserta** (auto, en `generar-pom.md`):
-- **Antes y después** de un `click` cuando el `name` del botón matchea `/aceptar|continuar|confirmar|preparar|guardar|enviar|finalizar|pagar|comprar|submit/i`.
-- **Al final** de un método cuando la page activa post-acción matchea `/home|overview|dashboard|main|inicio/i` (pantallas principales).
-- Anti-spam: no más de 1 screen consecutivo — si ya emitió uno, salta el siguiente que caería al lado.
-
-**Cuándo el QA lo inserta** (manual, vía `editar-caso.md` → "Insertar screenshot en un paso"): elige Test → step → label, y el sub-flujo agrega la llamada en el lugar correcto.
-
-Shape del nodo (va a `nodos[]` del sidecar, no a `asserts[]`):
-
-```json
-{
-  "id": "HomePage::capturar-screen::welcome-loaded",
-  "page": "HomePage",
-  "accion": "capturar-screen",
-  "label": "HomePage",
-  "selector": "page",
-  "selectorRaw": "screen(page, 'HomePage')",
-  "confiabilidad": null
-}
-```
-
-Campos:
-- **id**: `{page}::capturar-screen::{slug-del-label}` — determinístico. Permite reusar el mismo screen-spot entre Tests que pasan por la misma page.
-- **label**: el string que va al filename y al PDF como caption (preserva mayúsculas/espacios del input del QA).
-- **selector / selectorRaw**: convención de "no-locator" — el target es `page` y el raw es la llamada literal al helper. Sirve para regenerar el código.
-- **confiabilidad**: siempre `null` (no hay locator a evaluar).
-
-El parser de codegen (`parse-codegen-output.js`) **no** emite estos nodos — los agrega solo el agente (en `generar-pom.md` o `insertar-screen.md`). El dashboard los muestra en la traza con ícono 📸.
+El parser de codegen (`parse-codegen-output.js`) **no** emite estos nodos — los crea el agente vía los prompts `auto-insertar-screens.md`, `insertar-screen.md` y (al quitar) `quitar-screen.md`. El dashboard los muestra en la traza con ícono 📸.
 
 ### Diccionario global — `.autoflow/nodos.json`
 

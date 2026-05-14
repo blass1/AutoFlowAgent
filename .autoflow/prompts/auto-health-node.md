@@ -21,7 +21,7 @@ Si no recibís `nodoId`, vas al paso 0 (listado de nodos débiles).
    - `deprecated !== true`
 2. Para cada candidato, calculá las **referencias**: en qué Tests aparece (cruzá con `.autoflow/recordings/*-path.json`).
 3. Ordená por confiabilidad ascendente, después por cantidad de Tests descendente (los más frágiles y más usados primero — máximo retorno por reparación).
-4. Abrí `vscode/askQuestions` single-select: `"¿Qué **Nodo** querés sanear?"`. Cada opción mostrando:
+4. Abrí `vscode/askQuestions` single-select: `"¿Qué **Nodo** querés optimizar?"`. Cada opción mostrando:
    - Confiabilidad entre corchetes
    - `{accion} "{etiqueta}"` para identificar la acción
    - Page
@@ -48,7 +48,7 @@ Si no recibís `nodoId`, vas al paso 0 (listado de nodos débiles).
 5. Si hay **varios Tests**: `vscode/askQuestions` single-select preguntando cuál usar para llegar al estado. Cualquiera sirve técnicamente — sugerí el que tenga el path más corto al nodo (menos riesgo de fallar el warm-up por nodos del prefix rotos).
 6. En el path elegido, identificá el **índice** del nodo objetivo. Eso te da `S` = la posición del paso en el Test.
 
-## 2. Generar el spec de captura
+## 2. Generar el spec de captura + config temporal
 
 En `tests/_temp/{nodoId-slug}-capture-{ts}.spec.ts` (carpeta excluida del runner via `testIgnore`):
 
@@ -93,24 +93,40 @@ Notas:
 - Si la sesión del Test fuente tenía `authState`, agregá `test.use({ storageState: '...' })` arriba.
 - El path del HTML usa el mismo timestamp `{ts}` que el spec para limpiarlos juntos.
 
+**Generá también el config temporal** en `tests/_temp/{nodoId-slug}-capture-{ts}.config.ts`. Sin esto, `npx playwright test` filtra el spec por el `testIgnore: ['**/_temp/**']` global y termina con "0 tests run" (no podés saltearlo pasando el path explícito):
+
+```typescript
+import baseConfig from '../../playwright.config';
+export default { ...baseConfig, testIgnore: [] };
+```
+
 ## 3. Correr el spec de captura
 
-Ejecutá con `runCommands`:
+Ejecutá con `runCommands` — **siempre con `--config` apuntando al temporal**, no al global:
 ```
-npx playwright test tests/_temp/{nodoId-slug}-capture-{ts}.spec.ts --workers=1 --reporter=line
+npx playwright test tests/_temp/{nodoId-slug}-capture-{ts}.spec.ts --config tests/_temp/{nodoId-slug}-capture-{ts}.config.ts --workers=1 --reporter=line
 ```
 
-Leé el output con `terminalLastCommand`. Buscá la línea `AUTOFLOW_CAPTURE: { ... }`.
+Leé el output con `terminalLastCommand` y clasificá el resultado en **uno de estos cuatro casos** antes de decidir qué hacer:
 
-**Si el warm-up falla antes de capturar** (locator de un paso anterior roto, timeout, etc.):
-- Avisale al QA en 5–10 líneas con el error concreto.
-- Single-select:
-  - `🧩 Reparar Nodos del prefix primero` → cargá `.autoflow/prompts/actualizar-nodos.md` con `{ specPath, numeroTC: <numero del Test usado> }`. Al volver, repetí el paso 3.
-  - `❌ Cancelar` → borrá el spec temporal y volvé al menú.
+| Caso | Cómo lo detectás | Causa raíz típica |
+|---|---|---|
+| **A · Captura OK** | El output tiene la línea `AUTOFLOW_CAPTURE: { ... ok: true ... }`. | Todo bien — seguí al paso 4. |
+| **B · Captura con fallback** | `AUTOFLOW_CAPTURE: { ... ok: true, modo: 'fallback-body' ... }`. | El locator del nodo objetivo está roto, el spec capturó `body.outerHTML`. Seguible, pero la propuesta es menos precisa. |
+| **C · 0 tests run** | El output dice `0 passed`, `Error: No tests found`, o no aparece **ninguna** línea `AUTOFLOW_CAPTURE:` y tampoco aparece traceback de Playwright. | El config temporal falló (faltó `--config` o el `.config.ts` no existe). Es bug de orquestación, no del Test. |
+| **D · Warm-up falló** | Aparece traceback de Playwright (`Error:`, `Timeout`, `locator.click:`, etc.) **antes** de la línea `AUTOFLOW_CAPTURE:`. | Un locator del **prefix** (pasos 1..S-1) está roto. El target ni se llegó a evaluar. |
 
-**Si captura OK** (`ok: true`):
-- Si `modo === "fallback-body"`, avisale al QA: `⚠️ El locator actual no encuentra ningún elemento. Capturé el body completo, pero la propuesta puede ser menos precisa.`
-- Seguí al paso 4.
+Reacción según el caso:
+
+- **A** → seguí al paso 4.
+- **B** → avisale al QA `⚠️ El locator actual no encuentra ningún elemento. Capturé el body completo, pero la propuesta puede ser menos precisa.` y seguí al paso 4.
+- **C** → este caso solo se da si vos te olvidaste de generar el `.config.ts` o de pasarle `--config` (ver paso 2). Mostrale al QA exactamente el comando que corriste, marcá que el config temporal no está enganchado, regenerá el config + reintentá el paso 3. Sin loop infinito: si dos reintentos seguidos caen en C, salí con error claro y volvé al menú — algo más fundamental anda mal y no se resuelve con otra corrida.
+- **D** → ramá de reparación del prefix:
+  1. Mostrale al QA el error concreto en 5–10 líneas extraídas del traceback (la línea `Error:` + las 3-4 líneas circundantes con el locator y la página).
+  2. Si llevás **≥2 vueltas** de "Reparar prefix → re-correr → vuelve a fallar el warm-up" en esta misma sesión de `auto-health-node`, no re-ofrezcas la reparación: salí con mensaje claro (`Después de 2 intentos de reparación de prefix el warm-up sigue cayendo. Probablemente el Test fuente tiene drift más profundo — andá a "Editar Test → Regrabar desde cero" o auditá los datos del data file.`) y volvé al menú tras borrar temporales.
+  3. Si es la 1ra o 2da vuelta, abrí un single-select con `🧩 Reparar Nodos del prefix primero` **como opción recomendada** (primera de la lista, sufijo `(Recomendado)`):
+     - `🧩 Reparar Nodos del prefix primero (Recomendado)` → cargá `.autoflow/prompts/actualizar-nodos.md` con `{ specPath, numeroTC: <numero del Test usado> }`. Al volver, incrementá tu contador interno de "vueltas de prefix" y repetí el paso 3.
+     - `❌ Cancelar` → borrá spec + config + cualquier capture parcial y volvé al menú.
 
 ## 4. Razonar sobre el HTML y proponer el locator nuevo
 
@@ -168,6 +184,7 @@ Confirmale al QA: `✓ Listo. {Page}::{accion} mejorado: [{confActual}/5] → [{
 
 Borrá:
 - `tests/_temp/{nodoId-slug}-capture-{ts}.spec.ts`
+- `tests/_temp/{nodoId-slug}-capture-{ts}.config.ts`
 - `.autoflow/captures/_locator-{ts}.html`
 
 (El HTML es **efímero** — no vale la pena historial. Si el front cambia de nuevo, el QA vuelve a correr Auto-Health Node.)
@@ -180,7 +197,7 @@ node .autoflow/scripts/grafo-nodos.js
 ## 7. Cierre
 
 Single-select: `"¿Qué hacemos?"`:
-- `🪄 Sanear otro **Nodo** débil` → volvé al paso 0 (recargá la lista, el que acabás de mejorar ya no aparece).
+- `🪄 Optimizar otro **Nodo** débil` → volvé al paso 0 (recargá la lista, el que acabás de mejorar ya no aparece).
 - `▶️ Correr el Test que usa este nodo` → dispará la VSCode task con el filtro al `testId`.
 - `🏠 Volver al menú`
 
