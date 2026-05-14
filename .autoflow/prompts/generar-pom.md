@@ -552,7 +552,6 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
    **Sin esta traza**:
    - El dashboard muestra el Test pero **sin pasos** y **sin grafo**.
    - Exportar a ALM falla (la fuente de verdad del export es `path.json`).
-   - Cobertura ignora el caso.
    - Auto-Health Node no puede operar sobre ese Test.
 
    La verificación de que el archivo se generó correctamente está en el paso 9 (gate obligatorio antes del resumen).
@@ -561,7 +560,7 @@ Cuando ya no hay pasos en "Nuevo", **antes** de generar el spec, hay que asociar
 
 > ### ⛔ NO PODÉS AVANZAR AL RESUMEN SIN ESTE PASO
 >
-> El paso 8.c te hizo correr `generar-traza.js`. Acá confirmás que el archivo existe y es válido. **Sin este chequeo el bug vuelve**: el dashboard queda mostrando Tests sin pasos, exportar a ALM falla y cobertura ignora el caso.
+> El paso 8.c te hizo correr `generar-traza.js`. Acá confirmás que el archivo existe y es válido. **Sin este chequeo el bug vuelve**: el dashboard queda mostrando Tests sin pasos y exportar a ALM falla.
 
 **Leé `.autoflow/recordings/{numero}-path.json` con la herramienta `read`** y verificá:
 - El archivo existe.

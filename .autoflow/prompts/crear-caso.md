@@ -104,7 +104,7 @@ Leé la salida con `terminalLastCommand`. La integración imprime un JSON con es
    - `✅ Usar "{test_name}"` → seguí con ese nombre.
    - `✏️ Cambiar nombre` → text input para que pegue uno nuevo. Reemplazá `nombre` con lo que tipee.
 
-> **Por ahora el agente NO usa los steps para construir el caso**. Son puramente informativos para que el QA tenga a la vista qué tiene que grabar (la grabación arranca limpia en el paso 5 como siempre). En versiones futuras de la integración se podrían usar para validar cobertura post-grabación.
+> **Por ahora el agente NO usa los steps para construir el caso**. Son puramente informativos para que el QA tenga a la vista qué tiene que grabar (la grabación arranca limpia en el paso 5 como siempre). En versiones futuras de la integración se podrían usar para validar consistencia post-grabación.
 
 Saltá directamente al **paso 1.canal** (solo preguntar canal). El `test_id` se persiste en `almContext` en el paso 3.
 

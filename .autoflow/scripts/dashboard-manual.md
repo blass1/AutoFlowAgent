@@ -39,7 +39,7 @@ Top-level plano con 9 opciones. Solo `📄 ALM-HP` y `🛠️ Mantenimiento` abr
 | `🎯 Ejecutar un Test-Set (Grupal)` | no | regresión completa headed o headless |
 | `📄 Application Lifecycle Management (ALM-HP)` | sí | importar+analizar test de ALM · humanizar+exportar test a ALM · importar XLSX y crear test |
 | `🖥️ Abrir Dashboard del proyecto actual` | acción directa | abre `.autoflow/dashboard.html` en el browser |
-| `🛠️ Mantenimiento` | sí | validar trazas · cobertura · login reusable · utilidades |
+| `🛠️ Configuración y Mantenimiento` | sí | configurar ejecuciones en ALM · validar Tests sin smoke OK · validar trazas · login reusable |
 
 Tras completar una acción, siempre volvés al **top-level** (no al sub-menú desde el que viniste). Punto de pivote estable.
 
@@ -438,19 +438,6 @@ El sub-menú tiene **3 opciones**, cada una resuelve un problema distinto.
 
 **Idempotente**: corrérlo varias veces no rompe nada.
 
-### 📊 Cobertura de Nodos
-
-**Cuándo**: querés saber qué del producto está testeado de verdad.
-
-**Pasos**:
-1. **Menú → 🛠️ Mantenimiento → 📊 Cobertura de Nodos**.
-2. El agente corre `cobertura.js` que agrega todas las trazas y emite un HTML interactivo en `.autoflow/grafos/cobertura.html`.
-3. El HTML muestra:
-   - Qué nodos están cubiertos y por qué Tests.
-   - Qué nodos no pisa nadie (código muerto).
-   - % de cobertura por Page Object.
-   - Grafo de pages coloreado de **rojo (0%)** a **verde (100%)**.
-
 ### 🔐 Login reusable (experimental)
 
 **Cuándo**: el banco tiene login con OTP y volver a hacerlo cada grabación es un dolor.
@@ -464,19 +451,6 @@ El sub-menú tiene **3 opciones**, cada una resuelve un problema distinto.
 6. La próxima vez que crees un caso en ese canal, el agente detecta el auth y te pregunta si arrancás logueado.
 
 **Reduce un caso de "12 pasos (login + OTP + flujo)" a "2 pasos (solo flujo)"** cuando ya tenés el auth.
-
-### 🔧 Utilidades
-
-**Cuándo**: tenés librerías auxiliares (reporting custom, hooks de notificación, helpers) que querés enchufar al proyecto.
-
-**Pasos**:
-1. Pones tu archivo en `utils/` con un header convencional (ver `utils/README.md` para el shape de los tags `@autoflow-util`, `@descripcion`, `@aplicarEn`, `@como-aplicar`, etc.).
-2. **Menú → 🛠️ Mantenimiento → 🔧 Utilidades**.
-3. El agente lista las utilidades disponibles con su estado (aplicada / no aplicada / sin instrucciones).
-4. Tildás las que querés aplicar/desaplicar.
-5. Por cada una: el agente te muestra las instrucciones literales del header + un preview de los cambios concretos. Confirmás y aplica idempotentemente.
-
-**Reglas**: el agente nunca toca archivos sin confirmación, no duplica imports/hooks (idempotente), y frena si las instrucciones del header son ambiguas.
 
 ---
 

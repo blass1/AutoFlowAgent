@@ -76,6 +76,10 @@ tests/_temp/
 .autoflow/alm/runs/*
 !.autoflow/alm/runs/.gitkeep
 
+# Preferencias de tracking (qué Tests/Sets se reflejan en ALM al ejecutarlos).
+# Es per-developer: cada QA decide qué pushear durante su trabajo del día.
+.autoflow/alm/tracking.json
+
 # Runs (history JSON + sub-carpetas diarias con ResultsALM)
 .autoflow/runs/*
 !.autoflow/runs/.gitkeep

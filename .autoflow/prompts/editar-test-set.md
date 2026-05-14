@@ -6,6 +6,10 @@ tools: ['vscode/askQuestions', 'edit', 'read', 'runCommands', 'runTasks']
 
 # Editar Test Set
 
+## Inputs (opcionales)
+
+- `accionInicial` *(opcional)* — uno de `'agregar' | 'quitar' | 'renombrar' | 'descripcion' | 'eliminar'`. Si viene seteado, el paso 2 se **saltea** y el flujo va directo a la rama correspondiente con el **Test Set** ya elegido en el paso 1. Lo usa `menu-principal.md → 📦 Crear, modificar o eliminar Test-Sets → 🗑️ Eliminar` para llevar al QA directo a la rama de eliminación sin pasar por el sub-menú interno de "¿qué hacés con el set?".
+
 ## 1. Elegir Test Set
 
 Listá `.autoflow/testsets/*.json`. Si no hay ninguno, decile: `Todavía no hay **Test Sets**. Creá uno con la opción "Crear Test Set" primero.` y volvé al menú.
@@ -17,7 +21,9 @@ Usá `#tool:vscode/askQuestions` single-select: `"¿Qué **Test Set** querés ed
 
 ## 2. Elegir acción
 
-Usá `vscode/askQuestions` single-select: `"¿Qué querés hacer con \"{nombre}\" [testSetId:{id}]?"`:
+Si recibiste `accionInicial` como input, saltá este paso: mapeá el valor a la rama directa (`'agregar' → ➕ Agregar Tests`, `'quitar' → ➖ Quitar Tests`, `'renombrar' → ✏️ Renombrar`, `'descripcion' → 📝 Cambiar descripción`, `'eliminar' → 🗑️ Eliminar el Test Set`) y andá a esa rama.
+
+Si **no** vino seteado, usá `vscode/askQuestions` single-select: `"¿Qué querés hacer con \"{nombre}\" [testSetId:{id}]?"`:
 - `➕ Agregar **Tests**`
 - `➖ Quitar **Tests**`
 - `✏️ Renombrar`

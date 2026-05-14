@@ -86,6 +86,19 @@ try {
   console.error(`⚠ No se pudo disparar la generación del PDF: ${errPdf?.message ?? errPdf}`);
 }
 
+// Push a ALM (opt-in, post-PDF). El script chequea tracking.json y skipea silencioso
+// si master OFF o ningún test del run tiene tracking activo. Si pasa los filtros,
+// copia ALM_Updater_v2.2.0.exe al folder del run y lo ejecuta.
+// No-bloqueante: cualquier error se loguea y se traga, no rompe la corrida.
+try {
+  spawnSync('node', ['.autoflow/scripts/lib/alm-push.js', artifactsDir], {
+    stdio: 'inherit',
+    shell: false,
+  });
+} catch (errPush) {
+  console.error(`⚠ Error al disparar alm-push: ${errPush?.message ?? errPush}`);
+}
+
 const resultado = {
   status: exitCode === 0 ? 'passed' : 'failed',
   duration,

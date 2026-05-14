@@ -17,7 +17,7 @@ Mostrale un mensaje breve:
 ```
 🧬 Voy a auditar las trazas de todos los Tests grabados.
    Las trazas (`{numero}-path.json`) son la fuente de verdad para el dashboard,
-   exportar a ALM, cobertura y Auto-Health Node. Si alguna falta, intento
+   exportar a ALM y Auto-Health Node. Si alguna falta, intento
    regenerarla con los inputs que haya.
 ```
 

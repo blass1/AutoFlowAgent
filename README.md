@@ -74,10 +74,10 @@ flowchart LR
     ALM --> ALMExp[📤 Humanizar + Exportar<br/>Test a ALM]
     ALM --> ALMImp[📄 Importar .XSLX<br/>y crear Test]
 
+    Mant --> ALMCfg[🔗 Configuración de<br/>ejecuciones en ALM]
+    Mant --> ValSmoke[🚀 Validar Tests<br/>sin smoke OK]
     Mant --> ValT[🧬 Validar / Regenerar trazas]
-    Mant --> Cob[📊 Cobertura]
     Mant --> Auth[🔐 Login reusable<br/><i>experimental</i>]
-    Mant --> Utils[🔧 Utilidades]
 
     Crear --> CrearOrigen{Origen de datos}
     CrearOrigen --> CrearTID[🆔 Test ID ALM<br/>fetch_test_*.exe]
@@ -121,9 +121,9 @@ flowchart LR
     ALMAnalyze --> ALMAnalyzeFlow[fetch_test_*.exe --name testid<br/>guarda originalTests/<br/>checks: solapados · <8 pasos]
     ALMExp --> ALMExpFlow[carga conventions/alm-steps.md<br/>lee POM+spec, humaniza<br/>emite JSON + xlsx en alm/exports/]
 
-    Utils --> UtilsFlow[Lee utils/<br/>· parsea @autoflow-util<br/>· preview de cambios<br/>· aplica con confirmación]
+    ALMCfg --> ALMCfgFlow[Lee/escribe alm/tracking.json<br/>· master switch<br/>· override por Test / Test Set<br/>· consumido por lib/alm-push.js post-run]
+    ValSmoke --> ValSmokeFlow[Lista Tests con<br/>smokeOk !== true<br/>· corre seleccionados en headed<br/>· promueve smokeOk al pasar]
 
-    Cob --> CobReporte[Reporte HTML:<br/>nodos cubiertos / huérfanos<br/>% por page]
     Dash --> DashHtml[Vista navegable:<br/>Test Sets · Tests · pasos<br/>· ejecuciones · grafo<br/>· perfil de Usuario<br/>+ Manual de uso]
 ```
 
@@ -283,7 +283,7 @@ El menú es **plano de 9 opciones top-level**. Solo `📄 ALM-HP` y `🛠️ Man
 | `🎯 Ejecutar un Test-Set (Grupal)` | no | → `correr-test-set.md` |
 | `📄 Application Lifecycle Management (ALM-HP)` | sí | 🔍 Importar + Analizar Test de ALM · 📤 Humanizar + Exportar Test a ALM · 📄 Importar .XSLX + crear Test |
 | `🖥️ Abrir Dashboard del proyecto actual` | no — acción directa | corre `dashboard.js --open` |
-| `🛠️ Mantenimiento` | sí | Validar/Regenerar trazas · Cobertura · Login reusable · Utilidades |
+| `🛠️ Configuración y Mantenimiento` | sí | 🔗 Configuración de ejecuciones en ALM · 🚀 Validar Tests sin smoke OK · 🧬 Validar/Regenerar trazas · 🔐 Login reusable |
 
 Detalle de cada acción:
 
@@ -296,13 +296,13 @@ Detalle de cada acción:
 | 🔧 Editar Test Set | `editar-test-set.md` | Modifica un set existente: agregar/quitar Tests (mueve los `test()` entre specs), renombrar, cambiar descripción, eliminar. |
 | 🚀 Correr Test Set | `correr-test-set.md` | Valida coherencia (`validar-coherencia.js`) y pregunta **headed (visual, secuencial) o headless (paralelo, rápido)**. Si falla, ofrece **🔧 Reparar el Test fallido** (delega en `reparar-tras-fallo.md` — surgical: parsea el output, identifica el nodo que rompió y ofrece Auto-Health o pegado a mano sobre ese nodo concreto; cae al multi-select de `actualizar-nodos.md` si no puede identificarlo), correr solo los fallados, re-correr con `--debug`, o volver al menú. |
 | 🔐 Login reusable (experimental) | `setup-auth.md` | Graba un storageState por (canal, usuario) para que los siguientes Tests arranquen logueados sin re-grabar el login. |
-| 📊 Cobertura de Nodos | (corre `cobertura.js`) | Agrega todas las trazas y emite un reporte HTML con qué nodos están cubiertos, por qué Tests, y qué pages tienen 0 cobertura. |
+| 🔗 Configuración de ejecuciones en ALM | `alm-config.md` | Permite al QA elegir qué Tests y Test Sets reflejan sus runs en ALM cuando se ejecutan. Master switch global + override por Test y por Test Set. El push real lo hace `lib/alm-push.js` después de cada corrida — este flow solo edita preferencias. |
+| 🚀 Validar Tests sin smoke OK | `validar-smoke.md` | Lista los Tests que tienen `smokeOk !== true` en `session.json` (nunca pasaron una corrida real, o la última corrida falló). El QA elige cuáles correr ahora en **headed** (modo visible — para validar visualmente Tests recién creados). Al pasar cada uno, promueve `smokeOk: true`. Resuelve el caso "grabé un Test, el ambiente estaba roto durante el smoke inicial, ahora quiero ponerme al día". |
 | 🪄 Auto-Health Node | `auto-health-node.md` | Lista los Nodos con confiabilidad ≤3 ordenados por fragilidad + cantidad de Tests que los usan. Para el elegido, navega el flujo hasta el paso anterior, captura el DOM (elemento + 7 ancestros, fallback a body completo) y propone un locator más confiable razonando sobre el HTML. Solo aplica si la confiabilidad mejora. |
 | 🧬 Validar / Regenerar trazas | `validar-trazas.md` | Audita las trazas de todos los Tests grabados. Reporta cuáles están OK, cuáles regeneró desde inputs disponibles (`parsed.json` + `grupos.json`), cuáles fallan, y cuáles son irrecuperables (sin inputs, hay que regrabar). Soluciona el caso típico de "el dashboard muestra Tests sin pasos" porque la traza nunca se generó. |
 | 🔍 Importar y Analizar Test de ALM | `importar-test-alm.md` | Usa la integración binaria `.autoflow/alm/integrations/fetch_test_v1.0.0.exe` (chequeo determinístico vía `node -e fs.existsSync`, no `file_search` que skipea binarios). Pide el testid, corre el .exe con `--name {testid}`, persiste el JSON crudo en `.autoflow/alm/originalTests/{test_id}.json` y aplica 2 checks de calidad: alerta si `step_count < 8` (caso muy reducido) + heurística para detectar pasos solapados (múltiples verbos imperativos o conectores `y/luego/además` en una sola `description`/`expected`). **No graba ni modifica nada del repo** — solo audita. |
 | 📤 Humanizar y Exportar Test a ALM | `exportar-alm.md` + `conventions/alm-steps.md` | Carga la convención `alm-steps.md` como fuente de verdad (rol de QA Lead senior, vocabulario, reglas técnico→negocio, granularidad, formato JSON, checklist de calidad). Pide qué Test exportar, lee POM(s) + spec siguiendo cadenas `retornaPage`, humaniza siguiendo las buenas prácticas (acciones imperativas, sin selectores ni jerga de Playwright, un step = una acción observable) y emite `.autoflow/alm/exports/{slug}-testId-{N}-{ts}.json` con shape `{ test_id, new_steps: [{action, name, description, expected}] }`. Dispara `alm-json-to-xlsx.js` para generar el `.xlsx` hermano. **Post-export**: si hay un original cacheado en `alm/originalTests/{testId}.json`, compara cuantitativa (N pasos, delta, %) y cualitativamente (granularidad, cobertura de `expected`, vocabulario, verificaciones) — citando ejemplos concretos de qué mejoró el caso nuevo. A futuro, un `.exe` de la integración va a leer el JSON y subir los steps a ALM directamente. |
 | 📄 Importar .XSLX y crear Test | `crear-caso.md` con `origen: "alm-xlsx"` (o `"alm"` legado) | Atajo a la rama xlsx del paso 0.b de `crear-caso.md` saltando la pregunta inicial. Lee A2 (testId), C2 (nombre), G2 (enfoque) del xlsx que dejaste en `.autoflow/alm-exports/`. |
-| 🔧 Utilidades | `utilidades.md` | Aplica/desaplica librerías complementarias que el QA deja en `utils/` (ej: `pdfReporter.ts` para reportes custom). Cada archivo se autodescribe con un header (`@autoflow-util`, `@descripcion`, `@aplicarEn`, `@como-aplicar`). El agente parsea, muestra preview de los cambios y aplica con confirmación por utilidad. Idempotente. Frena si las instrucciones son ambiguas. |
 | 🖥️ Abrir dashboard del proyecto | (corre `dashboard.js`) | Vista única navegable con Test Sets, Tests, pasos del flujo, historial de ejecuciones, grafo del paso a paso (subgraph por Page con colores), perfil de Usuario editable, **Manual de uso** embebido, y **tab ALM** (cuando hay Tests importados de ALM): lista con diff cuantitativo (N pasos original vs nuevo, delta, %) y vista detalle por testId con análisis cualitativo markdown + pasos lado a lado original-vs-humanizado para revisión visual. Cada nodo se puede abrir en VSCode con un click o copiar como prompt para que el agente lo repare / bifurque / aplique Auto-Health. |
 
 Sub-prompts adicionales que el agente carga sin que el QA los pida:
@@ -330,14 +330,11 @@ El front del banco tiene login con OTP, y volver a hacerlo cada vez que se graba
 
 Eso reduce la grabación de un caso de "12 pasos (login + OTP + flujo)" a "2 pasos (solo flujo)" cuando ya tenés el auth.
 
-## Validación de coherencia y cobertura
+## Validación de coherencia
 
-Dos checks automáticos para detectar deuda y guiar la prioridad:
+Check automático para detectar deuda antes de correr:
 
 - **Pre-corrida** (`validar-coherencia.js`): se invoca antes de **🚀 Correr Test set**. Detecta specs faltantes, sidecars con ids inexistentes en `nodos.json`, POs sin sidecar, y deprecated sin reemplazo. Si hay errores, te frena antes de gastar tiempo corriendo.
-- **Cobertura** (`cobertura.js`): agrega todas las trazas (`recordings/*-path.json`) y te dice qué nodos pisa cada test, qué nodos no pisa nadie, y % de cobertura por page. La salida es un HTML interactivo en `.autoflow/grafos/cobertura.html` con un grafo de pages coloreado de rojo (0% cubierto) a verde (100%).
-
-Es la diferencia entre "tenemos N tests" y "qué del producto está testeado de verdad".
 
 ## Importar casos desde ALM
 
@@ -457,9 +454,8 @@ La **primera vez** detecta que faltan `node_modules` y los browsers de Playwrigh
 | `data/data-{slug}.ts` | Datos autocontenidos del Test Set (interface + usuarios + valores). Lo crea el agente. |
 | `data/urls.ts` | Catálogo de canales (nombre + URL inicial) reusables al crear casos. Lo lee/edita el agente. |
 | `data/parsers.ts` | Parsers reusables (`parseText`, `parseNumber`, `parseCurrencyAR`, `parseDate`) para nodos `capturar`/`verificar`. |
-| `utils/` | Librerías complementarias del QA (reporting custom, hooks de notificación, helpers extra). Cada archivo se autodescribe con un header (`@autoflow-util`, `@descripcion`, `@aplicarEn`, `@como-aplicar`) que el agente lee desde la opción `🔧 Utilidades` del menú para aplicarla al código del proyecto. Convención completa en [utils/README.md](utils/README.md). |
 | `playwright.config.ts` | Timeouts amplios para fronts lentos (`actionTimeout` 30s, `navigationTimeout` 60s). Excluye `tests/_temp/` del runner. |
-| `.autoflow/clearSession.js` | Resetea el proyecto borrando **todo lo generado por el agente** y deja el repo listo para automatizar desde cero. **Preserva**: `node_modules/`, `.autoflow/user.json` (identidad del QA), `.autoflow/alm/integrations/*.exe` (binarios propietarios), seeds de `data/` (`types.ts`/`parsers.ts` intactos; `index.ts` y `urls.ts` se RESETEAN al contenido inicial), prompts, scripts, conventions, fixtures, configs, utils, `.gitkeep`. **Limpia**: recordings, pages, tests/, fingerprints, testsets, nodos.json, grafos, dashboard.html, utils-applied.json, auth/, alm-exports/, alm/originalTests/, alm/exports/, data/data-*.ts, y recursivamente captures/, .autoflow/runs/, runs/ (raíz, con screens + PDFs), tests/_temp/, playwright-report/, test-results/, blob-report/. Resuelve cwd a la raíz del repo, así corre igual desde cualquier ubicación. |
+| `.autoflow/clearSession.js` | Resetea el proyecto borrando **todo lo generado por el agente** y deja el repo listo para automatizar desde cero. **Preserva**: `node_modules/`, `.autoflow/user.json` (identidad del QA), `.autoflow/alm/integrations/*.exe` (binarios propietarios), seeds de `data/` (`types.ts`/`parsers.ts` intactos; `index.ts` y `urls.ts` se RESETEAN al contenido inicial), prompts, scripts, conventions, fixtures, configs, `.gitkeep`. **Limpia**: recordings, pages, tests/, fingerprints, testsets, nodos.json, grafos, dashboard.html, auth/, alm-exports/, alm/originalTests/, alm/exports/, alm/runs/, alm/tracking.json, data/data-*.ts, y recursivamente captures/, .autoflow/runs/, runs/ (raíz, con screens + PDFs), tests/_temp/, playwright-report/, test-results/, blob-report/. Resuelve cwd a la raíz del repo, así corre igual desde cualquier ubicación. |
 | `docs/presentacion.html` | Presentación HTML autocontenida (32 slides) para mostrar AutoFlow al equipo en una reunión de ~1h. Navegación con flechas / barra espaciadora. |
 
 Más detalle del estado runtime y los archivos de cada grabación: [.autoflow/README.md](.autoflow/README.md).
@@ -503,9 +499,6 @@ node .autoflow/scripts/validar-coherencia.js && node .autoflow/scripts/validar-t
 # Validar/Regenerar trazas (si hay tests sin path.json y los inputs siguen)
 node .autoflow/scripts/validar-trazas.js              # regenera lo que pueda
 node .autoflow/scripts/validar-trazas.js --solo-audit # solo reporta, no regenera
-
-# Reporte de cobertura (.autoflow/grafos/cobertura.{md,html})
-node .autoflow/scripts/cobertura.js
 
 # Dashboard del proyecto (.autoflow/dashboard.html)
 node .autoflow/scripts/dashboard.js          # solo genera
@@ -551,7 +544,7 @@ node .autoflow/clearSession.js --yes    # sin prompt, para CI o scripts
 - `.autoflow/user.json` (identidad del QA — no rehace onboarding).
 - `.autoflow/alm/integrations/*.exe` (binarios propietarios distribuidos externamente, NO generados por el agente).
 - `data/types.ts`, `data/parsers.ts` (contratos puros).
-- Scripts, prompts, conventions, fixtures, configs, `utils/`, `.claude/`, `.gitkeep`.
+- Scripts, prompts, conventions, fixtures, configs, `.claude/`, `.gitkeep`.
 
 ## Stack
 
