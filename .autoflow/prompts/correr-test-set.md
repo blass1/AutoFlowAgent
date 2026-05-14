@@ -52,6 +52,19 @@ AUTOFLOW_RESULT: { "total": N, "status": "passed|failed", "exitCode": <n>, "dura
 
 Leé esa línea con `terminalLastCommand`.
 
+## 3.5. Persistir estado de smoke por Test
+
+El `casos[]` del `AUTOFLOW_RESULT` trae el resultado por **Test** del set (cada item: `{ testId, status: 'passed' | 'failed', duration }`). Por cada item, actualizá `.autoflow/recordings/{testId}-session.json` (shape en "Estado de smoke validation" de `.autoflow/README.md`):
+
+- **Siempre**: `lastRunResult: status` + `lastRunAt: <ISO ahora>`.
+- **Si `status === 'passed'` y `smokeOk` era `null` / `false`**: setear `smokeOk: true` + `smokeOkAt: <ISO ahora>` (promoción a smoke OK).
+- **Si `status === 'passed'` y `smokeOk` ya era `true`**: no toques `smokeOk` ni `smokeOkAt` (mantenemos el timestamp histórico del primer pass).
+- **Si `status === 'failed'`**: **no toques** `smokeOk` ni `smokeOkAt`. El Test sigue siendo "construido OK" si pasó alguna vez — `lastRunResult: 'failed'` ya refleja el estado actual.
+
+Si algún `session.json` no existe, creá uno mínimo con esos 4 campos (más `numero`).
+
+Hacelo callado — no le anuncies al QA cada update. La info se ve después en el flow "🚀 Validar Tests sin smoke OK".
+
 ## 4. Reportar
 
 Mostrá:

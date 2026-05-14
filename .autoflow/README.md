@@ -69,13 +69,33 @@ Cuando el QA arranca "Crear caso" y graba el flujo, se generan en `recordings/`:
 
 | Archivo | Qué tiene | Persiste al final |
 | --- | --- | --- |
-| `{numero}-session.json` | Metadata de la sesión + flag `activa: true/false` | Sí (historial) |
+| `{numero}-session.json` | Metadata de la sesión + flag `activa: true/false` + **estado de smoke** (`smokeOk`, `smokeOkAt`, `lastRunResult`, `lastRunAt` — ver "Estado de smoke validation" abajo) | Sí (historial) |
 | `{numero}.spec.ts` | Output crudo de `playwright codegen` | No (temporal) |
 | `{numero}-parsed.json` | Nodos crudos parseados del spec | No (temporal) |
 | `{numero}-grupos.json` | Rangos `{ page, desde, hasta }` que el agente persiste mientras agrupa | **Sí** (lo necesita `validar-trazas.js` para regenerar `path.json` si se pierde) |
 | `{numero}-path.json` | Traza del recording: secuencia de ids de nodo visitados | **Sí (histórico)** |
 
 Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/generar-pom.md), pero solo después de verificar que `path.json` se generó correctamente.
+
+### Estado de smoke validation (en `session.json`)
+
+`session.json` lleva el estado de "fue probado contra browser real" del Test. Cuatro campos:
+
+| Campo | Tipo | Significado |
+| --- | --- | --- |
+| `smokeOk` | `boolean \| null` | `true` si el Test pasó alguna vez una corrida real (Playwright OK). `null` = nunca corrió exitosamente. **Política**: una vez `true`, **no vuelve a `false`** aunque corridas posteriores fallen — un Test que pasó alguna vez sigue siendo "construido correctamente", solo está roto hoy. La distinción importa para el flow "Validar Tests sin smoke OK" (ver más abajo). |
+| `smokeOkAt` | `string \| null` | ISO timestamp del último smoke pass. Cuando `smokeOk` pasa de `null` a `true`, se setea; las pasadas siguientes lo refrescan. |
+| `lastRunResult` | `'passed' \| 'failed' \| null` | Resultado de la última corrida. Refleja el estado actual, no histórico. |
+| `lastRunAt` | `string \| null` | ISO timestamp de la última corrida (sea pass o fail). |
+
+**Quién los escribe**:
+- `generar-pom.md` paso 11 (smoke test inicial post-create).
+- `correr-caso.md` (corrida puntual de un Test).
+- `correr-test-set.md` (corrida de set — actualiza un session.json por Test).
+
+**Quién los lee**:
+- `validar-smoke.md` (entry de menú "🚀 Validar Tests sin smoke OK") los filtra para listar Tests pendientes.
+- Setup-entorno y el dashboard pueden mostrar contadores (opcional).
 
 ## Estado del proyecto fuera de `recordings/`
 
@@ -127,6 +147,7 @@ Los temporales se borran en el paso 10 de [prompts/generar-pom.md](prompts/gener
 | `reparar-tras-fallo.md` | Sub-flow **surgical** unificado de reparación post-fallo. Lo invocan los 3 flujos que corren Tests: `generar-pom.md` paso 11.1 (smoke), `correr-caso.md` paso 4 (run individual), `correr-test-set.md` paso 4 (run set). Parsea el output de Playwright (`terminalLastCommand`), extrae el `selectorRaw` que falló, lo cruza con `nodos.json` e identifica el **nodo concreto** afectado. Si lo encuentra → diagnóstico dirigido + opciones surgical (`🪄 Auto-Health Node`, `✏️ Pegar locator a mano`, `🔄 Re-correr`, `🔍 Ver error`, `🧩 Elegir otro Nodo manualmente`, `🏠 Menú`). Si no lo identifica (asserts inline sin selector claro, timeouts genéricos) → fallback a `actualizar-nodos.md` con multi-select adivinatorio. Max 2 iteraciones de re-correr sin intervención manual. |
 | `actualizar-nodos.md` | Sub-flow **adivinatorio** (multi-select) de reparación manual de locators. Antes era el entry point principal post-fallo; ahora es el **fallback** que `reparar-tras-fallo.md` invoca cuando no puede identificar el nodo concreto. También se invoca proactivamente desde Mantenimiento del menú principal cuando el QA sabe que el front cambió y quiere prevenir antes de que falle. Por cada nodo a reparar, ofrece (a) `🪄 Capturar DOM y dejar que el agente proponga` — delega a `auto-health-node.md`; (b) `✍️ Pegar locator a mano`. Marca el nodo viejo como `deprecated` y actualiza PO + sidecar + `nodos.json`. Acepta también `{ nodoIdForzado }` para saltar el multi-select y reparar un nodo puntual (lo usa `reparar-tras-fallo.md` en la rama "Pegar a mano sobre el nodo identificado"). |
 | `auto-health-node.md` | Optimiza locators débiles **antes** de que rompan. Lista los nodos con confiabilidad ≤3 ordenados por fragilidad + cantidad de Tests que los usan. Para el elegido: genera un spec efímero en `tests/_temp/` que ejecuta el flujo del Test hasta el paso anterior, captura el DOM del elemento (elemento + 7 ancestros, fallback a `body.outerHTML` si el locator está completamente roto), y razona sobre el HTML para proponer un locator más confiable (priorizando `getByTestId` > `getByRole+name` > `getByLabel` > etc.). Solo propone si la confiabilidad mejora. Aplicación atómica como `actualizar-nodos.md`. Discoverable también desde el menú principal y desde el modal de Nodo del dashboard. |
+| `validar-smoke.md` | **Sub-flow de Mantenimiento → 🚀 Validar Tests sin smoke OK**. Lista los Tests que tienen `smokeOk !== true` en `session.json` (nunca pasaron una corrida real, o la última corrida falló), agrupados por motivo (🆕 Nunca corrió / ⚠️ Falló la última vez). El QA elige cuáles correr ahora y el flow los ejecuta **secuencial en headed** (modo visible — el caso de uso es validación visual de Tests recién creados). Al pasar cada uno, promueve `smokeOk: true` en su `session.json`. Resuelve el caso típico de "grabé un Test, el ambiente estaba roto durante el smoke inicial, ahora quiero ponerme al día". |
 | `validar-trazas.md` | Audita las trazas (`{numero}-path.json`) de todos los Tests grabados. Dispara `validar-trazas.js`, que reporta 4 categorías: `ok` (existen y están bien), `regenerado` (faltaban pero se rearmaron desde `parsed.json` + `grupos.json`), `fallido` (tienen inputs pero `generar-traza.js` falla — típicamente drift entre `nodos.json` y los grupos), `irrecuperable` (sin inputs, hay que regrabar). Útil cuando el dashboard muestra "sin traza" en Tests existentes, cuando exportar-alm falla, o como audit pre-demo. Discoverable desde el menú principal → Mantenimiento. |
 | `importar-test-alm.md` | **Opción 1 del sub-menú ALM-HP** — Importar y Analizar un Test de ALM. Chequea determinístico que exista `.autoflow/alm/integrations/fetch_test_v1.0.0.exe`, pide el testid, corre el .exe, persiste el JSON crudo en `.autoflow/alm/originalTests/{testid}.json` y aplica 2 checks de calidad: alerta si `step_count < 8` + heurística para detectar pasos solapados (múltiples verbos/conectores en `description` o `expected`). No graba ni modifica nada del repo — solo audita. |
 | `exportar-alm.md` | **Opción 2 del sub-menú ALM-HP** — Humanizar y Exportar Test Automatizado a ALM. Carga `.autoflow/conventions/alm-steps.md` como fuente de verdad, deja elegir un Test del repo, lee POM(s) + spec (siguiendo cadenas `retornaPage`), humaniza siguiendo las buenas prácticas y emite `.autoflow/alm/exports/{slug}-testId-{N}-{ts}.json` con shape `{ test_id, new_steps: [...] }`. Dispara `alm-json-to-xlsx.js` para generar el `.xlsx` hermano. **Paso 7.5 — Comparación con el original**: si `.autoflow/alm/originalTests/{testId}.json` existe (lo dejó el flujo de "Importar y Analizar" o `crear-caso` paso 0.a), compara cuantitativa (N pasos, delta absoluto y porcentual) y cualitativamente (granularidad, cobertura de `expected`, vocabulario consistente, verificaciones agregadas, acciones técnicas filtradas), citando ejemplos concretos del original. Si no hay cache, salta con aviso sugiriendo importar primero. A futuro un `.exe` de la integración va a leer el JSON y subir a ALM. |

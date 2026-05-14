@@ -36,6 +36,17 @@ AUTOFLOW_RESULT: { "status": "passed|failed", "duration": <ms>, "exitCode": <n>,
 
 Leé esa línea con `terminalLastCommand`.
 
+## 3.5. Persistir estado de smoke en `session.json`
+
+Antes de reportar al QA, actualizá `.autoflow/recordings/{numero}-session.json` con el resultado de esta corrida (shape documentado en "Estado de smoke validation" de `.autoflow/README.md`):
+
+- **Siempre**: setear `lastRunResult: 'passed' | 'failed'` y `lastRunAt: <ISO ahora>`.
+- **Si `status: passed` y `smokeOk` era `null` / `false`**: setear `smokeOk: true` y `smokeOkAt: <ISO ahora>`. Esta es la **promoción** — el Test acaba de validarse contra browser real por primera vez.
+- **Si `status: passed` y `smokeOk` ya era `true`**: dejá `smokeOk` y `smokeOkAt` intactos (solo refresca `lastRunAt`). No re-pisamos el timestamp del primer pass — es histórico.
+- **Si `status: failed`**: **no toques** `smokeOk` ni `smokeOkAt`. Un Test que pasó alguna vez sigue siendo "construido OK", solo está roto hoy. La info de "está roto ahora" vive en `lastRunResult`.
+
+Si `session.json` no existe (Test viejo previo al feature, o caso importado sin recording), creá uno mínimo: `{ numero, smokeOk: status === 'passed' ? true : null, smokeOkAt: ..., lastRunResult, lastRunAt }`.
+
 ## 4. Reportar
 
 ### Si `status: passed`

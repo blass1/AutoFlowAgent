@@ -635,6 +635,11 @@ Abrí `vscode/askQuestions` single-select: `"¿Qué hacemos?"`:
   ```
   node .autoflow/scripts/run-test.js tests/{slug}-{id}.spec.ts --grep=\[testId:{numero}\]
   ```
+  **Independientemente del resultado**, actualizá `{numero}-session.json` con el estado de smoke (ver "Estado de smoke validation" en `.autoflow/README.md`):
+  - Setear `lastRunResult: 'passed' | 'failed'` y `lastRunAt: <ISO ahora>`.
+  - Si **pasó** y `smokeOk` era `null` o `false`, setear `smokeOk: true` y `smokeOkAt: <ISO ahora>`.
+  - Si **falló**, **no toques** `smokeOk` ni `smokeOkAt` (un Test que pasó alguna vez sigue siendo "construido OK", solo está roto hoy).
+
   Si el smoke pasa → mostrá `✅ El Test pasó. Listo para commitear.` y abrí single-select `"¿Algo más?"`:
     - `📸 Agregar screenshots automáticos para evidencia` → cargá `.autoflow/prompts/auto-insertar-screens.md` con contexto `{ specPath, slug, numero, invokedFrom: 'create' }`. Ese sub-flow analiza POMs + spec, propone puntos de captura, confirma con el QA y aplica los cambios. Cuando vuelve, **reabrí esta misma pregunta** (sin re-correr el smoke).
     - `▶️ Correrlo headed para verlo en pantalla` → headed run.

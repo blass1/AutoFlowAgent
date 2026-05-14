@@ -90,6 +90,7 @@ Cuando el QA elige `📦 Crear o Modificar un Test-Set`, abrí `vscode/askQuesti
 
 `vscode/askQuestions` single-select: `"¿Qué tarea de mantenimiento?"`:
 
+- `🚀 Validar Tests sin smoke OK`
 - `🧬 Validar / Regenerar trazas`
 - `📊 Cobertura de Nodos`
 - `🔐 Login reusable (experimental)`
@@ -102,6 +103,7 @@ Cuando el QA elige `📦 Crear o Modificar un Test-Set`, abrí `vscode/askQuesti
 
 | Opción | Acción |
 | --- | --- |
+| `🚀 Validar Tests sin smoke OK` | `.autoflow/prompts/validar-smoke.md`. Lista los Tests que nunca pasaron una corrida real (`smokeOk !== true` en `session.json`), agrupados por motivo (nunca corrió / falló la última vez), y deja al QA elegir cuáles correr ahora en **headed** (modo visible — el caso de uso es validar visualmente que un Test recién creado quedó bien construido). Útil cuando el ambiente estuvo roto durante el smoke inicial y querés ponerte al día con los pendientes. |
 | `🧬 Validar / Regenerar trazas` | `.autoflow/prompts/validar-trazas.md` |
 | `📊 Cobertura de Nodos` | corré `node .autoflow/scripts/cobertura.js` con `runCommands`, después abrí `.autoflow/grafos/cobertura.html` (`start ` en Windows, `open ` en macOS, `xdg-open ` en Linux). Mostrale al QA un resumen de 3 líneas con totales (cubiertos / no cubiertos / % cobertura). Después releé el sub-menú. |
 | `🔐 Login reusable (experimental)` | `.autoflow/prompts/setup-auth.md` |
