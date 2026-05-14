@@ -249,17 +249,18 @@ Hay dos tipos de Nodo especial:
 
 **Tip**: si el calendario custom tiene un formato de header inusual, el helper `parsearHeader` puede necesitar ajuste manual después. El agente te avisa en el cierre.
 
-### 📸 Insertar screenshot en un paso
+### 📸 Screenshots (sub-menú con 3 ramas)
 
-**Cuándo**: querés sumar una evidencia visual en un punto específico del flujo. Complementa a los **screenshots automáticos opt-in** que el agente puede ofrecer agregar al final del flujo de Crear Test (post-smoke), o lo usás standalone si querés screens muy puntuales en un Test ya existente.
+**Cuándo**: querés gestionar los screenshots de evidencia del Test — agregarlos automáticamente, sumar uno puntual, o quitar uno existente. Los screens son JPEG que el helper `screen(page, label)` toma en runtime y que el reporte PDF levanta como evidencia.
 
 **Pasos**:
-1. **Menú → ✏️ Modificar o Extender un Test → 📸 Insertar screenshot en un paso**.
-2. El agente lista todos los pasos del Test numerados (los pasos que ya tienen screen aparecen con prefijo 📸 y no son seleccionables).
-3. Elegís el paso después del cual querés capturar + un label corto (ej: `tras-login`, `Checkout-confirmado`). El label va al filename y al PDF como caption.
-4. El agente inserta `await screen(this.page, '{label}')` en el método del PO correspondiente, registra el nodo `capturar-screen` en `nodos.json` + sidecar + traza, y avisa donde quedará el screen.
+1. **Menú → ✏️ Modificar o Extender un Test → 📸 Screenshots (generar auto / agregar uno / quitar uno)**.
+2. El sub-menú abre 3 ramas:
+   - **🤖 Generar automáticamente para el Test**: el agente analiza POMs + traza, aplica las heurísticas A (botón de confirmación, ej. "Continuar", "Ingresar", "Aceptar") y B (pantalla principal post-navegación, ej. "home", "dashboard"), te muestra los candidatos enumerados y aplica los aprobados. Útil para sumar evidencia masiva sin tener que elegir paso por paso.
+   - **➕ Agregar un screenshot a un paso**: el agente lista los pasos del Test numerados (los que ya tienen screen aparecen con prefijo 📸 y no son seleccionables); elegís un paso + label, y se inserta `await screen(this.page, '{label}')` en el método del PO correspondiente.
+   - **➖ Quitar un screenshot del Test**: el agente lista los `capturar-screen` actuales del Test, elegís cuál sacar y se borra la línea del PO + la entrada del id en la traza (`path.json`). `nodos.json` y el sidecar quedan intactos para no afectar otros Tests que reusen el mismo id.
 
-**Resultado**: en la próxima corrida del Test, el screen se toma automáticamente y queda en `runs/{ts}/screens/{testId}/{label}_DD_MM_YYYY_HH_MM_SS.jpg`. El reporte PDF lo levanta como evidencia.
+**Resultado**: en la próxima corrida del Test, los screens activos se toman automáticamente y quedan en `runs/{ts}/screens/{testId}/{label}_DD_MM_YYYY_HH_MM_SS.jpg`. El reporte PDF los levanta como evidencia. Reglas canónicas (helper, heurísticas, slug del label, mutaciones atómicas) → [`conventions/screens-rules.md`](../conventions/screens-rules.md).
 
 **Tip**: el helper `screen()` ya espera `domcontentloaded` y `aria-busy=false` antes de disparar — no captura pantallas a medio cargar. JPEG quality 60 viewport-only para priorizar espacio sobre calidad.
 

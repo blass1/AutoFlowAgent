@@ -20,7 +20,7 @@ Reglas canónicas del nodo `capturar-screen` (helper, shape, slug, mutaciones at
 1. Cargá `.autoflow/recordings/{numero}-path.json` → traza ordenada de ids del Test.
 2. Cargá `.autoflow/nodos.json` para resolver cada id de la traza a su nodo.
 3. Filtrá los ids cuya `accion === 'capturar-screen'`. Esos son los candidatos a quitar.
-4. Si no hay ningún `capturar-screen` en la traza, decile al QA: `El Test no tiene ningún screenshot. Si querés agregar uno, usá ➕ Agregar un screenshot del menú anterior.` Y volvé al menú.
+4. Si no hay ningún `capturar-screen` en la traza, decile al QA: `El Test no tiene ningún screenshot. Si querés agregar uno, usá ➕ Agregar un screenshot a un paso del menú anterior.` Y volvé al menú.
 5. Si falta el `path.json`, frená y avisale al QA con instrucciones de regenerar la traza (`validar-trazas.md`).
 
 ## 2. Mostrar los screens al QA

@@ -29,6 +29,16 @@ Usá `vscode/askQuestions` single-select: `"¿Qué **Test**?"` con cada uno como
 - `✏️ Compra de dolar mep con CC [testId:43214]`
 - ...
 
+### 2.1. Resolver variables comunes para todas las ramas
+
+Una vez elegido el **Test**, computá estos valores y mantenelos en contexto durante todo el paso 3:
+
+- **`specPath`** — ruta del spec elegido, ej: `tests/dolarMep-12345.spec.ts`.
+- **`numero`** — `testId` del `test()` elegido (lo sacaste del `[testId:NNNN]` del label).
+- **`slug`** — del filename `tests/{slug}-{testSetId}.spec.ts`, extraé `{slug}` (parte antes del último guión + número). Para `tests/dolarMep-12345.spec.ts` → `dolarMep`. Si el filename no matchea el patrón `{slug}-{N}.spec.ts` (caso de Tests sueltos viejos), usá el basename sin extensión y sin trailing numeric suffix.
+
+Estos tres campos los necesitan **varias ramas** del paso 3 (Screenshots auto, Bifurcar, Insertar nodo, etc.). Resolvélos acá una vez para no tener que re-derivarlos en cada opción.
+
 ## 3. Acción a tomar
 
 Usá `vscode/askQuestions` single-select: `"¿Qué hacés con el **Test** [testId:{numero}]?"`:
@@ -96,7 +106,7 @@ Sub-menú con tres ramas. Reglas canónicas de screens (helper, heurísticas, sl
 
 `vscode/askQuestions` single-select: `"¿Qué hacés con los screenshots del **Test** [testId:{numero}]?"`:
 
-- `🤖 Generar automáticamente para el Test` → cargá [auto-insertar-screens.md](auto-insertar-screens.md) pasándole `{ specPath, slug, numero }`. Aplica las heurísticas A (botón de confirmación) y B (pantalla principal) sobre la traza + POMs, muestra propuesta enumerada y aplica los aprobados.
+- `🤖 Generar automáticamente para el Test` → cargá [auto-insertar-screens.md](auto-insertar-screens.md) pasándole `{ specPath, slug, numero, invokedFrom: 'edit' }`. Aplica las heurísticas A (botón de confirmación) y B (pantalla principal) sobre la traza + POMs, muestra propuesta enumerada y aplica los aprobados. El cierre vuelve al sub-menú de Screenshots (ver paso 5 de `auto-insertar-screens.md`).
 - `➕ Agregar un screenshot a un paso` → cargá [insertar-screen.md](insertar-screen.md) pasándole `{ numero, specPath }`. Lista los pasos numerados del Test, deja al QA elegir uno + dar label, inserta `await screen(this.page, '{label}')` en el método del PO de la page del paso. Registra el nodo en `nodos.json`, sidecar y traza.
 - `➖ Quitar un screenshot del Test` → cargá [quitar-screen.md](quitar-screen.md) pasándole `{ numero, specPath }`. Lista los `capturar-screen` actuales del Test (filtrando la traza por `accion === 'capturar-screen'`), deja al QA elegir cuál sacar, borra la línea `screen()` del método del PO y la entrada del id en `path.json`. Sidecar y `nodos.json` quedan intactos — el id puede estar siendo usado por otros Tests.
 

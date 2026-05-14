@@ -10,6 +10,19 @@ Sub-flow que se carga cuando un test falla y el QA quiere reparar locators que p
 
 - `specPath` — el spec del test fallido (`tests/{slug}-{id}.spec.ts`).
 - `numeroTC` — el número del caso (ej: `4521`).
+- `nodoIdForzado` *(opcional)* — id de un nodo específico a reparar. Si viene, el flujo **saltea los pasos 1-3** (descubrimiento + multi-select) y va directo al paso 4 con ese nodo. Lo usa `reparar-tras-fallo.md` cuando ya identificó el nodo concreto que rompió y solo necesita el formulario de "pegar locator a mano" sobre ese nodo. El nodo tiene que existir en `.autoflow/nodos.json` y no estar `deprecated`; si no cumple, avisá al QA y salí.
+
+## 0. Si recibís `nodoIdForzado`, salteá descubrimiento
+
+Si el contexto trae `nodoIdForzado`:
+
+1. Cargá `.autoflow/nodos.json` y resolvé `nodo = nodos[nodoIdForzado]`.
+2. Validá:
+   - El id existe → si no, mostrale al QA `⚠ No encontré el nodo {nodoIdForzado} en nodos.json. Vuelvo al caller.` y salí.
+   - No está `deprecated: true` → si lo está, mostrale `⚠ El nodo {nodoIdForzado} está marcado como deprecated (reemplazado por {reemplazadoPor}). Reparalo desde el id live.` y salí.
+3. Saltá al **paso 4** con `nodosSeleccionados = [nodo]`. Cuando termine, saltá al paso 5 (regenerar grafo) y al paso 6 (cierre) normalmente.
+
+Si **no** recibís `nodoIdForzado`, seguí desde el paso 1 (flujo histórico adivinatorio con multi-select).
 
 ## 1. Identificar las pages del caso
 
