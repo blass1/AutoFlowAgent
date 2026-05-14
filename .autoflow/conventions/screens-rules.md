@@ -88,11 +88,32 @@ Si un método del PO dispara navegación (lo detectás por `waitForLoadState('do
 
 → **1 candidato** al final del método (después del `waitForLoadState`). Esta es la única forma legítima de capturar "una pantalla post-acción": esperando explícitamente que termine de cargar.
 
+### Heurística C — Cobertura mínima: 1 screen por Page
+
+> **Garantía**: cada Page Object usado en el spec termina con **al menos 1** nodo `capturar-screen` asociado. La C se aplica como tercera pasada, **solo a las pages que las heurísticas A y B no cubrieron**.
+
+Algoritmo:
+
+1. Después de aplicar A y B, calculá `pagesCubiertas` = unión de:
+   - Las pages que aparecen como destino de algún screen propuesto en A o B en esta corrida.
+   - Las pages que ya tienen un `capturar-screen` existente en el código (idempotencia con corridas anteriores y con screens insertados a mano).
+2. `pagesUsadas` = pages de cada `import` de `../pages/` en el spec, filtrando las que efectivamente tienen al menos un método invocado (no solo importado y nunca usado).
+3. `pagesSinCobertura` = `pagesUsadas` − `pagesCubiertas`.
+4. Para cada page en `pagesSinCobertura`:
+   - Encontrá el **primer método** de esa page llamado en el spec (orden de aparición en el `test()`).
+   - Proponé un screen al **inicio del cuerpo** de ese método (antes de cualquier acción), siguiendo la misma convención de "antes de la acción" que la Heurística A.
+   - **Label sugerido**: `{NombrePage}-vista` (kebab-friendly, no choca con `pre-{X}` ni con `cargada`).
+
+Casos borde:
+- **Page importada pero ningún método invocado**: skipear. No hay punto natural donde insertar.
+- **El primer método llamado es solo-assert** (cuerpo único `expect(...)`): la regla de anti-spam "no en métodos solo-assert" **NO aplica** para C — el screen se inserta igual al inicio del método, porque la garantía de cobertura tiene prioridad. Si la page no tiene ningún método no-assert, capturar el estado en el método solo-assert sigue siendo útil como evidencia visual del prelude del assert.
+- **El primer método ya tiene un screen al inicio** (por idempotencia con corridas previas o un screen manual): la page ya está cubierta, no se propone nada nuevo.
+
 ### Anti-spam
 
-- **No en métodos solo-assert** (cuerpo único `expect(...).toBeVisible()` etc.). Esos asserts ya son evidencia funcional; un screen ahí es ruido.
-- **Idempotencia**: si la línea `await screen(this.page, '{label}')` ya existe en ese punto del método, no la dupliques.
-- **Cap por método**: si un método tiene 3+ clicks de confirmación seguidos, generá screens solo en el primero y el último; los del medio son ruido.
+- **No en métodos solo-assert** (cuerpo único `expect(...).toBeVisible()` etc.) — aplica a A y B, **no** a C (que prioriza cobertura mínima).
+- **Idempotencia**: si la línea `await screen(this.page, '{label}')` ya existe en ese punto del método, no la dupliques. Aplica a las tres heurísticas.
+- **Cap por método**: si un método tiene 3+ clicks de confirmación seguidos, generá screens solo en el primero y el último; los del medio son ruido. Aplica solo a A.
 
 ---
 

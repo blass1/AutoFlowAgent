@@ -27,27 +27,40 @@ Sub-flow opt-in con **dos entry points**:
 
 ## 2. Identificar puntos candidatos
 
-Aplicá las heurísticas A y B + las reglas de anti-spam de [`.autoflow/conventions/screens-rules.md`](../conventions/screens-rules.md) (sección **Heurísticas de auto-inserción** — regex y reglas completas viven ahí, no duplicar acá).
+Aplicá las heurísticas en este orden, según [`.autoflow/conventions/screens-rules.md`](../conventions/screens-rules.md) (regex, anti-spam y reglas completas viven ahí, no duplicar acá):
 
-**Si las heurísticas no encuentran ningún candidato, decilo honesto** ("No detecté botones de confirmación ni pantallas principales claras — si querés agregar screens manuales usá `editar-caso.md → 📸 Screenshots → ➕ Agregar un screenshot a un paso`") y volvé al menú sin tocar archivos.
+1. **Heurística A** — *antes* de cada click de confirmación (login/aceptar/continuar/etc.).
+2. **Heurística B** — al final de los métodos que navegan a una pantalla principal (home/dashboard/etc.) y terminan con `waitForLoadState`.
+3. **Heurística C** *(cobertura mínima)* — para cada Page Object usado en el spec que **no haya quedado cubierto por A ni B** (ni tenga un `capturar-screen` existente de corridas previas), proponé un screen al inicio del primer método de esa page invocado en el spec. Garantiza ≥1 screen por Page.
+
+La C es la última pasada y opera sobre el conjunto residual de pages sin screen. **No duplica**: si una page ya quedó cubierta por A, B o un screen manual, no se propone candidato adicional por C.
+
+**Si tras A+B+C no hay ningún candidato nuevo** (caso muy raro — implica que todas las pages ya tienen screens o son solo-asserts sin método propio), decilo honesto: `"Todas las pages del Test ya tienen al menos un screen. Si querés sumar uno puntual, usá ➕ Agregar un screenshot a un paso del menú de Screenshots."` y volvé al menú sin tocar archivos.
 
 ## 3. Mostrar la propuesta al QA — con preview
 
-Mostrá una lista numerada de TODOS los puntos candidatos detectados, agrupados por método del PO. Los candidatos de la **Heurística A** son siempre **ANTES** del click (nunca después — ver `screens-rules.md`). Los candidatos de la **Heurística B** van al final del método tras `waitForLoadState`:
+Mostrá una lista numerada de TODOS los puntos candidatos detectados, agrupados por método del PO. Anotá entre paréntesis qué heurística disparó cada candidato — al QA le da contexto y le facilita decidir cuáles aceptar:
+
+- **A** (Heurística A) = antes de click de confirmación.
+- **B** (Heurística B) = fin de método con navegación a pantalla principal.
+- **C** (Heurística C) = cobertura mínima de Page (porque la page no estaba cubierta por A ni B).
 
 ```
 📸 Encontré N puntos candidatos para screenshots automáticos:
 
   pages/LoginPage.ts → ingresar(usuario, password)
-    [1] ANTES del click "Log in"            → label "LoginPage-pre-login"          (Heurística A)
+    [1] ANTES del click "Log in"             → label "LoginPage-pre-login"          (A)
 
   pages/HomePage.ts → elegirProducto(producto)
-    [2] FIN del método (pantalla principal) → label "HomePage-cargada"             (Heurística B)
+    [2] FIN del método (pantalla principal)  → label "HomePage-cargada"             (B)
+
+  pages/CatalogoPage.ts → buscarProducto(query)
+    [3] INICIO del método (cobertura Page)   → label "CatalogoPage-vista"           (C)
 
   pages/CheckoutPage.ts → confirmar(datos)
-    [3] ANTES del click "Purchase"          → label "CheckoutPage-pre-purchase"    (Heurística A)
+    [4] ANTES del click "Purchase"           → label "CheckoutPage-pre-purchase"    (A)
 
-Total: N screens. ¿Cómo seguimos?
+Total: N screens (incluye {nC} de cobertura mínima — garantiza ≥1 screen por Page). ¿Cómo seguimos?
 ```
 
 `vscode/askQuestions` single-select:
@@ -71,11 +84,13 @@ Mostrale al QA un resumen común (mismo formato para los dos entry points):
 
 ```
 ✅ Aplicados K screens en M método(s):
-  • pages/LoginPage.ts → ingresar()        +1 screen   (antes del click "Log in")
-  • pages/HomePage.ts → elegirProducto()   +1 screen   (fin del método, pantalla cargada)
-  • pages/CheckoutPage.ts → confirmar()    +1 screen   (antes del click "Purchase")
+  • pages/LoginPage.ts → ingresar()         +1 screen   (A — antes del click "Log in")
+  • pages/HomePage.ts → elegirProducto()    +1 screen   (B — fin del método, pantalla cargada)
+  • pages/CatalogoPage.ts → buscarProducto()+1 screen   (C — cobertura mínima de Page)
+  • pages/CheckoutPage.ts → confirmar()     +1 screen   (A — antes del click "Purchase")
 
   Total nodos `capturar-screen` agregados: K
+  Cobertura: 4/4 pages del Test tienen ≥1 screen ✓
   Archivos tocados: pages/*.ts, fingerprints/*.json, recordings/{numero}-path.json, nodos.json
 ```
 

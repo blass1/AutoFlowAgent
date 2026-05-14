@@ -256,7 +256,7 @@ Hay dos tipos de Nodo especial:
 **Pasos**:
 1. **Menú → ✏️ Modificar o Extender un Test → 📸 Screenshots (generar auto / agregar uno / quitar uno)**.
 2. El sub-menú abre 3 ramas:
-   - **🤖 Generar automáticamente para el Test**: el agente analiza POMs + traza, aplica las heurísticas A (botón de confirmación, ej. "Continuar", "Ingresar", "Aceptar") y B (pantalla principal post-navegación, ej. "home", "dashboard"), te muestra los candidatos enumerados y aplica los aprobados. Útil para sumar evidencia masiva sin tener que elegir paso por paso.
+   - **🤖 Generar automáticamente para el Test**: el agente analiza POMs + traza, aplica las heurísticas A (antes de botón de confirmación: "Continuar", "Ingresar", "Aceptar"…), B (pantalla principal post-navegación: "home", "dashboard"…) y C (cobertura mínima — garantiza **≥1 screen por Page** del spec, insertando uno al inicio del primer método llamado en pages no cubiertas por A ni B). Te muestra los candidatos enumerados con la heurística que los disparó, podés tildar cuáles aplicar. Útil para sumar evidencia masiva sin tener que elegir paso por paso.
    - **➕ Agregar un screenshot a un paso**: el agente lista los pasos del Test numerados (los que ya tienen screen aparecen con prefijo 📸 y no son seleccionables); elegís un paso + label, y se inserta `await screen(this.page, '{label}')` en el método del PO correspondiente.
    - **➖ Quitar un screenshot del Test**: el agente lista los `capturar-screen` actuales del Test, elegís cuál sacar y se borra la línea del PO + la entrada del id en la traza (`path.json`). `nodos.json` y el sidecar quedan intactos para no afectar otros Tests que reusen el mismo id.
 
