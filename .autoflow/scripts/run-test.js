@@ -11,6 +11,7 @@ const { spawnSync } = require('node:child_process');
 const { existsSync, mkdirSync, writeFileSync } = require('node:fs');
 const { join, basename } = require('node:path');
 const { formatRunTimestamp } = require('./lib/run-timestamp');
+const { clasificarError } = require('./lib/clasificar-error');
 
 const archivo = process.argv[2];
 const headed = process.argv.includes('--headed');
@@ -107,6 +108,21 @@ const resultado = {
   grep,
   artifactsDir,
 };
+
+// Si falló, clasificar el motivo a partir de la evidencia que la fixture
+// `errorCapture` vuelca a {artifactsDir}/failures/{testId}.json. Best-effort:
+// si la clasificación falla por cualquier razón, no rompemos el reporte.
+if (resultado.status === 'failed') {
+  try {
+    // El testId sale del grep `--grep=\[testId:NNN\]`. Si no hay testId, la
+    // fixture lo grabó bajo `_unknown` y leemos ese.
+    const grepIdMatch = grep ? grep.match(/testId:(\d+)/) : null;
+    const testIdParaClasificar = grepIdMatch ? grepIdMatch[1] : '_unknown';
+    resultado.motivo = clasificarError({ runDir: artifactsDir, testId: testIdParaClasificar });
+  } catch (errClasif) {
+    resultado.motivo = { id: 'error-clasificador', label: `No se pudo clasificar (${errClasif?.message ?? 'error desconocido'})` };
+  }
+}
 
 // Persistir el run para el dashboard. Ids extraídos del grep si tiene forma `\[testId:NNN\]`.
 const runId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${Math.random().toString(36).slice(2, 6)}`;

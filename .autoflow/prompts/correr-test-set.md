@@ -47,8 +47,10 @@ Según el modo elegido en el paso 2:
 
 Al final, el script imprime:
 ```
-AUTOFLOW_RESULT: { "total": N, "status": "passed|failed", "exitCode": <n>, "duration": <ms>, "set": "...", "casos": [...] }
+AUTOFLOW_RESULT: { "total": N, "status": "passed|failed", "exitCode": <n>, "duration": <ms>, "set": "...", "casos": [...], "motivos"?: [{ "testId": "...", "motivo": { "id": "...", "label": "..." } }] }
 ```
+
+`motivos[]` solo aparece cuando `status: failed`. Trae una entrada por cada Test que falló, con el motivo clasificado (cruza la evidencia que la fixture `errorCapture` dejó en `{artifactsDir}/failures/{testId}.json` contra el catálogo `.autoflow/conventions/error-patterns.json`). Si ningún pattern matchea, el `motivo.id` es `no-clasificado`.
 
 Leé esa línea con `terminalLastCommand`.
 
@@ -84,12 +86,15 @@ Abrí `vscode/askQuestions` single-select: `"¿Qué hacemos?"`:
 
 ### Si fallaron
 
-Parseá las líneas previas del reporter `line` para identificar qué `test()` dentro del spec fallaron y mostralos por su nombre completo (`{nombre} [testId:{numero}]`):
+Parseá las líneas previas del reporter `line` para identificar qué `test()` dentro del spec fallaron y mostralos por su nombre completo (`{nombre} [testId:{numero}]`). Para cada Test fallado, buscá su entrada en `motivos[]` (matcheando `testId`) y agregá una línea indentada con `motivo.label` debajo:
 ```
 **Tests** que fallaron:
   • Compra de dolar mep con CA [testId:43213]
+    Motivo probable: Microservicio orders respondió 503
   • Compra de dolar mep con CC [testId:43214]
+    Motivo probable: Credenciales o datos incorrectos
 ```
+Si un test fallado no tiene entry en `motivos[]` (raro — significa que la fixture no escribió failure.json), omití la línea de motivo en lugar de mostrar `—`.
 
 Después abrí `vscode/askQuestions` single-select: `"¿Qué hacemos?"`:
 - `🔧 Reparar un **Test** fallido` → si hay más de un **Test** fallado, abrí `vscode/askQuestions` single-select primero para elegir cuál reparar. Después cargá `.autoflow/prompts/reparar-tras-fallo.md` con `{ specPath, testId: <elegido>, mode: 'run-testset' }`. Ese sub-flow parsea el output del Playwright, identifica el **Nodo** que rompió y ofrece reparación surgical (Auto-Health o pegado a mano sobre ese **Nodo**). Si no logra identificarlo, cae al multi-select adivinatorio de `actualizar-nodos.md`. Al volver, releé este menú (con la lista de **Tests** fallados actualizada).

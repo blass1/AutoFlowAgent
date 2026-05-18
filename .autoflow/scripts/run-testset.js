@@ -6,9 +6,10 @@
 // Uso: node .autoflow/scripts/run-testset.js <slug> [--headed] [--headless] [--debug]
 
 const { spawnSync } = require('node:child_process');
-const { readFileSync, existsSync, mkdirSync, writeFileSync } = require('node:fs');
+const { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } = require('node:fs');
 const { join } = require('node:path');
 const { formatRunTimestamp } = require('./lib/run-timestamp');
+const { clasificarError } = require('./lib/clasificar-error');
 
 const slug = process.argv[2];
 const headed = process.argv.includes('--headed');
@@ -109,6 +110,30 @@ const resultado = {
   specPath: set.specPath,
   artifactsDir,
 };
+
+// Si falló al menos un test del set, clasificar cada uno. La fixture
+// `errorCapture` deja un `{artifactsDir}/failures/{testId}.json` por test
+// fallado; iteramos esos archivos en lugar de derivar testIds del grep (un
+// testset corre todos los tests, sin grep). El reporte del prompt
+// correr-test-set.md lee `motivos[]` y muestra una línea por test fallido.
+if (resultado.status === 'failed') {
+  const failuresDir = join(artifactsDir, 'failures');
+  const motivos = [];
+  if (existsSync(failuresDir)) {
+    try {
+      const files = readdirSync(failuresDir).filter((f) => f.endsWith('.json'));
+      for (const f of files) {
+        const testId = f.replace(/\.json$/, '');
+        try {
+          motivos.push({ testId, motivo: clasificarError({ runDir: artifactsDir, testId }) });
+        } catch (errClasif) {
+          motivos.push({ testId, motivo: { id: 'error-clasificador', label: `No se pudo clasificar (${errClasif?.message ?? 'error desconocido'})` } });
+        }
+      }
+    } catch { /* failures dir ilegible — dejamos motivos vacío */ }
+  }
+  resultado.motivos = motivos;
+}
 
 // Persistir el run para el dashboard.
 const runId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${Math.random().toString(36).slice(2, 6)}`;

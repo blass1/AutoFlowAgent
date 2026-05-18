@@ -31,8 +31,10 @@ node .autoflow/scripts/run-test.js {specPath} --headed --grep=\[testId:{numero}\
 El script corre `npx playwright test {specPath} --reporter=line --headed --workers=1 --grep=\[testId:{numero}\]` (navegador visible + filtro al testId elegido) e imprime al final:
 
 ```
-AUTOFLOW_RESULT: { "status": "passed|failed", "duration": <ms>, "exitCode": <n>, "archivo": "..." }
+AUTOFLOW_RESULT: { "status": "passed|failed", "duration": <ms>, "exitCode": <n>, "archivo": "...", "motivo"?: { "id": "...", "label": "..." } }
 ```
+
+`motivo` solo aparece cuando `status: failed`. Lo emite el clasificador `.autoflow/scripts/lib/clasificar-error.js` cruzando la evidencia capturada por la fixture `errorCapture` (network 4xx/5xx, console errors, selectores de error visibles, DOM text) contra el catálogo `.autoflow/conventions/error-patterns.json`. Si ningún pattern matchea, `motivo.id` es `no-clasificado` y el QA puede agregar un pattern nuevo al catálogo.
 
 Leé esa línea con `terminalLastCommand`.
 
@@ -63,6 +65,7 @@ Después abrí `vscode/askQuestions` single-select: `"¿Qué hacemos?"`:
 
 Mostrá:
 > `❌ **Test** [testId:{numero}] falló (exit code: {exitCode})`
+> `   Motivo probable: {motivo.label}` *(solo si el AUTOFLOW_RESULT trae el campo `motivo`)*
 
 Después abrí `vscode/askQuestions` single-select: `"¿Qué hacemos?"`:
 - `🔧 Reparar el **Test** fallido` → cargá `.autoflow/prompts/reparar-tras-fallo.md` con `{ specPath, testId: numero, mode: 'run-test' }`. Ese sub-flow parsea el output, identifica el **Nodo** que rompió y ofrece reparación surgical (Auto-Health o pegado a mano sobre ese **Nodo**). Si no logra identificarlo, cae al multi-select adivinatorio de `actualizar-nodos.md`. Al volver, releé este menú.

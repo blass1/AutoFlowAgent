@@ -1,0 +1,51 @@
+{
+  "_doc": "Catálogo de patrones para clasificar fallos de Tests. El clasificador (.autoflow/scripts/lib/clasificar-error.js) recorre `patterns` en orden y devuelve el PRIMERO que matchea contra el failure.json del test fallido (capturado por la fixture errorCapture en fixtures/index.ts). Cuando ninguno matchea, el reporte muestra 'Motivo probable: no clasificado'. Editá este archivo para sumar patrones nuevos cuando aparezca un fallo recurrente — el QA no debería tocar el código del clasificador, solo este JSON.",
+  "_matchers": {
+    "domText": "regex aplicado al texto visible del DOM (failure.domSnapshot). Case-insensitive por default.",
+    "selectorVisible": "lista de selectores CSS — matchea si ALGUNO estaba visible al momento del fallo (failure.visibleErrorSelectors).",
+    "networkStatus": "[min, max] inclusivos. Matchea si HUBO al menos un request con status en ese rango (failure.failedRequests).",
+    "errorMessage": "regex aplicado al mensaje + stack del error de Playwright (failure.error.message + failure.error.stack).",
+    "consoleError": "regex aplicado a las líneas de console.error del browser (failure.consoleErrors)."
+  },
+  "_extract": "Los placeholders {nombre} del campo `label` se reemplazan con datos extraídos del failure.json. Soporta: {service} (primer segmento de path tras /api/ del primer request 4xx/5xx), {status} (status code de ese request), {url} (url completa).",
+  "patterns": [
+    {
+      "id": "credenciales-invalidas",
+      "label": "Credenciales o datos incorrectos",
+      "if": { "domText": "(usuario|contrase[nñ]a|credencial|clave).*(inv[aá]lid|incorrect|err[oó]ne)" }
+    },
+    {
+      "id": "error-tecnico-modal",
+      "label": "Error técnico (modal en pantalla)",
+      "if": {
+        "selectorVisible": [
+          ".modal-error",
+          "[role='alertdialog']",
+          ".alert-danger",
+          ".toast-error",
+          "[data-testid='error-modal']"
+        ]
+      }
+    },
+    {
+      "id": "microservicio-5xx",
+      "label": "Microservicio {service} respondió {status}",
+      "if": { "networkStatus": [500, 599] }
+    },
+    {
+      "id": "microservicio-4xx",
+      "label": "Microservicio {service} respondió {status} (request inválido)",
+      "if": { "networkStatus": [400, 499] }
+    },
+    {
+      "id": "pagina-no-carga",
+      "label": "La página no terminó de cargar",
+      "if": { "errorMessage": "Timeout.*goto|net::ERR_|page\\.goto|navigation timeout" }
+    },
+    {
+      "id": "timeout-elemento",
+      "label": "Timeout esperando un elemento del front",
+      "if": { "errorMessage": "Test timeout|locator\\.|waiting for.*locator|expect.*toBeVisible.*Timeout" }
+    }
+  ]
+}
